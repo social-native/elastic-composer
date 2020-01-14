@@ -1,0 +1,28 @@
+{
+    "ignoreBinPackage": false,
+    "skipMissing": false,
+    "ignoreDirs": [],
+    "ignoreMatches": [
+        "jest",
+        "nodemon",
+        "prettier",
+        "ts-jest",
+        "ts-node",
+        "tsconfig-paths",
+        "tslint",
+        "tslint-eslint-rules",
+        "@types/jest",
+        "rimraf",
+        "tslint-config-prettier",
+        "tslint-immutable",
+        "typescript",
+        "@social-native/snpkg-dependency-check",
+        "@social-native/snpkg-generate-config-ci",
+        "@social-native/snpkg-package-version-validation",
+        "babel-core",
+        "babel-plugin-transform-runtime",
+        "babel-runtime",
+        "parcel-bundler"
+    ],
+    "specials": []
+}

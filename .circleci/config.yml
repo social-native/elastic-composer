@@ -1,0 +1,207 @@
+defaults: &defaults
+    working_directory: ~/code
+
+save-cache: &save-cache
+    save_cache:
+        paths:
+            - node_modules
+        key: v1-dependencies-{{ checksum "package.json" }}
+
+restore-cache: &restore-cache
+    restore_cache:
+        keys:
+            - v1-dependencies-{{ checksum "package.json" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
+npm-config: &npm-config
+    run:
+        name: Authenticate with registry
+        command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+
+version: 2.1
+jobs:
+    test:
+        <<: *defaults
+        docker:
+            - image: circleci/node:10.16.3-stretch
+        steps:
+            - *npm-config
+            - checkout
+            - *restore-cache
+            - run: npm install
+            - *save-cache
+            - run: npm run test
+
+    build-verification:
+        <<: *defaults
+        docker:
+            - image: circleci/node:10.16.3-stretch
+        steps:
+            - *npm-config
+            - checkout
+            - *restore-cache
+            - run: npm install
+            - run: npm run build
+
+    type-check:
+        <<: *defaults
+        docker:
+            - image: circleci/node:10.16.3-stretch
+        steps:
+            - *npm-config
+            - checkout
+            - *restore-cache
+            - run: npm install
+            - *save-cache
+            - run: npm run type-check
+
+    lint-check:
+        <<: *defaults
+        docker:
+            - image: circleci/node:10.16.3-stretch
+        steps:
+            - *npm-config
+            - checkout
+            - *restore-cache
+            - run: npm install
+            - *save-cache
+            - run: npm run lint
+
+    beauty-check:
+        <<: *defaults
+        docker:
+            - image: circleci/node:10.16.3-stretch
+        steps:
+            - *npm-config
+            - checkout
+            - *restore-cache
+            - run: npm install
+            - *save-cache
+            - run: npm run prettier -- --check
+
+    dependency-check:
+        <<: *defaults
+        docker:
+            - image: circleci/node:10.16.3-stretch
+        steps:
+            - *npm-config
+            - checkout
+            - *restore-cache
+            - run: npm install
+            - *save-cache
+            - run: npm run dep-check
+            - store_artifacts:
+                  path: /tmp/dependency-check-output.json
+
+    package-version-validation:
+        <<: *defaults
+        docker:
+            - image: circleci/node:10.16.3-stretch
+        steps:
+            - *npm-config
+            - checkout
+            - run: npm install
+            - run: npm run package-version-validation
+    tag-version-validation:
+        <<: *defaults
+        docker:
+            - image: circleci/node:10.16.3-stretch
+        steps:
+            - *npm-config
+            - checkout
+            - run: npm install
+            - run: npm run tag-version-validation
+    build-for-publishing:
+        <<: *defaults
+        docker:
+            - image: circleci/node:10.16.3-stretch
+        steps:
+            - *npm-config
+            - checkout
+            - *restore-cache
+            - run: npm install
+            - run:
+                  name: Build package
+                  command: npm run build
+            - persist_to_workspace:
+                  root: ~/code
+                  paths:
+                      - dist
+    publish-github-release-to-npm:
+        <<: *defaults
+        docker:
+            - image: circleci/node:10.16.3-stretch
+        steps:
+            - *npm-config
+            - checkout
+            - attach_workspace:
+                  at: ~/code
+            - *restore-cache
+            - run:
+                  name: Publish package
+                  command: npm publish
+
+workflows:
+    version: 2
+    test-build-deploy:
+        jobs:
+            - test:
+                  filters:
+                      tags: # run for every branch
+                          only: /^[0-9]+(\.[0-9]+)*$/
+
+            - build-verification:
+                  filters:
+                      tags: # run for every branch
+                          only: /^[0-9]+(\.[0-9]+)*$/
+
+            - type-check:
+                  filters:
+                      tags: # run for every branch
+                          only: /^[0-9]+(\.[0-9]+)*$/
+
+            - lint-check:
+                  filters:
+                      tags: # run for every branch
+                          only: /^[0-9]+(\.[0-9]+)*$/
+
+            - beauty-check:
+                  filters:
+                      tags: # run for every branch
+                          only: /^[0-9]+(\.[0-9]+)*$/
+
+            - dependency-check:
+                  filters:
+                      tags: # run for every branch
+                          only: /^[0-9]+(\.[0-9]+)*$/
+    snpkg-publish:
+        jobs:
+            - package-version-validation:
+                  filters:
+                      branches: # run for every branch
+                          ignore:
+                              - master
+                      tags:
+                          ignore: /.*/
+            - tag-version-validation:
+                  filters:
+                      branches:
+                          ignore: /.*/
+                      tags:
+                          only: /^v{0,1}\d+\.\d+\.\d+$/
+            - build-for-publishing:
+                  requires:
+                      - tag-version-validation
+                  filters:
+                      branches:
+                          ignore: /.*/
+                      tags:
+                          only: /^v{0,1}\d+\.\d+\.\d+$/
+            - publish-github-release-to-npm:
+                  requires:
+                      - build-for-publishing
+                  filters:
+                      branches:
+                          ignore: /.*/
+                      tags:
+                          only: /^v{0,1}\d+\.\d+\.\d+$/

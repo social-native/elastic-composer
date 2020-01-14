@@ -1,0 +1,75 @@
+{
+    "name": "@social-native/package-name",
+    "version": "0.1.0",
+    "description": "",
+    "main": "dist/index.cjs.js",
+    "module": "dist/index.es.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "browserslist": [
+        "last 1 Chrome version"
+    ],
+    "scripts": {
+        "dev": "parcel dev/index.html --no-cache",
+        "build": "npm run clean && rollup -c",
+        "clean": "rimraf coverage dist tmp",
+        "watch": "rollup -cw",
+        "prettier": "./node_modules/.bin/prettier \"src/**/*\" --write",
+        "lint": "tslint -t stylish --project \"tsconfig.json\"",
+        "test": "jest --passWithNoTests",
+        "test:watch": "npm run test -- --watchAll --runInBand",
+        "type-check:watch": "npm run type-check -- --watch",
+        "type-check": "tsc --noEmit",
+        "dep-check": "snpkg-dependency-check",
+        "package-version-validation": "snpkg-package-version-validation package-version-validation",
+        "tag-version-validation": "snpkg-package-version-validation tag-version-validation",
+        "postinstall": "snpkg-generate-config-ci snpkg"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/social-native/package-name.git"
+    },
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/social-native/package-name/issues"
+    },
+    "homepage": "https://github.com/social-native/package-name#readme",
+    "dependencies": {
+        "@social-native/snpkg-generate-config-ci": "^0.2.0"
+    },
+    "peerDependencies": {},
+    "devDependencies": {
+        "@social-native/snpkg-dependency-check": "^0.1.0",
+        "@social-native/snpkg-package-version-validation": "^3.1.0",
+        "@social-native/snpkg-client-graphql-client": "^0.2.1",
+        "@types/jest": "^24.0.13",
+        "@types/react": "^16.9.11",
+        "@types/react-dom": "^16.9.4",
+        "@types/styled-components": "^4.1.20",
+        "babel-core": "^6.26.3",
+        "babel-plugin-transform-runtime": "^6.23.0",
+        "babel-runtime": "^6.26.0",
+        "jest": "^24.5.0",
+        "mobx": "^5.14.2",
+        "mobx-react": "^6.1.4",
+        "nodemon": "^1.18.10",
+        "parcel-bundler": "^1.12.4",
+        "prettier": "^1.16.4",
+        "react": "^16.11.0",
+        "react-dom": "^16.11.0",
+        "rimraf": "^2.6.3",
+        "rollup": "^1.2.2",
+        "rollup-plugin-typescript2": "^0.21.1",
+        "styled-components": "^4.4.0",
+        "ts-jest": "^24.0.0",
+        "ts-node": "^8.0.3",
+        "tsconfig-paths": "^3.8.0",
+        "tslint": "^5.14.0",
+        "tslint-config-prettier": "^1.18.0",
+        "tslint-eslint-rules": "^5.4.0",
+        "tslint-immutable": "^5.5.2",
+        "typescript": "^3.4.1"
+    }
+}
