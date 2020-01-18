@@ -1,5 +1,5 @@
 {
-    "name": "@social-native/package-name",
+    "name": "@social-native/snpkg-client-crm-elasticsearch",
     "version": "0.1.0",
     "description": "",
     "main": "dist/index.cjs.js",
@@ -29,13 +29,13 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/social-native/package-name.git"
+        "url": "git+https://github.com/social-native/snpkg-client-crm-elasticsearch.git"
     },
     "license": "ISC",
     "bugs": {
-        "url": "https://github.com/social-native/package-name/issues"
+        "url": "https://github.com/social-native/snpkg-client-crm-elasticsearch/issues"
     },
-    "homepage": "https://github.com/social-native/package-name#readme",
+    "homepage": "https://github.com/social-native/snpkg-client-crm-elasticsearch#readme",
     "dependencies": {
         "@social-native/snpkg-generate-config-ci": "^0.2.0"
     },
