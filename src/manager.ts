@@ -1,0 +1,81 @@
+import {RangeFilter} from 'filters';
+import {ESRequest, ESResponse} from 'types';
+import {objKeys} from 'utils';
+import axios from 'axios';
+
+type Filters<RangeFilterFields extends string> = {
+    range: RangeFilter<RangeFilterFields>;
+};
+
+const BLANK_ES_REQUEST = {
+    query: {
+        must: [],
+        should: []
+    },
+    aggs: {}
+};
+
+class Manager<RangeFilterFields extends string> {
+    public filters: Filters<RangeFilterFields>;
+    public results: object[];
+
+    constructor(filters: Filters<RangeFilterFields>) {
+        this.filters = filters;
+    }
+
+    public runStartQuery = () => {
+        const request = this.createStartRequest();
+        this.queryES(request);
+    };
+
+    public runFilterQuery = () => {
+        const request = this.createFilterRequest();
+        this.queryES(request);
+    };
+
+    public queryES = (request: ESRequest): void => {
+        axios
+            .get(
+                'https://search-sn-sandbox-mphutfambi5xaqixojwghofuo4.us-east-1.es.amazonaws.com//leads/_search',
+                {
+                    params: {
+                        source: JSON.stringify(request),
+                        source_content_type: 'application/json'
+                    }
+                }
+            )
+            .then(res => {
+                console.log(res);
+            });
+    };
+
+    public createStartRequest = (): ESRequest => {
+        return objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            return filter.addToStartRequest(request);
+        }, BLANK_ES_REQUEST as ESRequest);
+    };
+
+    public createFilterRequest = (): ESRequest => {
+        return objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            return filter.addToFilterRequest(request);
+        }, BLANK_ES_REQUEST as ESRequest);
+    };
+
+    public parseStartResponse = (response: ESResponse): void => {
+        objKeys(this.filters).forEach(filterName => {
+            const filter = this.filters[filterName];
+            filter.parseStartResponse(response);
+        });
+    };
+
+    public parseFilterResponse = (response: ESResponse): void => {
+        objKeys(this.filters).forEach(filterName => {
+            const filter = this.filters[filterName];
+            filter.parseFilterResponse(response);
+        });
+    };
+}
+
+export default Manager;

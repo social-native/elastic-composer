@@ -1,6 +1,7 @@
 import {configure} from 'mobx';
 
 export * from './types';
+export * from './filters';
 
 configure({
     computedRequiresReaction: true,
@@ -8,5 +9,3 @@ configure({
     enforceActions: 'always',
     isolateGlobalState: true
 });
-
-
