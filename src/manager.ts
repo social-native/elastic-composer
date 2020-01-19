@@ -2,6 +2,7 @@ import {RangeFilter} from 'filters';
 import {ESRequest, ESResponse} from 'types';
 import {objKeys} from 'utils';
 import axios from 'axios';
+import {decorate, observable} from 'mobx';
 
 type Filters<RangeFilterFields extends string> = {
     range: RangeFilter<RangeFilterFields>;
@@ -45,7 +46,7 @@ class Manager<RangeFilterFields extends string> {
                 }
             )
             .then(res => {
-                console.log(res);
+                console.log(res); // tslint:disable-line
             });
     };
 
@@ -77,5 +78,14 @@ class Manager<RangeFilterFields extends string> {
         });
     };
 }
+
+decorate(Manager, {
+    filters: observable,
+    results: observable
+    // runStartQuery: action,
+    // runFilterQuery: action,
+    // parseFilterResponse: action,
+    // parseStartResponse: action
+});
 
 export default Manager;

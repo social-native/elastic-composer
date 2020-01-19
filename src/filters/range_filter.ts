@@ -1,4 +1,4 @@
-import {runInAction} from 'mobx';
+import {runInAction, decorate, observable} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
 
@@ -160,7 +160,7 @@ export type RangeBoundResults<RangeFields extends string> = {
     [esFieldName in RangeFields]: RangeBoundResult;
 };
 
-export default class RangeManager<RangeFields extends string> {
+class RangeFilterClass<RangeFields extends string> {
     public rangeConfigs: RangeConfigs<RangeFields>;
     public rangeFilters: RangeFilters<RangeFields>;
     public rangeKinds: RangeFilterKinds<RangeFields>;
@@ -382,20 +382,35 @@ export default class RangeManager<RangeFields extends string> {
     };
 }
 
-type RF = 'engagementRate';
-const defaultRangeConfig: RangeConfigs<RF> = {
-    engagementRate: {
-        field: 'engagement_rate',
-        defaultFilterType: 'should',
-        getDistribution: true,
-        getRangeBounds: true
-    }
-};
-
-const creatorCRMManager = new RangeManager<RF>({rangeConfig: defaultRangeConfig});
-
-creatorCRMManager.setFilter('engagementRate', {
-    greaterThenEqual: 0,
-    lessThen: 0,
-    kind: 'should'
+decorate(RangeFilterClass, {
+    rangeConfigs: observable,
+    rangeFilters: observable,
+    rangeKinds: observable,
+    filteredRangeBounds: observable,
+    unfilteredRangeBounds: observable,
+    filteredDistribution: observable,
+    unfilteredDistribution: observable
+    // parseStartResponse: action,
+    // parseFilterResponse: action,
+    // setConfigs: action,
 });
+
+export default RangeFilterClass;
+
+// type RF = 'engagementRate';
+// const defaultRangeConfig: RangeConfigs<RF> = {
+//     engagementRate: {
+//         field: 'engagement_rate',
+//         defaultFilterType: 'should',
+//         getDistribution: true,
+//         getRangeBounds: true
+//     }
+// };
+
+// const creatorCRMManager = new RangeManager<RF>({rangeConfig: defaultRangeConfig});
+
+// creatorCRMManager.setFilter('engagementRate', {
+//     greaterThenEqual: 0,
+//     lessThen: 0,
+//     kind: 'should'
+// });
