@@ -236,8 +236,11 @@ class RangeFilterClass<RangeFields extends string> {
     };
 
     public addQueriesToESRequest = (request: ESRequest): ESRequest => {
-        return objKeys(this.rangeFilters).reduce((acc, rangeFieldName) => {
+        return objKeys(this.rangeFilters || {}).reduce((acc, rangeFieldName) => {
             const filter = this.rangeFilters[rangeFieldName];
+            if (!filter) {
+                return acc;
+            }
             const kind = this.rangeKinds[rangeFieldName];
             const range = convertRanges(rangeFieldName, filter);
 
@@ -256,7 +259,7 @@ class RangeFilterClass<RangeFields extends string> {
     };
 
     public addBoundsAggsToEsRequest = (request: ESRequest): ESRequest => {
-        return objKeys(this.rangeFilters).reduce((acc, rangeFieldName) => {
+        return objKeys(this.rangeConfigs || {}).reduce((acc, rangeFieldName) => {
             const config = this.rangeConfigs[rangeFieldName];
 
             if (config.getRangeBounds) {
@@ -283,7 +286,7 @@ class RangeFilterClass<RangeFields extends string> {
     };
 
     public addDistributionsAggsToEsRequest = (request: ESRequest): ESRequest => {
-        return objKeys(this.rangeFilters).reduce((acc, rangeFieldName) => {
+        return objKeys(this.rangeConfigs || {}).reduce((acc, rangeFieldName) => {
             const config = this.rangeConfigs[rangeFieldName];
 
             if (config.getDistribution) {
