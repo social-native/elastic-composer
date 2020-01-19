@@ -1,3 +1,4 @@
+'use strict';
 import {RangeFilterClass} from 'filters';
 import {ESRequest, ESResponse} from 'types';
 import {objKeys} from './utils';
@@ -9,11 +10,28 @@ type Filters<RangeFilter extends RangeFilterClass<any>> = {
 };
 
 const BLANK_ES_REQUEST = {
-    // query: {
-    //     must: [],
-    //     should: []
-    // },
+    query: {
+        bool: {
+            must: [],
+            should: []
+        }
+    },
     aggs: {}
+};
+
+// tslint:disable-next-line
+const removeEmptyArrays = <O extends {}>(data: O): any => {
+    objKeys(data).forEach(k => {
+        const v = data[k];
+        if (Array.isArray(v)) {
+            if (v.length === 0) {
+                delete data[k];
+            }
+        } else if (typeof v === 'object') {
+            return removeEmptyArrays(v);
+        }
+    });
+    return data;
 };
 
 class Manager<RangeFilter extends RangeFilterClass<any>> {
@@ -26,8 +44,9 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
         });
 
         reaction(
-            () => this.filters.range.rangeFilters,
+            () => ({...this.filters.range.rangeFilters}),
             () => {
+                console.log('Detected range filter change');
                 this.runFilterQuery();
             }
         );
@@ -42,9 +61,9 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
     public runFilterQuery = () => {
         console.log('Running filter query');
         const request = this.createFilterRequest();
-        console.log('REQUEST', request);
+        console.log('REQUEST', JSON.stringify(removeEmptyArrays(request)));
 
-        // this.queryES(request);
+        this.queryES(removeEmptyArrays(request));
     };
 
     public queryES = (request: ESRequest): void => {

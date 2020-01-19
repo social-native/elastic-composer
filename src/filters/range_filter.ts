@@ -1,4 +1,4 @@
-import {runInAction, decorate, observable} from 'mobx';
+import {runInAction, decorate, observable, reaction, extendObservable, set, autorun} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
 
@@ -90,7 +90,10 @@ const convertLesserRanges = (filter: Filter) => {
     }
 };
 
-const convertRanges = (fieldName: string, filter: Filter) => {
+const convertRanges = (fieldName: string, filter: Filter | undefined) => {
+    if (!filter) {
+        return undefined;
+    }
     const greaterRanges = convertGreaterRanges(filter);
     const lesserRanges = convertLesserRanges(filter);
     if (greaterRanges || lesserRanges) {
@@ -162,8 +165,8 @@ export type RangeBoundResults<RangeFields extends string> = {
 
 class RangeFilterClass<RangeFields extends string> {
     public rangeConfigs: RangeConfigs<RangeFields>;
-    public rangeFilters: Filters<RangeFields> = {} as Filters<RangeFields>;
-    public rangeKinds: RangeFilterKinds<RangeFields> = {} as RangeFilterKinds<RangeFields>;
+    public rangeFilters: Filters<RangeFields>;
+    public rangeKinds: RangeFilterKinds<RangeFields>;
     public filteredRangeBounds: RangeBoundResults<RangeFields>;
     public unfilteredRangeBounds: RangeBoundResults<RangeFields>;
     public filteredDistribution: RangeDistributionResults<RangeFields>;
@@ -171,11 +174,18 @@ class RangeFilterClass<RangeFields extends string> {
 
     constructor(fieldTypeConfigs: {rangeConfig?: RangeConfigs<RangeFields>}) {
         runInAction(() => {
+            this.rangeFilters = {} as Filters<RangeFields>;
+            this.rangeKinds = {} as RangeFilterKinds<RangeFields>;
             const {rangeConfig} = fieldTypeConfigs;
             if (rangeConfig) {
                 this.setConfigs(rangeConfig);
             }
         });
+        reaction(
+            () => ({...this.rangeFilters}),
+            // this.rangeFilters => {
+            filters => console.log('Filters cahngeddd', filters)
+        );
     }
 
     public addToStartRequest = (request: ESRequest): ESRequest => {
@@ -234,7 +244,11 @@ class RangeFilterClass<RangeFields extends string> {
 
     public setFilter = (field: RangeFields, filter: Filter): void => {
         runInAction(() => {
-            this.rangeFilters[field] = filter;
+            set(this.rangeFilters, {
+                [field]: filter
+            });
+            // this.rangeFilters[field] = filter;
+            console.log('set filter', filter);
         });
     };
 
@@ -253,6 +267,9 @@ class RangeFilterClass<RangeFields extends string> {
             if (!this.rangeFilters) {
                 return acc;
             }
+            const config = this.rangeConfigs[rangeFieldName];
+            const name = config.field;
+
             const filter = this.rangeFilters[rangeFieldName];
             if (!filter) {
                 return acc;
@@ -262,14 +279,17 @@ class RangeFilterClass<RangeFields extends string> {
             if (!kind) {
                 throw new Error(`kind is not set for range type ${rangeFieldName}`);
             }
-            const range = convertRanges(rangeFieldName, filter);
+            const range = convertRanges(name, filter);
 
             if (range) {
                 return {
                     ...acc,
                     query: {
                         ...acc.query,
-                        [kind]: [...acc.query[kind], range]
+                        bool: {
+                            ...acc.query.bool,
+                            [kind as FilterKind]: [...acc.query.bool[kind as FilterKind], range]
+                        }
                     }
                 };
             } else {

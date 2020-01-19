@@ -5,8 +5,10 @@ import {RawRangeBoundResult, RawRangeDistributionResult} from 'filters/range_fil
  */
 export type ESRequest = {
     query: {
-        must: object[];
-        should: object[];
+        bool: {
+            must: object[];
+            should: object[];
+        };
     };
     aggs: object;
 };
