@@ -2,8 +2,7 @@ import {configure} from 'mobx';
 
 export {default as Manager} from './manager';
 export * from './types';
-export * from './filters';
-export {RangeConfigs} from './filters';
+export {RangeFilterClass, RangeConfigs} from './filters';
 
 configure({
     computedRequiresReaction: true,
