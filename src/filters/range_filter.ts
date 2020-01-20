@@ -30,7 +30,7 @@ export type GreaterThenFilter = {
     greaterThen: number;
 };
 
-function isGreaterThenFilter(filter: GreaterThenFilter | {}): filter is GreaterThenFilter {
+export function isGreaterThenFilter(filter: GreaterThenFilter | {}): filter is GreaterThenFilter {
     return (filter as GreaterThenFilter).greaterThen !== undefined;
 }
 
@@ -38,7 +38,7 @@ export type GreaterThenEqualFilter = {
     greaterThenEqual: number;
 };
 
-function isGreaterThenEqualFilter(
+export function isGreaterThenEqualFilter(
     filter: GreaterThenEqualFilter | {}
 ): filter is GreaterThenEqualFilter {
     return (filter as GreaterThenEqualFilter).greaterThenEqual !== undefined;
@@ -48,7 +48,7 @@ export type LessThenFilter = {
     lessThen: number;
 };
 
-function isLessThenFilter(filter: LessThenFilter | {}): filter is LessThenFilter {
+export function isLessThenFilter(filter: LessThenFilter | {}): filter is LessThenFilter {
     return (filter as LessThenFilter).lessThen !== undefined;
 }
 
@@ -56,7 +56,9 @@ export type LessThenEqualFilter = {
     lessThenEqual: number;
 };
 
-function isLessThenEqualFilter(filter: LessThenEqualFilter | {}): filter is LessThenEqualFilter {
+export function isLessThenEqualFilter(
+    filter: LessThenEqualFilter | {}
+): filter is LessThenEqualFilter {
     return (filter as LessThenEqualFilter).lessThenEqual !== undefined;
 }
 
@@ -139,14 +141,26 @@ function isHistResult(
 /**
  * Range Bounds
  */
-export type RawRangeBoundResult =
-    | {
-          value: number;
-      }
-    | {
-          value: number;
-          value_as_string: number;
-      };
+export type RawRangeBoundResultBasic = {
+    value: number;
+};
+export type RawRangeBoundResultWithString = {
+    value: number;
+    value_as_string: number;
+};
+export type RawRangeBoundResult = RawRangeBoundResultBasic | RawRangeBoundResultWithString;
+
+function isRangeResult(
+    result: AllRangeAggregationResults | RawRangeBoundResult
+): result is RawRangeBoundResult {
+    return (result as RawRangeBoundResult).value !== undefined;
+}
+
+function isRangeResultWithString(
+    result: AllRangeAggregationResults | RawRangeBoundResultWithString
+): result is RawRangeBoundResultWithString {
+    return (result as RawRangeBoundResultWithString).value_as_string !== undefined;
+}
 
 export type RangeBoundResult = {
     min: {
@@ -368,12 +382,21 @@ class RangeFilterClass<RangeFields extends string> {
             if (config.getRangeBounds) {
                 const minResult = response.aggregations[`${name}__min`];
                 const maxResult = response.aggregations[`${name}__max`];
-                if (minResult && maxResult) {
+                if (
+                    minResult &&
+                    maxResult &&
+                    isRangeResult(minResult) &&
+                    isRangeResult(maxResult)
+                ) {
                     return {
                         ...acc,
                         [rangeFieldName]: {
-                            min: minResult,
-                            max: maxResult
+                            min: isRangeResultWithString(minResult)
+                                ? minResult.value_as_string
+                                : minResult.value,
+                            max: isRangeResultWithString(maxResult)
+                                ? maxResult.value_as_string
+                                : maxResult.value
                         }
                     };
                 } else if (minResult || maxResult) {
