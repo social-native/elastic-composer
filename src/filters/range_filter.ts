@@ -265,8 +265,12 @@ class RangeFilterClass<RangeFields extends string> {
             set(this.rangeFilters, {
                 [field]: filter
             });
-            // this.rangeFilters[field] = filter;
-            console.log('set filter', filter);
+        });
+    };
+
+    public clearFilter = (field: RangeFields): void => {
+        runInAction(() => {
+            delete this.rangeFilters[field];
         });
     };
 
@@ -300,13 +304,14 @@ class RangeFilterClass<RangeFields extends string> {
             const range = convertRanges(name, filter);
 
             if (range) {
+                const existingFiltersForKind = acc.query.bool[kind as FilterKind] || [];
                 return {
                     ...acc,
                     query: {
                         ...acc.query,
                         bool: {
                             ...acc.query.bool,
-                            [kind as FilterKind]: [...acc.query.bool[kind as FilterKind], range]
+                            [kind as FilterKind]: [...existingFiltersForKind, range]
                         }
                     }
                 };
@@ -375,7 +380,7 @@ class RangeFilterClass<RangeFields extends string> {
             return;
         }
         // tslint:disable-next-line
-        const rangeBounds = objKeys(this.rangeFilters).reduce((acc, rangeFieldName) => {
+        const rangeBounds = objKeys(this.rangeConfigs).reduce((acc, rangeFieldName) => {
             const config = this.rangeConfigs[rangeFieldName];
             const name = config.field;
 
@@ -411,8 +416,6 @@ class RangeFilterClass<RangeFields extends string> {
             }
         }, {} as RangeBoundResults<RangeFields>);
 
-        console.log('LOOK AT ME', rangeBounds);
-
         if (isUnfilteredQuery) {
             runInAction(() => {
                 this.unfilteredRangeBounds = rangeBounds;
@@ -432,7 +435,7 @@ class RangeFilterClass<RangeFields extends string> {
             return;
         }
         // tslint:disable-next-line
-        const rangeHist = objKeys(this.rangeFilters).reduce((acc, rangeFieldName) => {
+        const rangeHist = objKeys(this.rangeConfigs).reduce((acc, rangeFieldName) => {
             const config = this.rangeConfigs[rangeFieldName];
             const name = config.field;
 
@@ -451,6 +454,7 @@ class RangeFilterClass<RangeFields extends string> {
             }
         }, {} as RangeDistributionResults<RangeFields>);
 
+        console.log('$$$$$$$$$', response, rangeHist);
         if (isUnfilteredQuery) {
             runInAction(() => {
                 this.unfilteredDistribution = rangeHist;
@@ -471,9 +475,6 @@ decorate(RangeFilterClass, {
     unfilteredRangeBounds: observable,
     filteredDistribution: observable,
     unfilteredDistribution: observable
-    // parseStartResponse: action,
-    // parseFilterResponse: action,
-    // setConfigs: action,
 });
 
 export default RangeFilterClass;

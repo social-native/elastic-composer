@@ -12,8 +12,8 @@ type Filters<RangeFilter extends RangeFilterClass<any>> = {
 const BLANK_ES_REQUEST = {
     query: {
         bool: {
-            must: [],
-            should: []
+            must: [] as any[],
+            should: [] as any[]
         }
     },
     aggs: {}
@@ -54,18 +54,14 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
 
     public runStartQuery = async () => {
         const request = this.createStartRequest();
-        console.log('REQUEST', request);
-        const response = await this.queryES(request);
+        const response = await this.queryES(removeEmptyArrays(request));
+        console.log('START QUERY', response);
         this.parseStartResponse(response);
     };
 
     public runFilterQuery = async () => {
-        console.log('Running filter query');
         const request = this.createFilterRequest();
-        console.log('REQUEST', JSON.stringify(removeEmptyArrays(request)));
-
         const response = await this.queryES(removeEmptyArrays(request));
-        console.log(response);
         this.parseFilterResponse(response);
     };
 
@@ -80,9 +76,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
             }
         );
         return data;
-        // .then(res => {
-        //     console.log(res); // tslint:disable-line
-        // });
     };
 
     public createStartRequest = (): ESRequest => {
@@ -91,9 +84,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
             if (!filter) {
                 return request;
             }
-            const newRequest = filter.addToStartRequest(request);
-            console.log('newRequest', newRequest);
-            return newRequest;
+            return filter.addToStartRequest(request);
         }, BLANK_ES_REQUEST as ESRequest);
     };
 
@@ -103,6 +94,8 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
             if (!filter) {
                 return request;
             }
+            console.log('going to ad this request', BLANK_ES_REQUEST, request);
+
             return filter.addToFilterRequest(request);
         }, BLANK_ES_REQUEST as ESRequest);
     };

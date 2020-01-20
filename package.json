@@ -63,6 +63,7 @@
         "rc-slider": "^9.1.0",
         "react": "^16.11.0",
         "react-dom": "^16.11.0",
+        "react-dropdown-now": "^1.0.3",
         "rimraf": "^2.6.3",
         "rollup": "^1.2.2",
         "rollup-plugin-typescript2": "^0.21.1",
