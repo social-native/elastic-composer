@@ -52,34 +52,37 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
         );
     }
 
-    public runStartQuery = () => {
+    public runStartQuery = async () => {
         const request = this.createStartRequest();
         console.log('REQUEST', request);
-        this.queryES(request);
+        const response = await this.queryES(request);
+        this.parseStartResponse(response);
     };
 
-    public runFilterQuery = () => {
+    public runFilterQuery = async () => {
         console.log('Running filter query');
         const request = this.createFilterRequest();
         console.log('REQUEST', JSON.stringify(removeEmptyArrays(request)));
 
-        this.queryES(removeEmptyArrays(request));
+        const response = await this.queryES(removeEmptyArrays(request));
+        console.log(response);
+        this.parseFilterResponse(response);
     };
 
-    public queryES = (request: ESRequest): void => {
-        axios
-            .get(
-                'https://search-sn-sandbox-mphutfambi5xaqixojwghofuo4.us-east-1.es.amazonaws.com/leads/_search',
-                {
-                    params: {
-                        source: JSON.stringify(request),
-                        source_content_type: 'application/json'
-                    }
+    public queryES = async (request: ESRequest): Promise<ESResponse> => {
+        const {data} = await axios.get(
+            'https://search-sn-sandbox-mphutfambi5xaqixojwghofuo4.us-east-1.es.amazonaws.com/leads/_search',
+            {
+                params: {
+                    source: JSON.stringify(request),
+                    source_content_type: 'application/json'
                 }
-            )
-            .then(res => {
-                console.log(res); // tslint:disable-line
-            });
+            }
+        );
+        return data;
+        // .then(res => {
+        //     console.log(res); // tslint:disable-line
+        // });
     };
 
     public createStartRequest = (): ESRequest => {

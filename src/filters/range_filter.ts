@@ -122,8 +122,8 @@ export type RawRangeDistributionResult = {
     }>;
 };
 export type RangeDistributionResult = Array<{
-    value: number;
-    count: number;
+    key: number;
+    doc_count: number;
 }>;
 
 export type RangeDistributionResults<RangeFields extends string> = {
@@ -176,6 +176,10 @@ class RangeFilterClass<RangeFields extends string> {
         runInAction(() => {
             this.rangeFilters = {} as Filters<RangeFields>;
             this.rangeKinds = {} as RangeFilterKinds<RangeFields>;
+            this.filteredRangeBounds = {} as RangeBoundResults<RangeFields>;
+            this.unfilteredRangeBounds = {} as RangeBoundResults<RangeFields>;
+            this.filteredDistribution = {} as RangeDistributionResults<RangeFields>;
+            this.unfilteredDistribution = {} as RangeDistributionResults<RangeFields>;
             const {rangeConfig} = fieldTypeConfigs;
             if (rangeConfig) {
                 this.setConfigs(rangeConfig);
@@ -367,7 +371,7 @@ class RangeFilterClass<RangeFields extends string> {
                 if (minResult && maxResult) {
                     return {
                         ...acc,
-                        [name]: {
+                        [rangeFieldName]: {
                             min: minResult,
                             max: maxResult
                         }
@@ -383,6 +387,8 @@ class RangeFilterClass<RangeFields extends string> {
                 return acc;
             }
         }, {} as RangeBoundResults<RangeFields>);
+
+        console.log('LOOK AT ME', rangeBounds);
 
         if (isUnfilteredQuery) {
             runInAction(() => {
@@ -412,7 +418,7 @@ class RangeFilterClass<RangeFields extends string> {
                 if (histResult && isHistResult(histResult)) {
                     return {
                         ...acc,
-                        [name]: histResult.buckets
+                        [rangeFieldName]: histResult.buckets
                     };
                 } else {
                     return acc;

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import {ApiUri, ApiAccessToken} from './features';
+import {ApiUri, ApiAccessToken, InstagramAvgLike} from './features';
 
 const Main = styled.div`
     height: 100vh;
@@ -19,5 +19,6 @@ export default () => (
     <Main>
         <ApiUri />
         <ApiAccessToken />
+        <InstagramAvgLike />
     </Main>
 );
