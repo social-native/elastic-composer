@@ -48,21 +48,20 @@ const createSliderWithTooltip = Slider.createSliderWithTooltip;
 const Range = createSliderWithTooltip(Slider.Range);
 
 // tslint:disable-next-line
-export default observer(() => {
+export default observer(({filterName, maxRange}) => {
     const {
         filters: {range}
     } = useContext(Context.creatorCRM);
-    const filteredDistribution = range.filteredDistribution['instagram_avg_like_rate'];
+    const filteredDistribution = range.filteredDistribution[filterName];
     const filteredData = filteredDistribution
         ? filteredDistribution.map(d => ({x: d.key, y: d.doc_count})).filter(d => d.x && d.y)
         : [];
-    const unfilteredDistribution = range.unfilteredDistribution['instagram_avg_like_rate'];
+    const unfilteredDistribution = range.unfilteredDistribution[filterName];
     const unfilteredData = unfilteredDistribution
         ? unfilteredDistribution.map(d => ({x: d.key, y: d.doc_count})).filter(d => d.x && d.y)
         : [];
-    console.log('Unfilitered data', unfilteredData);
-    const bounds = range.unfilteredRangeBounds['instagram_avg_like_rate'] || {min: 0, max: 20};
-    const filter = range.rangeFilters['instagram_avg_like_rate'];
+    const bounds = range.unfilteredRangeBounds[filterName] || {min: 0, max: 20};
+    const filter = range.rangeFilters[filterName];
     const lowerValue =
         filter && isGreaterThenEqualFilter(filter)
             ? filter.greaterThenEqual
@@ -76,44 +75,44 @@ export default observer(() => {
             ? filter.lessThen
             : 100;
 
-    const filterConfig = range.rangeConfigs['instagram_avg_like_rate'];
+    const filterConfig = range.rangeConfigs[filterName];
 
     return (
         <RangeContainer>
             <RangeChangeButton
                 onClick={() =>
-                    range.setFilter('instagram_avg_like_rate', {lessThen: 50, greaterThen: 2})
+                    range.setFilter(filterName, {lessThen: 50, greaterThen: 2})
                 }
             />
             <RangeChangeButton
                 onClick={() =>
-                    range.setFilter('instagram_avg_like_rate', {lessThen: 10, greaterThen: 2})
+                    range.setFilter(filterName, {lessThen: 10, greaterThen: 2})
                 }
             />
-            <ClearFilterButton onClick={() => range.clearFilter('instagram_avg_like_rate')}>
+            <ClearFilterButton onClick={() => range.clearFilter(filterName)}>
                 clear filter
             </ClearFilterButton>
             <Dropdown
                 options={['should', 'must']}
                 onChange={option => {
                     range.setKind(
-                        'instagram_avg_like_rate',
+                        filterName,
                         ((option as any).value as unknown) as FilterKind
                     );
                 }}
                 value={filterConfig.defaultFilterKind}
                 placeholder={'Select a filter kind'}
             />
-            <KindContainer>{range.rangeKinds['instagram_avg_like_rate']}</KindContainer>
+            <KindContainer>{range.rangeKinds[filterName]}</KindContainer>
             {lowerValue} ↔️ {upperValue}
             <div />
             {Math.round(bounds.min)} ↔️ {Math.round(bounds.max)}
             <Range
-                max={bounds.max > upperValue ? bounds.max : upperValue}
+                max={maxRange ? maxRange : bounds.max > upperValue ? bounds.max : upperValue}
                 min={bounds.min < lowerValue ? bounds.min : lowerValue}
                 value={[lowerValue, upperValue]}
                 onChange={(v: number[]) => {
-                    range.setFilter('instagram_avg_like_rate', {
+                    range.setFilter(filterName, {
                         lessThen: Math.round(v[1]),
                         greaterThen: Math.round(v[0])
                     });
@@ -122,11 +121,11 @@ export default observer(() => {
             <VictoryChart>
                 <VictoryLine
                     data={unfilteredData}
-                    domain={{x: [bounds.min, bounds.max]}}
+                    domain={{x: [bounds.min, maxRange ? maxRange : bounds.max]}}
                 />
                 <VictoryLine
                     data={filteredData}
-                    domain={{x: [bounds.min, bounds.max]}}
+                    domain={{x: [bounds.min, maxRange ? maxRange : bounds.max]}}
                     style={{data: {stroke: '#0000ff', strokeWidth: 4, strokeLinecap: 'round'}}}
                 />
             </VictoryChart>
