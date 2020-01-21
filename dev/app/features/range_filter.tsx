@@ -18,30 +18,60 @@ import {
 import {FilterKind, Filter} from '../../../src/filters/range_filter';
 
 const RangeContainer = styled.div`
-    height: 600px;
-    width: 300px;
+    height: 300px;
+    width: 250px;
+    padding: 25px;
     border: 1px solid black;
     margin: 5px;
+    border-radius: 3px;
 `;
-const RangeChangeButton = styled.div`
-    height: 30px;
-    width: 100px;
+
+const DropdownKindContainer = styled.div`
+    width: 80px;
     border: 1px solid black;
     margin: 5px;
+    border-radius: 3px;
+    font-size: 12px;
+`;
+
+const TopMenu = styled.div`
+    display: flex;
 `;
 
 const ClearFilterButton = styled.div`
-    height: 30px;
-    width: 100px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 3px;
+    height: 32px;
+    width: 80px;
     border: 1px solid black;
-    margin: 5px;
+    margin: 4px;
+    font-size: 12px;
 `;
 
-const KindContainer = styled.div`
-    height: 30px;
-    width: 100px;
-    border: 1px solid black;
-    margin: 5px;
+const AllBoundsContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+`;
+
+const BoundsContainer = styled.div`
+    display: flex;
+    // width: 50%;
+    justify-content: flex-start;
+    // border: 1px solid black;
+    margin: 4px;
+    padding: 5px;
+    font-size: 12px;
+    border-radius: 3px;
+`;
+
+const SliderContainer = styled.div`
+height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 `;
 
 const createSliderWithTooltip = Slider.createSliderWithTooltip;
@@ -60,72 +90,88 @@ export default observer(({filterName, maxRange}) => {
     const unfilteredData = unfilteredDistribution
         ? unfilteredDistribution.map(d => ({x: d.key, y: d.doc_count})).filter(d => d.x && d.y)
         : [];
-    const bounds = range.unfilteredRangeBounds[filterName] || {min: 0, max: 20};
+    const unfilteredBounds = range.unfilteredRangeBounds[filterName] || {min: 0, max: 100};
+    const filteredBounds = range.filteredRangeBounds[filterName] || unfilteredBounds;
+
     const filter = range.rangeFilters[filterName];
+
     const lowerValue =
         filter && isGreaterThenEqualFilter(filter)
             ? filter.greaterThenEqual
             : filter && isGreaterThenFilter(filter)
             ? filter.greaterThen
-            : 0;
+            : unfilteredBounds.min;
+
     const upperValue =
         filter && isLessThenEqualFilter(filter)
             ? filter.lessThenEqual
             : filter && isLessThenFilter(filter)
             ? filter.lessThen
-            : 100;
+            : unfilteredBounds.max;
 
     const filterConfig = range.rangeConfigs[filterName];
 
     return (
         <RangeContainer>
-            <RangeChangeButton
-                onClick={() =>
-                    range.setFilter(filterName, {lessThen: 50, greaterThen: 2})
-                }
-            />
-            <RangeChangeButton
-                onClick={() =>
-                    range.setFilter(filterName, {lessThen: 10, greaterThen: 2})
-                }
-            />
-            <ClearFilterButton onClick={() => range.clearFilter(filterName)}>
-                clear filter
-            </ClearFilterButton>
-            <Dropdown
-                options={['should', 'must']}
-                onChange={option => {
-                    range.setKind(
-                        filterName,
-                        ((option as any).value as unknown) as FilterKind
-                    );
-                }}
-                value={filterConfig.defaultFilterKind}
-                placeholder={'Select a filter kind'}
-            />
-            <KindContainer>{range.rangeKinds[filterName]}</KindContainer>
-            {lowerValue} ↔️ {upperValue}
-            <div />
-            {Math.round(bounds.min)} ↔️ {Math.round(bounds.max)}
-            <Range
-                max={maxRange ? maxRange : bounds.max > upperValue ? bounds.max : upperValue}
-                min={bounds.min < lowerValue ? bounds.min : lowerValue}
-                value={[lowerValue, upperValue]}
-                onChange={(v: number[]) => {
-                    range.setFilter(filterName, {
-                        lessThen: Math.round(v[1]),
-                        greaterThen: Math.round(v[0])
-                    });
-                }}
-            />
+            <TopMenu>
+                <ClearFilterButton onClick={() => range.clearFilter(filterName)}>
+                    clear filter
+                </ClearFilterButton>
+                <DropdownKindContainer>
+                    <Dropdown
+                        options={['should', 'must']}
+                        onChange={option => {
+                            range.setKind(
+                                filterName,
+                                ((option as any).value as unknown) as FilterKind
+                            );
+                        }}
+                        value={filterConfig.defaultFilterKind}
+                        placeholder={'Select a filter kind'}
+                    />
+                </DropdownKindContainer>
+            </TopMenu>
+            <AllBoundsContainer>
+                <BoundsContainer>
+                    Filtered: {lowerValue} ↔️ {upperValue}
+                </BoundsContainer>
+                <BoundsContainer>
+                    Unfiltered: {Math.round(unfilteredBounds.min)} ↔️ {Math.round(unfilteredBounds.max)}
+                </BoundsContainer>
+            </AllBoundsContainer>
+
+            <SliderContainer>
+                <Range
+                    max={
+                        maxRange
+                            ? maxRange
+                            : unfilteredBounds.max > upperValue
+                            ? unfilteredBounds.max
+                            : upperValue
+                    }
+                    min={unfilteredBounds.min < lowerValue ? unfilteredBounds.min : lowerValue}
+                    value={[lowerValue, upperValue]}
+                    onChange={(v: number[]) => {
+                        range.setFilter(filterName, {
+                            lessThen: Math.round(v[1]),
+                            greaterThen: Math.round(v[0])
+                        });
+                    }}
+                />
+            </SliderContainer>
             <VictoryChart>
                 <VictoryLine
                     data={unfilteredData}
-                    domain={{x: [bounds.min, maxRange ? maxRange : bounds.max]}}
+                    domain={{x: [unfilteredBounds.min, maxRange ? maxRange : unfilteredBounds.max]}}
                 />
                 <VictoryLine
                     data={filteredData}
-                    domain={{x: [bounds.min, maxRange ? maxRange : bounds.max]}}
+                    domain={{
+                        x: [
+                            filteredBounds.min,
+                            filteredBounds.max > maxRange ? maxRange : filteredBounds.max
+                        ]
+                    }}
                     style={{data: {stroke: '#0000ff', strokeWidth: 4, strokeLinecap: 'round'}}}
                 />
             </VictoryChart>
