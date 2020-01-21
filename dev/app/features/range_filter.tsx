@@ -21,14 +21,15 @@ const RangeContainer = styled.div`
     height: 300px;
     width: 250px;
     padding: 25px;
-    border: 1px solid black;
+    border: 1px solid rgba(0, 0, 0, 0.75);
     margin: 5px;
     border-radius: 3px;
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.25);
 `;
 
 const DropdownKindContainer = styled.div`
     width: 80px;
-    border: 1px solid black;
+    border: 1px solid rgba(0, 0, 0, 0.25);
     margin: 5px;
     border-radius: 3px;
     font-size: 12px;
@@ -45,7 +46,7 @@ const ClearFilterButton = styled.div`
     border-radius: 3px;
     height: 32px;
     width: 80px;
-    border: 1px solid black;
+    border: 1px solid rgba(0, 0, 0, 0.25);
     margin: 4px;
     font-size: 12px;
 `;
@@ -58,9 +59,7 @@ const AllBoundsContainer = styled.div`
 
 const BoundsContainer = styled.div`
     display: flex;
-    // width: 50%;
     justify-content: flex-start;
-    // border: 1px solid black;
     margin: 4px;
     padding: 5px;
     font-size: 12px;
