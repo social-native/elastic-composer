@@ -1,4 +1,4 @@
-import {runInAction, decorate, observable, reaction, extendObservable, set, autorun} from 'mobx';
+import {runInAction, decorate, observable, set} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
 
@@ -472,21 +472,3 @@ decorate(RangeFilterClass, {
 });
 
 export default RangeFilterClass;
-
-// type RF = 'engagementRate';
-// const defaultRangeConfig: RangeConfigs<RF> = {
-//     engagementRate: {
-//         field: 'engagement_rate',
-//         defaultFilterKind: 'should',
-//         getDistribution: true,
-//         getRangeBounds: true
-//     }
-// };
-
-// const creatorCRMManager = new RangeManager<RF>({rangeConfig: defaultRangeConfig});
-
-// creatorCRMManager.setFilter('engagementRate', {
-//     greaterThenEqual: 0,
-//     lessThen: 0,
-//     kind: 'should'
-// });

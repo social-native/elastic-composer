@@ -1,10 +1,8 @@
 'use strict';
 import {RangeFilterClass} from 'filters';
-import {ESRequest, ESResponse} from 'types';
+import {ESRequest, ESResponse, IClient} from 'types';
 import {objKeys} from './utils';
-import axios from 'axios';
 import {decorate, observable, runInAction, reaction} from 'mobx';
-// import debounce from 'lodash.debounce';
 import Timeout from 'await-timeout';
 
 type Filters<RangeFilter extends RangeFilterClass<any>> = {
@@ -41,9 +39,11 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
     public results: object[];
     public enqueueRunStartQuery: boolean;
     public filterQueryRunning: boolean;
+    public client: IClient;
 
-    constructor(filters: Filters<RangeFilter>) {
+    constructor(client: IClient, filters: Filters<RangeFilter>) {
         runInAction(() => {
+            this.client = client;
             this.filters = filters;
             this.enqueueRunStartQuery = false;
             this.filterQueryRunning = false;
@@ -52,17 +52,13 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
         reaction(
             () => ({...this.filters.range.rangeFilters} && {...this.filters.range.rangeKinds}),
             () => {
-                console.log('Change detected!!');
                 runInAction(() => (this.enqueueRunStartQuery = true));
-                // this.runFilterQuery();
-                // debounce(() => runInAction(this.runFilterQuery), 3000, {leading: true})();
             }
         );
 
         reaction(
             () => this.enqueueRunStartQuery,
             shouldRun => {
-                console.log('checking if should run', shouldRun, this.filterQueryRunning);
                 if (shouldRun && this.filterQueryRunning === false) {
                     runInAction(this.runFilterQuery);
                 }
@@ -72,7 +68,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
 
     public runStartQuery = async () => {
         const request = this.createStartRequest();
-        const response = await this.queryES(removeEmptyArrays(request));
+        const response = await this.client.query(removeEmptyArrays(request));
         this.parseStartResponse(response);
     };
 
@@ -81,9 +77,8 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
             this.filterQueryRunning = true;
             this.enqueueRunStartQuery = false;
         });
-        console.log('Running filter query');
         const request = this.createFilterRequest();
-        const response = await this.queryES(removeEmptyArrays(request));
+        const response = await this.client.query(removeEmptyArrays(request));
         this.parseFilterResponse(response);
         await Timeout.set(2000);
 
@@ -93,21 +88,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
         if (this.enqueueRunStartQuery) {
             this.runFilterQuery();
         }
-    };
-
-    public queryES = async (request: ESRequest): Promise<ESResponse> => {
-        // console.log(JSON.stringify(request));
-        const {data} = await axios.get(
-            'https://search-sn-sandbox-mphutfambi5xaqixojwghofuo4.us-east-1.es.amazonaws.com/leads/_search',
-            {
-                params: {
-                    source: JSON.stringify(request),
-                    source_content_type: 'application/json'
-                }
-            }
-        );
-        // console.log(data);
-        return data;
     };
 
     public createStartRequest = (): ESRequest => {
@@ -156,32 +136,8 @@ decorate(Manager, {
     filterQueryRunning: observable,
     enqueueRunStartQuery: observable,
     filters: observable,
-    results: observable
+    results: observable,
+    client: observable
 });
 
 export default Manager;
-
-// type RF = 'instagram_avg_like_rate';
-// const defaultRangeConfig: RangeConfigs<RF> = {
-//     instagram_avg_like_rate: {
-//         field: 'instagram.avg_like_rate',
-//         defaultFilterType: 'should',
-//         getDistribution: true,
-//         getRangeBounds: true,
-//         rangeInterval: 1
-//     }
-//     // age: {
-//     //     field: 'age',
-//     //     defaultFilterType: 'should',
-//     //     getDistribution: false,
-//     //     getRangeBounds: true,
-//     //     rangeInterval: 1
-//     // }
-// };
-
-// const rangeFilter = new RangeFilterClass<RF>({rangeConfig: defaultRangeConfig});
-// const creatorCRM = new Manager<typeof rangeFilter>(rangeFilter);
-
-// creatorCRM.runStartQuery();
-
-// creatorCRM.range.rangeFilters['instagram_avg_like_rate'];

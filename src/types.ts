@@ -22,3 +22,10 @@ export type ESResponse = {
         [boundary: string]: AllRangeAggregationResults;
     };
 };
+
+/**
+ * Client
+ */
+export interface IClient {
+    query: (request: ESRequest) => Promise<ESResponse>;
+}

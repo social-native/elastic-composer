@@ -1,48 +1,162 @@
-# snpkg-client-template
-
-Rollup for client side packages + Parcel for dev react app with styled components and typescript
-
-To use:
-1. Go to package.json and change `package-name` to repo name
-2. Add any dependencies that are used in the built version to `peerDependencies`
-3. Create your dev playground app in the `dev` folder
-   - Reusable components go in the `app/components` folder. Export all components from the `app/components/index.ts` file
-   - Features go in the `app/features` folder. Export all features from the `app/features/index.ts` file
-   - State (mobx objects) go in the `app/state` folder. Export all state objects from the `app/state/index.ts` file
-   - Context (mobx singletons aka datastores) go in the `app/context` file.
-4. Create your package code in the `src` folder
-5. Edit the `.github/CODEOWNERS` file with the github user names of the codeowners
-
-Your README should have:
-
-- table of contents
-- install section
-- about section
-- api section
-- example usage section
-  
+# snpkg-client-elasticsearch
 
 
-- [snpkg-client-template](#snpkg-client-template)
+
+- [snpkg-client-elasticsearch](#snpkg-client-elasticsearch)
   - [Install](#install)
   - [About](#about)
   - [API](#api)
+    - [Range](#range)
+      - [Methods](#methods)
+      - [Attributes](#attributes)
   - [Example Usage](#example-usage)
+    - [Set the context](#set-the-context)
+    - [Use a filter in a pure component](#use-a-filter-in-a-pure-component)
 
 ## Install
 
 ```
-npm install --save @social-native/<NAME>
+npm install --save @social-native/snpkg-client-elasticsearch
 ```
 
 ## About
 
-<FILL ME IN>
+This package aids in querying an Elasticsearch index. You define `filters` for each field in the index that you want to query, and the specific filter API allows you to generate an valid query across many fields.
+
+The currently available filters are:
+
+- `range`: Filter records by specifying a LT (<), LTE(<=), GT(>), GTE(>=) range
 
 ## API
 
-<FILL ME IN>
+### Range
+
+#### Methods 
+| method | description | type |
+| - | - | - |
+| setFilter | sets the filter for a field | `(field: RangeFields, filter: Filter): void` |
+| clearFilter | clears the filter for a field | `(field: RangeFields): void` |
+| setKind | sets the kind for a field | `should | must` |
+
+#### Attributes
+
+| attribute | description | type |
+| - | - | - |
+| rangeConfigs | the config for a field, keyed by field name | `RangeConfigs<RangeFields>` |
+| rangeFilters | the filters for a field, keyed by field name | `RangeFilterKinds<RangeFields>` |
+| rangeKinds | the kind (`should | must`) for a field, keyed by field name | `RangeFilterKinds<RangeFields>` |
+| filteredRangeBounds | the bounds of all filtered ranges (ex: 20 - 75), keyed by field name  | `RangeBoundResults<RangeFields>` |
+| unfilteredRangeBounds | the bounds of all unfiltered ranges (ex: 0 - 100), keyed by field name  | `RangeBoundResults<RangeFields>` |
+| filteredDistribution | the distribution of all filtered ranges, keyed by field name | `RangeDistributionResults<RangeFields>` |
+| unfilteredDistribution | the distribution of all filtered ranges, keyed by field name | `RangeDistributionResults<RangeFields>` |
+
 
 ## Example Usage
 
-<FILL ME IN>
+### Set the context
+
+
+```typescript
+type RF = 'instagram_avg_like_rate' | 'invites_pending' | 'user_profile_age';
+const defaultRangeConfig: RangeConfigs<RF> = {
+    instagram_avg_like_rate: {
+        field: 'instagram.avg_like_rate',
+        defaultFilterKind: 'should',
+        getDistribution: true,
+        getRangeBounds: true,
+        rangeInterval: 1
+    },
+    invites_pending: {
+        field: 'invites.pending',
+        defaultFilterKind: 'should',
+        getDistribution: true,
+        getRangeBounds: true,
+        rangeInterval: 1
+    },
+    user_profile_age: {
+        field: 'user_profile.age',
+        defaultFilterKind: 'should',
+        getDistribution: true,
+        getRangeBounds: true,
+        rangeInterval: 1
+    }
+};
+
+const rangeFilter = new RangeFilterClass<RF>({rangeConfig: defaultRangeConfig});
+const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
+const creatorCRM = new Manager<typeof rangeFilter>(client, {range: rangeFilter});
+
+creatorCRM.runStartQuery();
+
+export default {
+    gqlClient: React.createContext(gqlClient),
+    exampleForm: React.createContext(exampleFormInstance),
+    creatorCRM: React.createContext(creatorCRM)
+};
+```
+
+### Use a filter in a pure component
+
+Example with incomplete code. See `dev/app/features/range_filter.tsx` for working feature.
+
+```typescript
+export default observer(({filterName, maxRange}) => {
+    const {
+        filters: {range}
+    } = useContext(Context.creatorCRM);
+    return (
+        <RangeContainer>
+            <ClearFilterButton onClick={() => range.clearFilter(filterName)}>
+                clear filter
+            </ClearFilterButton>
+            <Dropdown
+                options={['should', 'must']}
+                onChange={option => {
+                    range.setKind(
+                        filterName,
+                        ((option as any).value as unknown) as FilterKind
+                    );
+                }}
+                value={filterConfig.defaultFilterKind}
+                placeholder={'Select a filter kind'}
+            />
+
+            <SliderContainer>
+                <Range
+                    max={
+                        maxRange
+                            ? maxRange
+                            : unfilteredBounds.max > upperValue
+                            ? unfilteredBounds.max
+                            : upperValue
+                    }
+                    min={unfilteredBounds.min < lowerValue ? unfilteredBounds.min : lowerValue}
+                    value={[lowerValue, upperValue]}
+                    onChange={(v: number[]) => {
+                        range.setFilter(filterName, {
+                            lessThen: Math.round(v[1]),
+                            greaterThen: Math.round(v[0])
+                        });
+                    }}
+                />
+            </SliderContainer>
+            <VictoryChart>
+                <VictoryLine
+                    data={unfilteredData}
+                    domain={{x: [unfilteredBounds.min, maxRange ? maxRange : unfilteredBounds.max]}}
+                />
+                <VictoryLine
+                    data={filteredData}
+                    domain={{
+                        x: [
+                            filteredBounds.min,
+                            filteredBounds.max > maxRange ? maxRange : filteredBounds.max
+                        ]
+                    }}
+                    style={{data: {stroke: '#0000ff', strokeWidth: 4, strokeLinecap: 'round'}}}
+                />
+            </VictoryChart>
+        </RangeContainer>
+    );
+});
+```

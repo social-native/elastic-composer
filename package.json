@@ -39,6 +39,7 @@
     "dependencies": {
         "@social-native/snpkg-generate-config-ci": "^0.2.0",
         "await-timeout": "^1.1.1",
+        "dist": "^0.1.2",
         "filters": "^1.0.6",
         "lodash.debounce": "^4.0.8",
         "utils": "^0.3.1"
