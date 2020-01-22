@@ -7,6 +7,9 @@ class AxiosClient implements IClient {
 
     constructor(endpoint: string) {
         runInAction(() => {
+            if (endpoint === undefined) {
+                throw new Error('Elasticsearch endpoint is undefined');
+            }
             this.endpoint = endpoint;
         });
     }

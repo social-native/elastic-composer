@@ -17,18 +17,16 @@ const Main = styled.div`
 
 const HorizontalLayout = styled.div`
     display: flex;
-`
+`;
 
 export default () => (
     <Main>
         <ApiUri />
         <ApiAccessToken />
         <HorizontalLayout>
-        <RangeFilter filterName={'instagram_avg_like_rate'} maxRange={50}/>
-        <RangeFilter filterName={'invites_pending'} maxRange={20}/>
-        <RangeFilter filterName={'user_profile_age'} maxRange={100}/>
-
+            <RangeFilter filterName={'instagram_avg_like_rate'} maxRange={50} />
+            <RangeFilter filterName={'invites_pending'} maxRange={20} />
+            <RangeFilter filterName={'user_profile_age'} maxRange={100} />
         </HorizontalLayout>
-
     </Main>
 );
