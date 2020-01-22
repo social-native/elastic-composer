@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import {ApiUri, ApiAccessToken} from './features';
+import {ApiUri, ApiAccessToken, RangeFilter} from './features';
 
 const Main = styled.div`
     height: 100vh;
@@ -15,9 +15,20 @@ const Main = styled.div`
     font-family: 'Roboto';
 `;
 
+const HorizontalLayout = styled.div`
+    display: flex;
+`
+
 export default () => (
     <Main>
         <ApiUri />
         <ApiAccessToken />
+        <HorizontalLayout>
+        <RangeFilter filterName={'instagram_avg_like_rate'} maxRange={50}/>
+        <RangeFilter filterName={'invites_pending'} maxRange={20}/>
+        <RangeFilter filterName={'user_profile_age'} maxRange={100}/>
+
+        </HorizontalLayout>
+
     </Main>
 );
