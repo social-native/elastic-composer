@@ -199,11 +199,6 @@ class RangeFilterClass<RangeFields extends string> {
                 this.setConfigs(rangeConfig);
             }
         });
-        reaction(
-            () => ({...this.rangeFilters}),
-            // this.rangeFilters => {
-            filters => console.log('Filters cahngeddd', filters)
-        );
     }
 
     public addToStartRequest = (request: ESRequest): ESRequest => {
@@ -454,7 +449,6 @@ class RangeFilterClass<RangeFields extends string> {
             }
         }, {} as RangeDistributionResults<RangeFields>);
 
-        console.log('$$$$$$$$$', response, rangeHist);
         if (isUnfilteredQuery) {
             runInAction(() => {
                 this.unfilteredDistribution = rangeHist;

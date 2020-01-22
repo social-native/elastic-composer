@@ -4,6 +4,8 @@ import {ESRequest, ESResponse} from 'types';
 import {objKeys} from './utils';
 import axios from 'axios';
 import {decorate, observable, runInAction, reaction} from 'mobx';
+// import debounce from 'lodash.debounce';
+import Timeout from 'await-timeout';
 
 type Filters<RangeFilter extends RangeFilterClass<any>> = {
     range: RangeFilter;
@@ -37,17 +39,33 @@ const removeEmptyArrays = <O extends {}>(data: O): any => {
 class Manager<RangeFilter extends RangeFilterClass<any>> {
     public filters: Filters<RangeFilter>;
     public results: object[];
+    public enqueueRunStartQuery: boolean;
+    public filterQueryRunning: boolean;
 
     constructor(filters: Filters<RangeFilter>) {
         runInAction(() => {
             this.filters = filters;
+            this.enqueueRunStartQuery = false;
+            this.filterQueryRunning = false;
         });
 
         reaction(
-            () => ({...this.filters.range.rangeFilters}),
+            () => ({...this.filters.range.rangeFilters} && {...this.filters.range.rangeKinds}),
             () => {
-                console.log('Detected range filter change');
-                this.runFilterQuery();
+                console.log('Change detected!!');
+                runInAction(() => (this.enqueueRunStartQuery = true));
+                // this.runFilterQuery();
+                // debounce(() => runInAction(this.runFilterQuery), 3000, {leading: true})();
+            }
+        );
+
+        reaction(
+            () => this.enqueueRunStartQuery,
+            shouldRun => {
+                console.log('checking if should run', shouldRun, this.filterQueryRunning);
+                if (shouldRun && this.filterQueryRunning === false) {
+                    runInAction(this.runFilterQuery);
+                }
             }
         );
     }
@@ -55,17 +73,30 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
     public runStartQuery = async () => {
         const request = this.createStartRequest();
         const response = await this.queryES(removeEmptyArrays(request));
-        console.log('START QUERY', response);
         this.parseStartResponse(response);
     };
 
     public runFilterQuery = async () => {
+        runInAction(() => {
+            this.filterQueryRunning = true;
+            this.enqueueRunStartQuery = false;
+        });
+        console.log('Running filter query');
         const request = this.createFilterRequest();
         const response = await this.queryES(removeEmptyArrays(request));
         this.parseFilterResponse(response);
+        await Timeout.set(2000);
+
+        runInAction(() => {
+            this.filterQueryRunning = false;
+        });
+        if (this.enqueueRunStartQuery) {
+            this.runFilterQuery();
+        }
     };
 
     public queryES = async (request: ESRequest): Promise<ESResponse> => {
+        // console.log(JSON.stringify(request));
         const {data} = await axios.get(
             'https://search-sn-sandbox-mphutfambi5xaqixojwghofuo4.us-east-1.es.amazonaws.com/leads/_search',
             {
@@ -75,6 +106,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
                 }
             }
         );
+        // console.log(data);
         return data;
     };
 
@@ -94,7 +126,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
             if (!filter) {
                 return request;
             }
-            console.log('going to ad this request', BLANK_ES_REQUEST, request);
 
             return filter.addToFilterRequest(request);
         }, BLANK_ES_REQUEST as ESRequest);
@@ -122,12 +153,10 @@ class Manager<RangeFilter extends RangeFilterClass<any>> {
 }
 
 decorate(Manager, {
+    filterQueryRunning: observable,
+    enqueueRunStartQuery: observable,
     filters: observable,
     results: observable
-    // runStartQuery: action,
-    // runFilterQuery: action,
-    // parseFilterResponse: action,
-    // parseStartResponse: action
 });
 
 export default Manager;
