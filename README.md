@@ -21,7 +21,7 @@ npm install --save @social-native/snpkg-client-elasticsearch
 
 ## About
 
-This package aids in querying an Elasticsearch index. You define `filters` for each field in the index that you want to query, and the specific filter API allows you to generate an valid query across many fields.
+This package aids in querying an Elasticsearch index. You define `filters` for each field in the index that you want to query, and the specific filter API allows you to generate a valid query across many fields.
 
 The currently available filters are:
 
@@ -36,7 +36,7 @@ The currently available filters are:
 | - | - | - |
 | setFilter | sets the filter for a field | `(field: RangeFields, filter: Filter): void` |
 | clearFilter | clears the filter for a field | `(field: RangeFields): void` |
-| setKind | sets the kind for a field | `should | must` |
+| setKind | sets the kind for a field | `should or must` |
 
 #### Attributes
 
@@ -44,7 +44,7 @@ The currently available filters are:
 | - | - | - |
 | rangeConfigs | the config for a field, keyed by field name | `RangeConfigs<RangeFields>` |
 | rangeFilters | the filters for a field, keyed by field name | `RangeFilterKinds<RangeFields>` |
-| rangeKinds | the kind (`should | must`) for a field, keyed by field name | `RangeFilterKinds<RangeFields>` |
+| rangeKinds | the kind (`should or must`) for a field, keyed by field name | `RangeFilterKinds<RangeFields>` |
 | filteredRangeBounds | the bounds of all filtered ranges (ex: 20 - 75), keyed by field name  | `RangeBoundResults<RangeFields>` |
 | unfilteredRangeBounds | the bounds of all unfiltered ranges (ex: 0 - 100), keyed by field name  | `RangeBoundResults<RangeFields>` |
 | filteredDistribution | the distribution of all filtered ranges, keyed by field name | `RangeDistributionResults<RangeFields>` |

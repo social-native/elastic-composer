@@ -3,7 +3,7 @@ import React from 'react';
 import {GqlClient} from '@social-native/snpkg-client-graphql-client';
 import {ExampleForm} from './state';
 const gqlClient = new GqlClient({enablePersistance: true, headers: {testme: 'ethan'}});
-import {RangeFilterClass, Manager, RangeConfigs, Axios} from 'dist';
+import {RangeFilterClass, Manager, RangeConfigs, Axios} from '../../src';
 
 const exampleFormInstance = new ExampleForm();
 
