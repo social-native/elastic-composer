@@ -10,10 +10,10 @@ import 'rc-slider/assets/index.css';
 
 import Context from '../context';
 import {
-    isLessThenEqualFilter,
-    isGreaterThenEqualFilter,
-    isGreaterThenFilter,
-    isLessThenFilter
+    isLessThanEqualFilter,
+    isGreaterThanEqualFilter,
+    isGreaterThanFilter,
+    isLessThanFilter
 } from '../../../src';
 import {FilterKind, Filter} from '../../../src/filters/range_filter';
 import { toJS } from 'mobx';
@@ -97,17 +97,17 @@ export default observer(({filterName, maxRange}) => {
     const filter = range.rangeFilters[filterName];
 
     const lowerValue =
-        filter && isGreaterThenEqualFilter(filter)
-            ? filter.greaterThenEqual
-            : filter && isGreaterThenFilter(filter)
-            ? filter.greaterThen
+        filter && isGreaterThanEqualFilter(filter)
+            ? filter.greaterThanEqual
+            : filter && isGreaterThanFilter(filter)
+            ? filter.greaterThan
             : unfilteredBounds.min;
 
     const upperValue =
-        filter && isLessThenEqualFilter(filter)
-            ? filter.lessThenEqual
-            : filter && isLessThenFilter(filter)
-            ? filter.lessThen
+        filter && isLessThanEqualFilter(filter)
+            ? filter.lessThanEqual
+            : filter && isLessThanFilter(filter)
+            ? filter.lessThan
             : unfilteredBounds.max;
 
     const filterConfig = range.rangeConfigs[filterName];

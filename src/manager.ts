@@ -67,13 +67,18 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         runInAction(() => {
             this.client = client;
             this.filters = filters;
+            this.enqueueStartQuery = false;
             this.enqueueFilteredQuery = false;
+            this.enqueueForwardsPaginationQuery = false;
+            this.enqueueBackwardsPaginationQuery = false;
+            this.startQueryRunning = false;
             this.filterQueryRunning = false;
+            this.paginationQueryRunning = false;
             this.pageSize = (options && options.pageSize) || DEFAULT_MANAGER_OPTIONS.pageSize;
             this.queryDebounceInMS =
                 (options && options.queryDebounceInMS) || DEFAULT_MANAGER_OPTIONS.queryDebounceInMS;
             this.pageCursorInfo = {};
-            this.currentPage = 1;
+            this.currentPage = 0; // set to 0 b/c there are no results on init
         });
 
         /**
@@ -82,12 +87,14 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
          */
         reaction(
             () => {
-                objKeys(this.filters).reduce((acc, filterName) => {
-                    return {acc, [filterName]: {...this.filters[filterName].filterAffectiveState}};
+                return objKeys(this.filters).reduce((acc, filterName) => {
+                    return {acc, [filterName]: toJS(this.filters[filterName].filterAffectiveState)};
                 }, {});
             },
             () => {
-                runInAction(() => (this.enqueueFilteredQuery = true));
+                runInAction(() => {
+                    this.enqueueFilteredQuery = true;
+                });
             }
         );
 
@@ -96,13 +103,8 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
          * Run any queries that are enqueued.
          */
         reaction(
-            () =>
-                this.isQueryRunning ||
-                this.startQueryRunning ||
-                this.shouldEnqueueQuery ||
-                this.enqueueForwardsPaginationQuery,
+            () => this.isQueryRunning || this.shouldEnqueueQuery,
             () => {
-                console.log('reacting');
                 // tslint:disable-next-line
                 if (this.startQueryRunning === false && this.enqueueStartQuery) {
                     this.runStartQuery();
@@ -112,16 +114,18 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
                     this.paginationQueryRunning === false &&
                     this.enqueueForwardsPaginationQuery
                 ) {
-                    console.log('hurr');
                     this.runPaginationQuery('forward');
                 } else if (
                     this.paginationQueryRunning === false &&
                     this.enqueueBackwardsPaginationQuery
                 ) {
                     this.runPaginationQuery('backwards');
+                } else {
+                    this.clearQueryQueues();
                 }
             }
         );
+        // );
     }
 
     /**
@@ -135,12 +139,12 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * Are there any queries waiting to run?
      */
     public get shouldEnqueueQuery() {
-        return (
-            this.enqueueStartQuery ||
-            this.enqueueFilteredQuery ||
-            this.enqueueForwardsPaginationQuery ||
-            this.enqueueBackwardsPaginationQuery
-        );
+        return {
+            enqueueStartQuery: this.enqueueStartQuery,
+            enqueueFilteredQuery: this.enqueueFilteredQuery,
+            enqueueForwardsPaginationQuery: this.enqueueForwardsPaginationQuery,
+            enqueueBackwardsPaginationQuery: this.enqueueBackwardsPaginationQuery
+        };
     }
 
     /**
@@ -162,26 +166,30 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * This query will have no `query` component but likely have an `ags` component.
      */
     public runStartQuery = async () => {
-        runInAction(() => {
-            this.startQueryRunning = true;
-            this.clearQueryQueues();
-        });
+        try {
+            runInAction(() => {
+                this.startQueryRunning = true;
+                this.clearQueryQueues();
+            });
 
-        const request = this._createStartRequest(BLANK_ES_REQUEST);
-        const response = await this.client.query(removeEmptyArrays(request));
-        this._saveQueryResults(response);
-        this._extractStateFromStartResponse(response);
+            const request = this._createStartRequest(BLANK_ES_REQUEST);
+            const response = await this.client.query(removeEmptyArrays(request));
+            this._saveQueryResults(response);
+            this._extractStateFromStartResponse(response);
 
-        // Timeout used as the debounce time.
-        await Timeout.set(this.queryDebounceInMS);
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryDebounceInMS);
 
-        // Since the filters have changed, we should set the cursor back to
-        // the first page.
-        this._setCursorToFirstPage();
-
-        runInAction(() => {
-            this.startQueryRunning = false;
-        });
+            // Since the filters have changed, we should set the cursor back to
+            // the first page.
+            this._setCursorToFirstPage();
+        } catch (e) {
+            throw e;
+        } finally {
+            runInAction(() => {
+                this.startQueryRunning = false;
+            });
+        }
     };
 
     public _createStartRequest = (blankRequest: ESRequest): ESRequest => {
@@ -209,30 +217,34 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * This query will likely have both a `query` component and an `ags` component.
      */
     public runFilteredQuery = async () => {
-        runInAction(() => {
-            this.filterQueryRunning = true;
-            this.clearQueryQueues();
-        });
+        try {
+            runInAction(() => {
+                this.filterQueryRunning = true;
+                this.clearQueryQueues();
+            });
 
-        const request = this._createFilterRequest(BLANK_ES_REQUEST);
-        const response = await this.client.query(removeEmptyArrays(request));
+            const request = this._createFilterRequest(BLANK_ES_REQUEST);
+            const response = await this.client.query(removeEmptyArrays(request));
 
-        // Save the results
-        this._saveQueryResults(response);
+            // Save the results
+            this._saveQueryResults(response);
 
-        // Pass the response to the filter instances so they can extract info relevant to them.
-        this._extractStateFromFilterResponse(response);
+            // Pass the response to the filter instances so they can extract info relevant to them.
+            this._extractStateFromFilterResponse(response);
 
-        // Timeout used as the debounce time.
-        await Timeout.set(this.queryDebounceInMS);
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryDebounceInMS);
 
-        // Since the filters have changed, we should set the cursor back to
-        // the first page.
-        this._setCursorToFirstPage();
-
-        runInAction(() => {
-            this.filterQueryRunning = false;
-        });
+            // Since the filters have changed, we should set the cursor back to
+            // the first page.
+            this._setCursorToFirstPage();
+        } catch (e) {
+            throw e;
+        } finally {
+            runInAction(() => {
+                this.filterQueryRunning = false;
+            });
+        }
     };
 
     public _createFilterRequest = (blankRequest: ESRequest): ESRequest => {
@@ -263,31 +275,35 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * This query will likely have a `query` component but not an agg component.
      */
     public runPaginationQuery = async (direction: 'forward' | 'backwards') => {
-        runInAction(() => {
-            this.paginationQueryRunning = true;
-            this.clearQueryQueues();
-        });
+        try {
+            runInAction(() => {
+                this.paginationQueryRunning = true;
+                this.clearQueryQueues();
+            });
 
-        const startingRequest =
-            direction === 'forward' ? this._nextPageRequest() : this._prevPageRequest();
+            const startingRequest =
+                direction === 'forward' ? this._nextPageRequest() : this._prevPageRequest();
 
-        const request = this._createFilterRequest(startingRequest);
-        const response = await this.client.query(removeEmptyArrays(request));
+            const request = this._createFilterRequest(startingRequest);
+            const response = await this.client.query(removeEmptyArrays(request));
 
-        // Save the results
-        this._saveQueryResults(response);
+            // Save the results
+            this._saveQueryResults(response);
 
-        await Timeout.set(this.queryDebounceInMS);
+            await Timeout.set(this.queryDebounceInMS);
 
-        if (direction === 'forward') {
-            this._incrementCursorToNextPage();
-        } else {
-            this._decrementCursorToPrevPage();
+            if (direction === 'forward') {
+                this._incrementCursorToNextPage();
+            } else {
+                this._decrementCursorToPrevPage();
+            }
+        } catch (e) {
+            throw e;
+        } finally {
+            runInAction(() => {
+                this.paginationQueryRunning = false;
+            });
         }
-
-        runInAction(() => {
-            this.paginationQueryRunning = false;
-        });
     };
 
     public _addPageSizeToFilterQuery = (request: ESRequest): ESRequest => {
@@ -295,7 +311,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     };
 
     public nextPage = () => {
-        console.log('next page');
         runInAction(() => {
             this.enqueueForwardsPaginationQuery = true;
         });
@@ -371,6 +386,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         runInAction(() => {
             this.currentPage = 1;
             this.pageCursorInfo = {};
+            this.pageCursorInfo[2] = this._nextPageCursor;
         });
     };
 
