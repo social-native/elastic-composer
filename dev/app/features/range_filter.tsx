@@ -10,12 +10,13 @@ import 'rc-slider/assets/index.css';
 
 import Context from '../context';
 import {
-    isLessThenEqualFilter,
-    isGreaterThenEqualFilter,
-    isGreaterThenFilter,
-    isLessThenFilter
+    isLessThanEqualFilter,
+    isGreaterThanEqualFilter,
+    isGreaterThanFilter,
+    isLessThanFilter
 } from '../../../src';
 import {FilterKind, Filter} from '../../../src/filters/range_filter';
+import { toJS } from 'mobx';
 
 const RangeContainer = styled.div`
     height: 300px;
@@ -78,9 +79,10 @@ const Range = createSliderWithTooltip(Slider.Range);
 
 // tslint:disable-next-line
 export default observer(({filterName, maxRange}) => {
+    const creatorCRM = useContext(Context.creatorCRM);
     const {
         filters: {range}
-    } = useContext(Context.creatorCRM);
+    } = creatorCRM
     const filteredDistribution = range.filteredDistribution[filterName];
     const filteredData = filteredDistribution
         ? filteredDistribution.map(d => ({x: d.key, y: d.doc_count})).filter(d => d.x && d.y)
@@ -95,17 +97,17 @@ export default observer(({filterName, maxRange}) => {
     const filter = range.rangeFilters[filterName];
 
     const lowerValue =
-        filter && isGreaterThenEqualFilter(filter)
-            ? filter.greaterThenEqual
-            : filter && isGreaterThenFilter(filter)
-            ? filter.greaterThen
+        filter && isGreaterThanEqualFilter(filter)
+            ? filter.greaterThanEqual
+            : filter && isGreaterThanFilter(filter)
+            ? filter.greaterThan
             : unfilteredBounds.min;
 
     const upperValue =
-        filter && isLessThenEqualFilter(filter)
-            ? filter.lessThenEqual
-            : filter && isLessThenFilter(filter)
-            ? filter.lessThen
+        filter && isLessThanEqualFilter(filter)
+            ? filter.lessThanEqual
+            : filter && isLessThanFilter(filter)
+            ? filter.lessThan
             : unfilteredBounds.max;
 
     const filterConfig = range.rangeConfigs[filterName];
@@ -152,8 +154,8 @@ export default observer(({filterName, maxRange}) => {
                     value={[lowerValue, upperValue]}
                     onChange={(v: number[]) => {
                         range.setFilter(filterName, {
-                            lessThen: Math.round(v[1]),
-                            greaterThen: Math.round(v[0])
+                            lessThan: Math.round(v[1]),
+                            greaterThan: Math.round(v[0])
                         });
                     }}
                 />

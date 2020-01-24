@@ -1,6 +1,6 @@
 {
     "name": "@social-native/snpkg-client-elasticsearch",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "description": "",
     "main": "dist/index.cjs.js",
     "module": "dist/index.es.js",
@@ -50,6 +50,11 @@
         "mobx-react": "^6.1.4"
     },
     "devDependencies": {
+        "@devexpress/dx-react-core": "^2.4.0",
+        "@devexpress/dx-react-grid": "^2.4.0",
+        "@devexpress/dx-react-grid-material-ui": "^2.4.0",
+        "@material-ui/core": "^4.9.0",
+        "@material-ui/icons": "^4.5.1",
         "@social-native/snpkg-client-graphql-client": "^0.2.1",
         "@social-native/snpkg-dependency-check": "^0.1.0",
         "@social-native/snpkg-package-version-validation": "^3.1.0",

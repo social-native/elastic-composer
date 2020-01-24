@@ -34,7 +34,7 @@ const defaultRangeConfig: RangeConfigs<RF> = {
 
 const rangeFilter = new RangeFilterClass<RF>({rangeConfig: defaultRangeConfig});
 const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
-const creatorCRM = new Manager<typeof rangeFilter>(client, {range: rangeFilter});
+const creatorCRM = new Manager<typeof rangeFilter>(client, {range: rangeFilter}, {pageSize: 10});
 
 creatorCRM.runStartQuery();
 

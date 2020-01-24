@@ -2,7 +2,7 @@ import {ESRequest, ESResponse, IClient} from '../types';
 import {decorate, observable, runInAction} from 'mobx';
 import axios from 'axios';
 
-class AxiosClient implements IClient {
+class AxiosClient<Source extends object = object> implements IClient {
     public endpoint: string;
 
     constructor(endpoint: string) {
@@ -14,7 +14,7 @@ class AxiosClient implements IClient {
         });
     }
 
-    public query = async (request: ESRequest): Promise<ESResponse> => {
+    public query = async (request: ESRequest): Promise<ESResponse<Source>> => {
         const {data} = await axios.get(this.endpoint, {
             params: {
                 source: JSON.stringify(request),

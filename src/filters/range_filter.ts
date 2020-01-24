@@ -1,4 +1,4 @@
-import {runInAction, decorate, observable, set} from 'mobx';
+import {runInAction, decorate, observable, set, computed} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
 
@@ -26,44 +26,44 @@ export type RangeConfigs<RangeFields extends string> = {
  * Range Filter
  */
 
-export type GreaterThenFilter = {
-    greaterThen: number;
+export type GreaterThanFilter = {
+    greaterThan: number;
 };
 
-export function isGreaterThenFilter(filter: GreaterThenFilter | {}): filter is GreaterThenFilter {
-    return (filter as GreaterThenFilter).greaterThen !== undefined;
+export function isGreaterThanFilter(filter: GreaterThanFilter | {}): filter is GreaterThanFilter {
+    return (filter as GreaterThanFilter).greaterThan !== undefined;
 }
 
-export type GreaterThenEqualFilter = {
-    greaterThenEqual: number;
+export type GreaterThanEqualFilter = {
+    greaterThanEqual: number;
 };
 
-export function isGreaterThenEqualFilter(
-    filter: GreaterThenEqualFilter | {}
-): filter is GreaterThenEqualFilter {
-    return (filter as GreaterThenEqualFilter).greaterThenEqual !== undefined;
+export function isGreaterThanEqualFilter(
+    filter: GreaterThanEqualFilter | {}
+): filter is GreaterThanEqualFilter {
+    return (filter as GreaterThanEqualFilter).greaterThanEqual !== undefined;
 }
 
-export type LessThenFilter = {
-    lessThen: number;
+export type LessThanFilter = {
+    lessThan: number;
 };
 
-export function isLessThenFilter(filter: LessThenFilter | {}): filter is LessThenFilter {
-    return (filter as LessThenFilter).lessThen !== undefined;
+export function isLessThanFilter(filter: LessThanFilter | {}): filter is LessThanFilter {
+    return (filter as LessThanFilter).lessThan !== undefined;
 }
 
-export type LessThenEqualFilter = {
-    lessThenEqual: number;
+export type LessThanEqualFilter = {
+    lessThanEqual: number;
 };
 
-export function isLessThenEqualFilter(
-    filter: LessThenEqualFilter | {}
-): filter is LessThenEqualFilter {
-    return (filter as LessThenEqualFilter).lessThenEqual !== undefined;
+export function isLessThanEqualFilter(
+    filter: LessThanEqualFilter | {}
+): filter is LessThanEqualFilter {
+    return (filter as LessThanEqualFilter).lessThanEqual !== undefined;
 }
 
-export type Filter = (GreaterThenFilter | GreaterThenEqualFilter | {}) &
-    (LessThenFilter | LessThenEqualFilter | {});
+export type Filter = (GreaterThanFilter | GreaterThanEqualFilter | {}) &
+    (LessThanFilter | LessThanEqualFilter | {});
 
 export type Filters<RangeFields extends string> = {
     [esFieldName in RangeFields]: Filter | undefined;
@@ -73,20 +73,20 @@ export type Filters<RangeFields extends string> = {
  * Range Filter Utilities
  */
 const convertGreaterRanges = (filter: Filter) => {
-    if (isGreaterThenFilter(filter)) {
-        return {gt: filter.greaterThen};
-    } else if (isGreaterThenEqualFilter(filter)) {
-        return {gte: filter.greaterThenEqual};
+    if (isGreaterThanFilter(filter)) {
+        return {gt: filter.greaterThan};
+    } else if (isGreaterThanEqualFilter(filter)) {
+        return {gte: filter.greaterThanEqual};
     } else {
         return undefined;
     }
 };
 
 const convertLesserRanges = (filter: Filter) => {
-    if (isLessThenFilter(filter)) {
-        return {lt: filter.lessThen};
-    } else if (isLessThenEqualFilter(filter)) {
-        return {gt: filter.lessThenEqual};
+    if (isLessThanFilter(filter)) {
+        return {lt: filter.lessThan};
+    } else if (isLessThanEqualFilter(filter)) {
+        return {gt: filter.lessThanEqual};
     } else {
         return undefined;
     }
@@ -201,20 +201,39 @@ class RangeFilterClass<RangeFields extends string> {
         });
     }
 
-    public addToStartRequest = (request: ESRequest): ESRequest => {
+    /**
+     * State that affects the global filters
+     *
+     * Changes to this state is tracked by the manager so that it knows when to run a new filter query
+     * Ideally, this
+     */
+    public get filterAffectiveState(): object {
+        return {filters: {...this.rangeFilters}, kinds: {...this.rangeKinds}};
+    }
+
+    /**
+     * Transforms the request, run on start, with the addition specific aggs
+     */
+    public startRequestTransform = (request: ESRequest): ESRequest => {
         return [this.addDistributionsAggsToEsRequest, this.addBoundsAggsToEsRequest].reduce(
             (newRequest, fn) => fn(newRequest),
             request
         );
     };
 
-    public parseStartResponse = (response: ESResponse): void => {
+    /**
+     * Extracts state, relative to this filter type, from an elastic search response
+     */
+    public extractStateFromStartResponse = (response: ESResponse): void => {
         [this.parseBoundsFromResponse, this.parseDistributionFromResponse].forEach(fn =>
             fn(true, response)
         );
     };
 
-    public addToFilterRequest = (request: ESRequest): ESRequest => {
+    /**
+     * Transforms the request, run on filter state change, with the addition of specific aggs and queries
+     */
+    public filterRequestTransform = (request: ESRequest): ESRequest => {
         return [
             this.addQueriesToESRequest,
             this.addDistributionsAggsToEsRequest,
@@ -222,12 +241,25 @@ class RangeFilterClass<RangeFields extends string> {
         ].reduce((newRequest, fn) => fn(newRequest), request);
     };
 
-    public parseFilterResponse = (response: ESResponse): void => {
+    /**
+     * Extracts state, relative to this filter type, from an elastic search response
+     */
+    public extractStateFromFilterResponse = (response: ESResponse): void => {
         [this.parseBoundsFromResponse, this.parseDistributionFromResponse].forEach(fn =>
             fn(false, response)
         );
     };
 
+    /**
+     * Transforms the request, run on pagination change, with the addition of queries
+     */
+    public paginationRequestTransform = (request: ESRequest): ESRequest => {
+        return [this.addQueriesToESRequest].reduce((newRequest, fn) => fn(newRequest), request);
+    };
+
+    /**
+     * Sets the config for a filter
+     */
     public setConfigs = (rangeConfigs: RangeConfigs<RangeFields>): void => {
         runInAction(() => {
             this.rangeConfigs = objKeys(rangeConfigs).reduce((parsedConfig, field) => {
@@ -462,6 +494,7 @@ class RangeFilterClass<RangeFields extends string> {
 }
 
 decorate(RangeFilterClass, {
+    filterAffectiveState: computed,
     rangeConfigs: observable,
     rangeFilters: observable,
     rangeKinds: observable,
