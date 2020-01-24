@@ -154,8 +154,8 @@ export default observer(({filterName, maxRange}) => {
                     value={[lowerValue, upperValue]}
                     onChange={(v: number[]) => {
                         range.setFilter(filterName, {
-                            lessThen: Math.round(v[1]),
-                            greaterThen: Math.round(v[0])
+                            lessThan: Math.round(v[1]),
+                            greaterThan: Math.round(v[0])
                         });
                     }}
                 />
