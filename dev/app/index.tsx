@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import {ApiUri, ApiAccessToken, RangeFilter} from './features';
+import {ApiUri, ApiAccessToken, RangeFilter, ResultsTable} from './features';
 
 const Main = styled.div`
     height: 100vh;
@@ -28,5 +28,6 @@ export default () => (
             <RangeFilter filterName={'invites_pending'} maxRange={20} />
             <RangeFilter filterName={'user_profile_age'} maxRange={100} />
         </HorizontalLayout>
+        <ResultsTable/>
     </Main>
 );

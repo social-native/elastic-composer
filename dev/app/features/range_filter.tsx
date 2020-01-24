@@ -16,6 +16,7 @@ import {
     isLessThenFilter
 } from '../../../src';
 import {FilterKind, Filter} from '../../../src/filters/range_filter';
+import { toJS } from 'mobx';
 
 const RangeContainer = styled.div`
     height: 300px;
@@ -78,9 +79,10 @@ const Range = createSliderWithTooltip(Slider.Range);
 
 // tslint:disable-next-line
 export default observer(({filterName, maxRange}) => {
+    const creatorCRM = useContext(Context.creatorCRM);
     const {
         filters: {range}
-    } = useContext(Context.creatorCRM);
+    } = creatorCRM
     const filteredDistribution = range.filteredDistribution[filterName];
     const filteredData = filteredDistribution
         ? filteredDistribution.map(d => ({x: d.key, y: d.doc_count})).filter(d => d.x && d.y)

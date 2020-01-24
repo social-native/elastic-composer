@@ -1,4 +1,4 @@
-import {runInAction, decorate, observable, set} from 'mobx';
+import {runInAction, decorate, observable, set, computed} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
 
@@ -201,20 +201,39 @@ class RangeFilterClass<RangeFields extends string> {
         });
     }
 
-    public addToStartRequest = (request: ESRequest): ESRequest => {
+    /**
+     * State that affects the global filters
+     *
+     * Changes to this state is tracked by the manager so that it knows when to run a new filter query
+     * Ideally, this
+     */
+    public get filterAffectiveState(): object {
+        return {filters: {...this.rangeFilters}, kinds: {...this.rangeKinds}};
+    }
+
+    /**
+     * Transforms the request, run on start, with the addition specific aggs
+     */
+    public startRequestTransform = (request: ESRequest): ESRequest => {
         return [this.addDistributionsAggsToEsRequest, this.addBoundsAggsToEsRequest].reduce(
             (newRequest, fn) => fn(newRequest),
             request
         );
     };
 
-    public parseStartResponse = (response: ESResponse): void => {
+    /**
+     * Extracts state, relative to this filter type, from an elastic search response
+     */
+    public extractStateFromStartResponse = (response: ESResponse): void => {
         [this.parseBoundsFromResponse, this.parseDistributionFromResponse].forEach(fn =>
             fn(true, response)
         );
     };
 
-    public addToFilterRequest = (request: ESRequest): ESRequest => {
+    /**
+     * Transforms the request, run on filter state change, with the addition of specific aggs and queries
+     */
+    public filterRequestTransform = (request: ESRequest): ESRequest => {
         return [
             this.addQueriesToESRequest,
             this.addDistributionsAggsToEsRequest,
@@ -222,12 +241,25 @@ class RangeFilterClass<RangeFields extends string> {
         ].reduce((newRequest, fn) => fn(newRequest), request);
     };
 
-    public parseFilterResponse = (response: ESResponse): void => {
+    /**
+     * Extracts state, relative to this filter type, from an elastic search response
+     */
+    public extractStateFromFilterResponse = (response: ESResponse): void => {
         [this.parseBoundsFromResponse, this.parseDistributionFromResponse].forEach(fn =>
             fn(false, response)
         );
     };
 
+    /**
+     * Transforms the request, run on pagination change, with the addition of queries
+     */
+    public paginationRequestTransform = (request: ESRequest): ESRequest => {
+        return [this.addQueriesToESRequest].reduce((newRequest, fn) => fn(newRequest), request);
+    };
+
+    /**
+     * Sets the config for a filter
+     */
     public setConfigs = (rangeConfigs: RangeConfigs<RangeFields>): void => {
         runInAction(() => {
             this.rangeConfigs = objKeys(rangeConfigs).reduce((parsedConfig, field) => {
@@ -462,6 +494,7 @@ class RangeFilterClass<RangeFields extends string> {
 }
 
 decorate(RangeFilterClass, {
+    filterAffectiveState: computed,
     rangeConfigs: observable,
     rangeFilters: observable,
     rangeKinds: observable,
