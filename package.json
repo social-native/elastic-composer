@@ -41,7 +41,8 @@
         "await-timeout": "^1.1.1",
         "axios": "^0.19.1",
         "mobx": "^5.14.2",
-        "mobx-react": "^6.1.4"
+        "mobx-react": "^6.1.4",
+        "utils": "^0.3.1"
     },
     "peerDependencies": {
         "await-timeout": "^1.1.1",

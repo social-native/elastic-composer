@@ -173,7 +173,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             });
 
             const request = this._createStartRequest(BLANK_ES_REQUEST);
-            const response = await this.client.query(removeEmptyArrays(request));
+            const response = await this.client.search(removeEmptyArrays(request));
             this._saveQueryResults(response);
             this._extractStateFromStartResponse(response);
 
@@ -224,7 +224,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             });
 
             const request = this._createFilterRequest(BLANK_ES_REQUEST);
-            const response = await this.client.query(removeEmptyArrays(request));
+            const response = await this.client.search(removeEmptyArrays(request));
 
             // Save the results
             this._saveQueryResults(response);
@@ -284,8 +284,8 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             const startingRequest =
                 direction === 'forward' ? this._nextPageRequest() : this._prevPageRequest();
 
-            const request = this._createFilterRequest(startingRequest);
-            const response = await this.client.query(removeEmptyArrays(request));
+            const request = this._createPaginationRequest(startingRequest);
+            const response = await this.client.search(removeEmptyArrays(request));
 
             // Save the results
             this._saveQueryResults(response);
@@ -304,6 +304,19 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
                 this.paginationQueryRunning = false;
             });
         }
+    };
+
+    public _createPaginationRequest = (blankRequest: ESRequest): ESRequest => {
+        const requestWithFilters = objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            if (!filter) {
+                return request;
+            }
+
+            return filter.paginationRequestTransform(request);
+        }, blankRequest);
+
+        return this._addPageSizeToFilterQuery(requestWithFilters);
     };
 
     public _addPageSizeToFilterQuery = (request: ESRequest): ESRequest => {

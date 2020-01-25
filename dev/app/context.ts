@@ -3,7 +3,7 @@ import React from 'react';
 import {GqlClient} from '@social-native/snpkg-client-graphql-client';
 import {ExampleForm} from './state';
 const gqlClient = new GqlClient({enablePersistance: true, headers: {testme: 'ethan'}});
-import {RangeFilterClass, Manager, RangeConfigs, Axios} from '../../src';
+import {RangeFilterClass, Manager, RangeConfigs, Axios, ESRequest} from '../../src';
 
 const exampleFormInstance = new ExampleForm();
 
@@ -33,8 +33,16 @@ const defaultRangeConfig: RangeConfigs<RF> = {
 };
 
 const rangeFilter = new RangeFilterClass<RF>({rangeConfig: defaultRangeConfig});
+
+const mapping = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
+mapping.mapping().then(d => console.log(d));
+
 const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
-const creatorCRM = new Manager<typeof rangeFilter>(client, {range: rangeFilter}, {pageSize: 10});
+const creatorCRM = new Manager<typeof rangeFilter>(
+    client,
+    {range: rangeFilter},
+    {pageSize: 10, queryDebounceInMS: 350}
+);
 
 creatorCRM.runStartQuery();
 

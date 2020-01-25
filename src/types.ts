@@ -48,5 +48,5 @@ export type ESHit<Source extends object = object> = {
  * Client
  */
 export interface IClient<Source extends object = object> {
-    query: (request: ESRequest) => Promise<ESResponse<Source>>;
+    search: (request: ESRequest) => Promise<ESResponse<Source>>;
 }
