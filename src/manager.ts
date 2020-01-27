@@ -1,8 +1,8 @@
 'use strict';
 import {RangeFilterClass} from 'filters';
-import {ESRequest, ESResponse, IClient, ESHit, ESRequestSortField} from 'types';
+import {ESRequest, ESResponse, IClient, ESHit, ESRequestSortField, ESMappingType} from 'types';
 import {objKeys} from './utils';
-import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx';
+import {decorate, observable, runInAction, reaction, toJS, computed, autorun} from 'mobx';
 import Timeout from 'await-timeout';
 
 type Filters<RangeFilter extends RangeFilterClass<any>> = {
@@ -58,6 +58,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     public client: IClient<ResultObject>;
     public currentPage: number;
     public pageCursorInfo: Record<number, ESRequestSortField>;
+    public fieldNamesAndTypes: Record<string, ESMappingType>;
 
     constructor(
         client: IClient<ResultObject>,
@@ -79,6 +80,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
                 (options && options.queryDebounceInMS) || DEFAULT_MANAGER_OPTIONS.queryDebounceInMS;
             this.pageCursorInfo = {};
             this.currentPage = 0; // set to 0 b/c there are no results on init
+            this.fieldNamesAndTypes = {};
         });
 
         /**
@@ -127,6 +129,16 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         );
         // );
     }
+
+    /**
+     * Returns the field names and types for the elasticsearch mapping(s)
+     */
+    public getFieldNamesAndTypes = async () => {
+        const mappings = await this.client.mapping();
+        runInAction(() => {
+            this.fieldNamesAndTypes = mappings;
+        });
+    };
 
     /**
      * Is an query currently running?

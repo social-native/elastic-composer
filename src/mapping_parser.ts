@@ -1,6 +1,6 @@
 import {objKeys} from './utils';
+import {ESMappingType} from 'types';
 
-type ESMappingType = 'long' | 'double' | 'integer';
 type ESMappingPropertyType = {
     type: ESMappingType;
 };

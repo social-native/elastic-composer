@@ -49,4 +49,11 @@ export type ESHit<Source extends object = object> = {
  */
 export interface IClient<Source extends object = object> {
     search: (request: ESRequest) => Promise<ESResponse<Source>>;
+    mapping: () => Promise<Record<string, ESMappingType>>;
 }
+
+/**
+ * ES Mapping
+ */
+
+export type ESMappingType = 'long' | 'double' | 'integer';
