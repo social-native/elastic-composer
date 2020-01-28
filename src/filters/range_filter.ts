@@ -1,7 +1,7 @@
 import {runInAction, decorate, observable, computed} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
-import {BaseFilter} from '../filters';
+import BaseFilter from './base';
 /**
  * Range config
  */
@@ -472,6 +472,10 @@ decorate(RangeFilterClass, {
     unfilteredDistribution: observable,
 
     filterAffectiveState: computed
+
+    // fieldConfigs: observable,
+    // fieldFilters: observable,
+    // fieldKinds: observable
 });
 
 export default RangeFilterClass;

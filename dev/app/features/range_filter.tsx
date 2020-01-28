@@ -94,7 +94,7 @@ export default observer(({filterName, maxRange}) => {
     const unfilteredBounds = range.unfilteredRangeBounds[filterName] || {min: 0, max: 100};
     const filteredBounds = range.filteredRangeBounds[filterName] || unfilteredBounds;
 
-    const filter = range.rangeFilters[filterName];
+    const filter = range.fieldFilters[filterName];
 
     const lowerValue =
         filter && isGreaterThanEqualFilter(filter)
@@ -110,7 +110,7 @@ export default observer(({filterName, maxRange}) => {
             ? filter.lessThan
             : unfilteredBounds.max;
 
-    const filterConfig = range.rangeConfigs[filterName];
+    const filterConfig = range.fieldConfigs[filterName];
 
     return (
         <RangeContainer>

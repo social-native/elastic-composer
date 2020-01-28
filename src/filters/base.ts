@@ -1,4 +1,4 @@
-import {runInAction, set} from 'mobx';
+import {runInAction, set, observable, decorate} from 'mobx';
 import {objKeys} from '../utils';
 import {
     BaseConfig,
@@ -157,11 +157,11 @@ class BaseFilter<
     };
 }
 
-// decorate(BaseFilter, {
-//     // filterAffectiveState: computed,
-//     fieldConfigs: observable,
-//     fieldFilters: observable,
-//     fieldKinds: observable
-// });
+decorate(BaseFilter, {
+    // filterAffectiveState: computed,
+    fieldConfigs: observable,
+    fieldFilters: observable,
+    fieldKinds: observable
+});
 
 export default BaseFilter;
