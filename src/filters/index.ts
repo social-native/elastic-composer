@@ -1,4 +1,5 @@
 export {default as RangeFilterClass} from './range_filter';
+export {default as BaseFilter} from './base';
 export {
     RangeConfigs,
     isGreaterThanFilter,

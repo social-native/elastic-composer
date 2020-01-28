@@ -2,7 +2,7 @@
 import {RangeFilterClass} from 'filters';
 import {ESRequest, ESResponse, IClient, ESHit, ESRequestSortField, ESMappingType} from 'types';
 import {objKeys} from './utils';
-import {decorate, observable, runInAction, reaction, toJS, computed, autorun} from 'mobx';
+import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx';
 import Timeout from 'await-timeout';
 
 type Filters<RangeFilter extends RangeFilterClass<any>> = {
@@ -65,6 +65,8 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         filters: Filters<RangeFilter>,
         options?: ManagerOptions
     ) {
+        console.log('hur manager');
+
         runInAction(() => {
             this.client = client;
             this.filters = filters;
@@ -125,6 +127,18 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
                 } else {
                     this.clearQueryQueues();
                 }
+            }
+        );
+
+        reaction(
+            () => this.fieldNamesAndTypes,
+            fieldNamesAndTypes => {
+                Object.keys(fieldNamesAndTypes).forEach(fieldName => {
+                    const type = fieldNamesAndTypes[fieldName];
+                    if (type === 'long' || type === 'double' || type === 'integer') {
+                        this.filters.range.addConfigForField(fieldName);
+                    }
+                });
             }
         );
         // );

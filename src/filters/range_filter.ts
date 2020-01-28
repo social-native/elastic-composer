@@ -1,7 +1,7 @@
-import {runInAction, decorate, observable, set, computed} from 'mobx';
+import {runInAction, decorate, observable, computed} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
-
+import {BaseFilter} from '../filters';
 /**
  * Range config
  */
@@ -71,17 +71,17 @@ export function isLessThanEqualFilter(
     return (filter as LessThanEqualFilter).lessThanEqual !== undefined;
 }
 
-export type Filter = (GreaterThanFilter | GreaterThanEqualFilter | {}) &
+export type RangeFilter = (GreaterThanFilter | GreaterThanEqualFilter | {}) &
     (LessThanFilter | LessThanEqualFilter | {});
 
 export type Filters<RangeFields extends string> = {
-    [esFieldName in RangeFields]: Filter | undefined;
+    [esFieldName in RangeFields]: RangeFilter | undefined;
 };
 
 /**
  * Range Filter Utilities
  */
-const convertGreaterRanges = (filter: Filter) => {
+const convertGreaterRanges = (filter: RangeFilter) => {
     if (isGreaterThanFilter(filter)) {
         return {gt: filter.greaterThan};
     } else if (isGreaterThanEqualFilter(filter)) {
@@ -91,7 +91,7 @@ const convertGreaterRanges = (filter: Filter) => {
     }
 };
 
-const convertLesserRanges = (filter: Filter) => {
+const convertLesserRanges = (filter: RangeFilter) => {
     if (isLessThanFilter(filter)) {
         return {lt: filter.lessThan};
     } else if (isLessThanEqualFilter(filter)) {
@@ -101,7 +101,7 @@ const convertLesserRanges = (filter: Filter) => {
     }
 };
 
-const convertRanges = (fieldName: string, filter: Filter | undefined) => {
+const convertRanges = (fieldName: string, filter: RangeFilter | undefined) => {
     if (!filter) {
         return undefined;
     }
@@ -186,31 +186,21 @@ export type RangeBoundResults<RangeFields extends string> = {
     [esFieldName in RangeFields]: RangeBoundResult;
 };
 
-class RangeFilterClass<RangeFields extends string> {
-    // Generic
-    public fieldConfigDefault: RangeConfigDefault;
-    public fieldConfigs: RangeConfigs<RangeFields>;
-    public fieldKinds: RangeFilterKinds<RangeFields>;
-    public fieldFilters: Filters<RangeFields>;
-
-    // Specific
+class RangeFilterClass<RangeFields extends string> extends BaseFilter<
+    RangeFields,
+    RangeConfig,
+    RangeConfigDefault,
+    RangeFilter
+> {
     public filteredRangeBounds: RangeBoundResults<RangeFields>;
     public unfilteredRangeBounds: RangeBoundResults<RangeFields>;
     public filteredDistribution: RangeDistributionResults<RangeFields>;
     public unfilteredDistribution: RangeDistributionResults<RangeFields>;
 
     constructor(defaultConfig?: RangeConfigDefault, specificConfigs?: RangeConfigs<RangeFields>) {
+        super(defaultConfig || (RANGE_CONFIG_DEFAULT as RangeConfigDefault), specificConfigs);
+        console.log('hur');
         runInAction(() => {
-            // Generic
-            this.fieldConfigDefault = defaultConfig || (RANGE_CONFIG_DEFAULT as RangeConfigDefault);
-            this.fieldFilters = {} as Filters<RangeFields>;
-            this.fieldKinds = {} as RangeFilterKinds<RangeFields>;
-            this.fieldConfigs = {} as RangeConfigs<RangeFields>;
-            if (specificConfigs) {
-                this.setConfigs(specificConfigs);
-            }
-
-            // Specific
             this.filteredRangeBounds = {} as RangeBoundResults<RangeFields>;
             this.unfilteredRangeBounds = {} as RangeBoundResults<RangeFields>;
             this.filteredDistribution = {} as RangeDistributionResults<RangeFields>;
@@ -225,7 +215,7 @@ class RangeFilterClass<RangeFields extends string> {
      * Ideally, this
      */
     public get filterAffectiveState(): object {
-        return {filters: {...this.fieldFilters}, kinds: {...this.fieldKinds}};
+        return {filters: {...super.fieldFilters}, kinds: {...super.fieldKinds}};
     }
 
     /**
@@ -278,114 +268,35 @@ class RangeFilterClass<RangeFields extends string> {
      * Returns any config obj that has the same filter name or field name as the passed in field
      */
     public findConfigForField = (field: RangeFields): RangeConfig | undefined => {
-        const foundFilterName = objKeys(this.fieldConfigs).find(filterName => {
-            const config = this.fieldConfigs[filterName];
+        const foundFilterName = objKeys(super.fieldConfigs).find(filterName => {
+            const config = super.fieldConfigs[filterName];
             return config.field === field || filterName === field;
         });
         if (foundFilterName) {
-            return this.fieldConfigs[foundFilterName];
+            return super.fieldConfigs[foundFilterName];
         } else {
             return undefined;
         }
     };
-    /**
-     * Creates configs for the passed in fields.
-     * Uses the default config unless an override config has already been specified.
-     */
-    public addConfigForField = (field: RangeFields): void => {
-        const configAlreadyExists = this.findConfigForField(field);
-        if (!configAlreadyExists) {
-            runInAction(() => {
-                this.fieldConfigs = {...this.fieldConfigs, ...this.fieldConfigDefault, field};
-            });
-
-            // runInAction(() => {
-            //     this.setKind(field, this.fieldConfigDefault.defaultFilterKind);
-            // });
-        }
-    };
-
-    /**
-     * Sets the config for a filter
-     */
-    public setConfigs = (fieldConfigs: RangeConfigs<RangeFields>): void => {
-        runInAction(() => {
-            this.fieldConfigs = objKeys(fieldConfigs).reduce((parsedConfig, field) => {
-                const config = fieldConfigs[field];
-                const {rangeInterval} = config;
-                if (!rangeInterval) {
-                    throw new Error(`rangeInterval must be specified for ${field}`);
-                }
-                parsedConfig[field] = {
-                    ...RANGE_CONFIG_DEFAULT,
-                    ...config,
-                    rangeInterval
-                };
-                return parsedConfig;
-            }, {} as {[field in RangeFields]: Required<RangeConfig>});
-        });
-
-        // runInAction(() => {
-        //     objKeys(this.fieldConfigs).forEach(field => {
-        //         const config = fieldConfigs[field];
-        //         if (config.defaultFilterKind) {
-        //             this.setKind(field, config.defaultFilterKind);
-        //         }
-        //     });
-        // });
-    };
-
-    public setFilter = (field: RangeFields, filter: Filter): void => {
-        runInAction(() => {
-            set(this.fieldFilters, {
-                [field]: filter
-            });
-        });
-    };
-
-    public clearFilter = (field: RangeFields): void => {
-        runInAction(() => {
-            delete this.fieldFilters[field];
-        });
-    };
-
-    public setKind = (field: RangeFields, kind: FilterKind): void => {
-        runInAction(() => {
-            this.fieldKinds[field] = kind;
-        });
-    };
-
-    /**
-     * Retrieves the kind of a filter field. Kinds are either specified explicitly on `fieldKinds`
-     * or implicitly using the default filter kind.
-     */
-    public kindForField = (field: RangeFields): FilterKind => {
-        const kind = this.fieldKinds[field];
-        if (kind === undefined) {
-            return this.fieldConfigDefault.defaultFilterKind;
-        } else {
-            return kind as FilterKind;
-        }
-    };
 
     public addQueriesToESRequest = (request: ESRequest): ESRequest => {
-        if (!this.fieldFilters) {
+        if (!super.fieldFilters) {
             return request;
         }
         // tslint:disable-next-line
-        return objKeys(this.fieldConfigs).reduce((acc, rangeFieldName) => {
-            if (!this.fieldFilters) {
+        return objKeys(super.fieldConfigs).reduce((acc, rangeFieldName) => {
+            if (!super.fieldFilters) {
                 return acc;
             }
-            const config = this.fieldConfigs[rangeFieldName];
+            const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
 
-            const filter = this.fieldFilters[rangeFieldName];
+            const filter = super.fieldFilters[rangeFieldName];
             if (!filter) {
                 return acc;
             }
 
-            const kind = this.kindForField(rangeFieldName);
+            const kind = super.kindForField(rangeFieldName);
             if (!kind) {
                 throw new Error(`kind is not set for range type ${rangeFieldName}`);
             }
@@ -410,8 +321,8 @@ class RangeFilterClass<RangeFields extends string> {
     };
 
     public addBoundsAggsToEsRequest = (request: ESRequest): ESRequest => {
-        return objKeys(this.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
-            const config = this.fieldConfigs[rangeFieldName];
+        return objKeys(super.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
+            const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
             if (config.getRangeBounds) {
                 return {
@@ -437,8 +348,8 @@ class RangeFilterClass<RangeFields extends string> {
     };
 
     public addDistributionsAggsToEsRequest = (request: ESRequest): ESRequest => {
-        return objKeys(this.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
-            const config = this.fieldConfigs[rangeFieldName];
+        return objKeys(super.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
+            const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
 
             if (config.getDistribution) {
@@ -464,12 +375,12 @@ class RangeFilterClass<RangeFields extends string> {
     };
 
     public parseBoundsFromResponse = (isUnfilteredQuery: boolean, response: ESResponse): void => {
-        if (!this.fieldFilters) {
+        if (!super.fieldFilters) {
             return;
         }
         // tslint:disable-next-line
-        const rangeBounds = objKeys(this.fieldConfigs).reduce((acc, rangeFieldName) => {
-            const config = this.fieldConfigs[rangeFieldName];
+        const rangeBounds = objKeys(super.fieldConfigs).reduce((acc, rangeFieldName) => {
+            const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
 
             if (config.getRangeBounds) {
@@ -519,12 +430,12 @@ class RangeFilterClass<RangeFields extends string> {
         isUnfilteredQuery: boolean,
         response: ESResponse
     ): void => {
-        if (!this.fieldFilters) {
+        if (!super.fieldFilters) {
             return;
         }
         // tslint:disable-next-line
-        const rangeHist = objKeys(this.fieldConfigs).reduce((acc, rangeFieldName) => {
-            const config = this.fieldConfigs[rangeFieldName];
+        const rangeHist = objKeys(super.fieldConfigs).reduce((acc, rangeFieldName) => {
+            const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
 
             if (config.getDistribution) {
@@ -555,14 +466,12 @@ class RangeFilterClass<RangeFields extends string> {
 }
 
 decorate(RangeFilterClass, {
-    filterAffectiveState: computed,
-    fieldConfigs: observable,
-    fieldFilters: observable,
-    fieldKinds: observable,
     filteredRangeBounds: observable,
     unfilteredRangeBounds: observable,
     filteredDistribution: observable,
-    unfilteredDistribution: observable
+    unfilteredDistribution: observable,
+
+    filterAffectiveState: computed
 });
 
 export default RangeFilterClass;

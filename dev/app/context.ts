@@ -32,7 +32,10 @@ const defaultRangeConfig: RangeConfigs<RF> = {
     }
 };
 
-const rangeFilter = new RangeFilterClass<RF>({rangeConfig: defaultRangeConfig});
+const rangeFilter = new RangeFilterClass<RF>(
+    {defaultFilterKind: 'should', getDistribution: true, getRangeBounds: true, rangeInterval: 1},
+    defaultRangeConfig
+);
 
 const mapping = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
 mapping.mapping().then(d => console.log(d));

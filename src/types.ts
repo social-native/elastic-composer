@@ -57,3 +57,30 @@ export interface IClient<Source extends object = object> {
  */
 
 export type ESMappingType = 'long' | 'double' | 'integer';
+
+/**
+ * Base Filter
+ */
+
+export type BaseDefaultConfig = {
+    defaultFilterKind: 'should' | 'must';
+};
+
+export type BaseConfig = {
+    field: string;
+    defaultFilterKind?: 'should' | 'must';
+};
+
+export type FieldConfigs<Fields extends string, Config extends BaseConfig> = {
+    [esFieldName in Fields]: Required<Config>;
+};
+
+export type FieldFilters<Fields extends string, Filter extends object> = {
+    [esFieldName in Fields]: Filter | undefined;
+};
+
+export type FilterKind = 'should' | 'must';
+
+export type FieldKinds<Fields extends string> = {
+    [esFieldName in Fields]: FilterKind | undefined;
+};

@@ -15,7 +15,7 @@ import {
     isGreaterThanFilter,
     isLessThanFilter
 } from '../../../src';
-import {FilterKind, Filter} from '../../../src/filters/range_filter';
+import {FilterKind} from '../../../src/';
 import { toJS } from 'mobx';
 
 const RangeContainer = styled.div`
