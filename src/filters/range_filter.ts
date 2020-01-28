@@ -1,7 +1,8 @@
-import {runInAction, decorate, observable, computed} from 'mobx';
+import {runInAction, decorate, observable} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
 import BaseFilter from './base';
+import {decorateFilter} from './utils';
 /**
  * Range config
  */
@@ -199,7 +200,6 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
 
     constructor(defaultConfig?: RangeConfigDefault, specificConfigs?: RangeConfigs<RangeFields>) {
         super(defaultConfig || (RANGE_CONFIG_DEFAULT as RangeConfigDefault), specificConfigs);
-        console.log('hur');
         runInAction(() => {
             this.filteredRangeBounds = {} as RangeBoundResults<RangeFields>;
             this.unfilteredRangeBounds = {} as RangeBoundResults<RangeFields>;
@@ -469,13 +469,9 @@ decorate(RangeFilterClass, {
     filteredRangeBounds: observable,
     unfilteredRangeBounds: observable,
     filteredDistribution: observable,
-    unfilteredDistribution: observable,
-
-    filterAffectiveState: computed
-
-    // fieldConfigs: observable,
-    // fieldFilters: observable,
-    // fieldKinds: observable
+    unfilteredDistribution: observable
 });
+
+decorateFilter(RangeFilterClass);
 
 export default RangeFilterClass;
