@@ -34,7 +34,7 @@ const defaultRangeConfig: RangeConfigs<RF> = {
 
 const rangeFilter = new RangeFilterClass<RF>(
     {
-        aggsEnabled: false,
+        aggsEnabled: true,
         defaultFilterKind: 'should',
         getDistribution: true,
         getRangeBounds: true,

@@ -21,11 +21,10 @@ import { toJS } from 'mobx';
 const RangeContainer = styled.div`
     height: 300px;
     width: 250px;
-    padding: 25px;
-    border: 1px solid rgba(0, 0, 0, 0.75);
+    // padding: 25px;
+    // border: 1px solid rgba(0, 0, 0, 0.75);
     margin: 5px;
     border-radius: 3px;
-    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.25);
 `;
 
 const DropdownKindContainer = styled.div`
@@ -80,6 +79,10 @@ const Range = createSliderWithTooltip(Slider.Range);
 // tslint:disable-next-line
 export default observer(({filterName, maxRange}) => {
     const creatorCRM = useContext(Context.creatorCRM);
+    console.log('look at me', filterName)
+    if (!filterName) {
+        return null
+    }
     const {
         filters: {range}
     } = creatorCRM

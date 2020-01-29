@@ -106,7 +106,7 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
      * Uses the default config unless an override config has already been specified.
      */
     public addConfigForField(field: Fields): void {
-        if (Object.keys(this.fieldConfigs).length > 15) {
+        if (Object.keys(this.fieldConfigs).length > 3) {
             return;
         }
         const configAlreadyExists = this.findConfigForField(field);

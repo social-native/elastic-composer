@@ -18,6 +18,8 @@ const Container = styled.div`
     align-items: center;
     border: 1px solid black;
     margin: 20px;
+    border-radius: 3px;
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.25);
 `;
 
 const Header = styled.div`
