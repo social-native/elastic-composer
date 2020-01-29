@@ -36,20 +36,48 @@ const removeEmptyArrays = <O extends {}>(data: O): any => {
 
 const DEFAULT_MANAGER_OPTIONS: Required<ManagerOptions> = {
     pageSize: 10,
-    queryDebounceInMS: 2000
+    queryThrottleInMS: 2000
 };
 type ManagerOptions = {
     pageSize?: number;
-    queryDebounceInMS?: number;
+    queryThrottleInMS?: number;
 };
 
-type QueryFn = (request: ESRequest) => ESRequest;
+type EffectInput<EffectKind extends string> = {
+    kind: EffectKind;
+    effect: QueryFn;
+    debounce?: 'leading' | 'trailing';
+    throttle: number; // in miliseconds
+    params: any[];
+};
+type EffectRequest<EffectKind extends string> = {
+    kind: EffectKind;
+    effect: QueryFn;
+    debounce?: 'leading' | 'trailing';
+    throttle: number; // in miliseconds
+    params: any[];
+};
+
+const createEffectRequest = <EffectKind extends string>(
+    input: EffectInput<EffectKind>
+): EffectRequest<EffectKind> => input;
+
+type EffectKinds =
+    | 'unfilteredQuery'
+    | 'unfilteredAggs'
+    | 'unfilteredQueryAndAggs'
+    | 'filteredQuery'
+    | 'filteredAggs'
+    | 'filteredQueryAndAggs';
+
+type QueryFn = (...params: any[]) => void;
+
 class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends object = object> {
     public pageSize: number;
-    public queryDebounceInMS: number;
+    public queryThrottleInMS: number;
     public filters: Filters<RangeFilter>;
     public results: Array<ESHit<ResultObject>>;
-    public sideEffectQueue: QueryFn[];
+    public sideEffectQueue: Array<EffectRequest<EffectKinds> | null>;
     public isSideEffectRunning: boolean;
 
     // public enqueueStartQuery: boolean;
@@ -75,6 +103,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             this.client = client;
             this.filters = filters;
             this.isSideEffectRunning = false;
+            this.sideEffectQueue = [];
             // this.enqueueStartQuery = false;
             // this.enqueueFilteredQuery = false;
             // this.enqueueForwardsPaginationQuery = false;
@@ -83,8 +112,8 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             // this.filterQueryRunning = false;
             // this.paginationQueryRunning = false;
             this.pageSize = (options && options.pageSize) || DEFAULT_MANAGER_OPTIONS.pageSize;
-            this.queryDebounceInMS =
-                (options && options.queryDebounceInMS) || DEFAULT_MANAGER_OPTIONS.queryDebounceInMS;
+            this.queryThrottleInMS =
+                (options && options.queryThrottleInMS) || DEFAULT_MANAGER_OPTIONS.queryThrottleInMS;
             this.pageCursorInfo = {};
             this.currentPage = 0; // set to 0 b/c there are no results on init
             this.indexFieldNamesAndTypes = {};
@@ -94,21 +123,65 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
          * React to state changes in the filters.
          * Run a new filter query.
          */
-        reaction(
-            () => {
-                return objKeys(this.filters).reduce((acc, filterName) => {
-                    return {
-                        acc,
-                        [filterName]: toJS(this.filters[filterName].enqueueFilteredQueryAndAggs)
-                    };
-                }, {});
-            },
-            () => {
-                runInAction(() => {
-                    this.enqueueFilteredQueryAndAggs;
-                });
-            }
-        );
+        // reaction(() => {
+        //     return objKeys(this.filters).reduce((acc, filterName) => {
+        //         return {
+        //             acc,
+        //             [filterName]: toJS(this.filters[filterName].shouldRunFilteredQuery)
+        //         };
+        //     }, {});
+        // }, this.enqueueFilteredQuery);
+
+        /**
+         * Never used but is a possible permutation. Leave as a placeholder.
+         */
+        // reaction(() => {
+        //     return objKeys(this.filters).reduce((acc, filterName) => {
+        //         return {
+        //             acc,
+        //             [filterName]: toJS(this.filters[filterName].shouldRunFilteredAggs)
+        //         };
+        //     }, {});
+        // }, this.enqueueFilteredAggs);
+
+        reaction(() => {
+            return objKeys(this.filters).reduce((acc, filterName) => {
+                return {
+                    acc,
+                    [filterName]: toJS(this.filters[filterName].shouldRunFilteredQueryAndAggs)
+                };
+            }, {});
+        }, this.enqueueFilteredQueryAndAggs);
+
+        /**
+         * Never used but is a possible permutation. Leave as a placeholder.
+         */
+        // reaction(() => {
+        //     return objKeys(this.filters).reduce((acc, filterName) => {
+        //         return {
+        //             acc,
+        //             [filterName]: toJS(this.filters[filterName].shouldRunUnfilteredQuery)
+        //         };
+        //     }, {});
+        // }, this.enqueueUnfilteredQuery);
+
+        // reaction(() => {
+        //     return objKeys(this.filters).reduce((acc, filterName) => {
+        //         return {
+        //             acc,
+        //             [filterName]: toJS(this.filters[filterName].shouldRunUnfilteredAggs)
+        //         };
+        //     }, {});
+        // }, this.enqueueUnfilteredAggs);
+
+        // reaction(() => {
+        //     return objKeys(this.filters).reduce((acc, filterName) => {
+        //         return {
+        //             acc,
+        //             [filterName]: toJS(this.filters[filterName].shouldRunUnfilteredQueryAndAggs)
+        //         };
+        //     }, {});
+        // }, this.enqueueUnfilteredQueryAndAggs);
 
         /**
          * React to changes in query run state or requests to enqueue a query.
@@ -150,21 +223,100 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             }
         );
 
-        reaction(
-            () => [...this.sideEffectQueue],
-            () => {
-                const effect = this.shiftFirstEffectOffQueue()
-                if (effect.shouldDebounce) {
-                    const newEffect = this.findLastEffectOfKindAndRemoveAllOthersFromQueue(effect.kind)
-                    await runEffect(effect)
-                    await timeout(DEBOUNCE_TIMEOUT)
-                } else {
-                    await runEffect(effect)
-                }
-
-            }
-        )
+        reaction(() => [...this.sideEffectQueue] && this.isSideEffectRunning, this.tryToRunEffect);
     }
+
+    public tryToRunEffect = () => {
+        if (this.isSideEffectRunning) {
+            return;
+        }
+        const effect = this.shiftFirstEffectOffQueue();
+        if (!effect) {
+            return;
+        } else {
+            this.runEffect(effect);
+        }
+    };
+
+    public runEffect = async (effectRequest: EffectRequest<EffectKinds>) => {
+        try {
+            // tslint:disable-next-line
+            runInAction(() => {
+                this.isSideEffectRunning = true;
+            });
+
+            const params = effectRequest.params || [];
+            if (effectRequest.throttle) {
+                await Timeout.set(effectRequest.throttle);
+            }
+
+            if (effectRequest.debounce === 'leading') {
+                this.removeAllOtherEffectsOfKindFromQueue(effectRequest);
+                await effectRequest.effect(...params);
+            } else if (effectRequest.debounce === 'trailing') {
+                const newEffectRequest = this.findLastEffectOfKindAndRemoveAllOthersFromQueue(
+                    effectRequest
+                );
+                await newEffectRequest.effect(...params);
+            } else {
+                await effectRequest.effect(...params);
+            }
+        } catch (e) {
+            throw e;
+        } finally {
+            runInAction(() => {
+                this.isSideEffectRunning = false;
+            });
+        }
+    };
+
+    public findLastEffectOfKindAndRemoveAllOthersFromQueue = (
+        effectRequest: EffectRequest<EffectKinds>
+    ): EffectRequest<EffectKinds> => {
+        const lastEffectOfKind = this.sideEffectQueue
+            .reverse()
+            .find(e => e && e.kind === effectRequest.kind);
+
+        this.removeAllOtherEffectsOfKindFromQueue(effectRequest);
+
+        return lastEffectOfKind ? lastEffectOfKind : effectRequest;
+    };
+
+    public removeAllOtherEffectsOfKindFromQueue = (
+        effectRequest: EffectRequest<EffectKinds>
+    ): void => {
+        runInAction(() => {
+            this.sideEffectQueue = this.sideEffectQueue.filter(
+                e => e && e.kind !== effectRequest.kind
+            );
+        });
+    };
+
+    /**
+     *
+     */
+    public shiftFirstEffectOffQueue = (): EffectRequest<EffectKinds> | null => {
+        const firstEffect = this.sideEffectQueue[0];
+        runInAction(() => {
+            this.sideEffectQueue.shift();
+        });
+        return firstEffect;
+    };
+
+    /**
+     *
+     */
+    public addToQueue = (effect: EffectRequest<EffectKinds>) => {
+        runInAction(() => {
+            this.sideEffectQueue.push(effect);
+        });
+    };
+
+    /**
+     * ***************************************************************************
+     * SIDE EFFECT ENQEUEING
+     * ***************************************************************************
+     */
 
     /**
      * Never used but is a possible permutation. Leave as a placeholder.
@@ -182,7 +334,15 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * No debouncing - b/c we need to get very specific data
      */
     public enqueueUnfilteredAggs = (agg: aggregation) => {
-        this.batchAggsAndAddToQueue(effect({kind: 'unfilteredAggs', effect: this.runUnfilteredAggs, shouldDebounce: false}))
+        this.addToQueue(
+            createEffectRequest({
+                kind: 'unfilteredAggs',
+                effect: this.runUnfilteredAggs,
+                debounce: undefined,
+                throttle: this.queryThrottleInMS,
+                params: [agg]
+            })
+        );
     };
 
     /**
@@ -193,7 +353,15 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * No debouncing - b/c its only run once
      */
     public enqueueUnfilteredQueryAndAggs = () => {
-        this.batchAggsAndAddToQueue(effect({kind: 'unfilteredQueryAndAggs', effect: this.runUnfilteredQueryAndAggs, shouldDebounce: false}));
+        this.addToQueue(
+            createEffectRequest({
+                kind: 'unfilteredQueryAndAggs',
+                effect: this.runUnfilteredQueryAndAggs,
+                debounce: undefined,
+                throttle: 0,
+                params: []
+            })
+        );
     };
 
     /**
@@ -206,10 +374,12 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      */
     public enqueueFilteredQuery = (pageDirection: 'forward' | 'backward') => {
         this.addToQueue(
-            effect({
+            createEffectRequest({
                 kind: 'filteredFilteredQuery',
                 effect: this.runFilteredQuery,
-                shouldDebounce: true,
+                params: [pageDirection],
+                debounce: 'trailing',
+                throttle: this.queryThrottleInMS
             })
         );
     };
@@ -228,19 +398,22 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * Leading edge buffer - b/c of the same reasoning as above
      */
     public enqueueFilteredQueryAndAggs = () => {
-        this.batchAggsAndAddToQueue(
-            effect({
-                kind: 'filteredQueryAndAggs'
+        this.addToQueue(
+            createEffectRequest({
+                kind: 'filteredQueryAndAggs',
                 effect: this.runFilteredQueryAndAggs,
-                shouldDebounce: true,
+                debounce: 'trailing',
+                params: [],
+                throttle: this.queryThrottleInMS
             })
         );
     };
 
-    public batchAggsAndAddToQueue = async (effect: SideEffectFn) => {
-        const batchedEffects = this.batchAggEffects(effect)
-        // this.addBatchedEffectsToQueueOverTime(batchedEffects, 1000) // add to queue every 1000
-    }
+    /**
+     * ***************************************************************************
+     * INDEX FIELDS
+     * ***************************************************************************
+     */
 
     /**
      * Returns the field names and types for the elasticsearch mapping(s)
@@ -253,35 +426,10 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     };
 
     /**
-     * Is an query currently running?
+     * ***************************************************************************
+     * RESPONSE UTILS
+     * ***************************************************************************
      */
-    public get isQueryRunning() {
-        return this.startQueryRunning || this.filterQueryRunning || this.paginationQueryRunning;
-    }
-
-    /**
-     * Are there any queries waiting to run?
-     */
-    public get shouldEnqueueQuery() {
-        return {
-            enqueueStartQuery: this.enqueueStartQuery,
-            enqueueFilteredQuery: this.enqueueFilteredQuery,
-            enqueueForwardsPaginationQuery: this.enqueueForwardsPaginationQuery,
-            enqueueBackwardsPaginationQuery: this.enqueueBackwardsPaginationQuery
-        };
-    }
-
-    /**
-     * Cancel any queries waiting to be run
-     */
-    public clearQueryQueues = () => {
-        runInAction(() => {
-            this.startQueryRunning = false;
-            this.enqueueFilteredQuery = false;
-            this.enqueueForwardsPaginationQuery = false;
-            this.enqueueBackwardsPaginationQuery = false;
-        });
-    };
 
     public formatResponse = (
         response: ESResponse<ResultObject>
@@ -290,137 +438,170 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     };
 
     /**
-     * Executes a query that runs on instantiation.
-     * This query is used to get the unfiltered aggs, which describe the shape of the
-     * total data set.
-     * This query will have no `query` component but likely have an `ags` component.
+     * ***************************************************************************
+     * RESPONSE STATE EXTRACTORS
+     * ***************************************************************************
      */
-    public runStartQuery = async () => {
-        try {
-            runInAction(() => {
-                this.startQueryRunning = true;
-                this.clearQueryQueues();
-            });
 
-            const request = this._createStartRequest(BLANK_ES_REQUEST);
-            const response = await this.client.search(removeEmptyArrays(request));
-            const formattedResponse = this.formatResponse(response);
-            this._saveQueryResults(formattedResponse);
-            this._extractStateFromStartResponse(formattedResponse);
-
-            // Timeout used as the debounce time.
-            await Timeout.set(this.queryDebounceInMS);
-        } catch (e) {
-            throw e;
-        } finally {
-            // Since the filters have changed, we should set the cursor back to
-            // the first page.
-            this._setCursorToFirstPage();
+    /**
+     * Save the results
+     * The results contain the documents found in the query that match the filters
+     */
+    public _saveQueryResults = (response: ESResponse<ResultObject>) => {
+        if (response.timed_out === false && response.hits.total > 0) {
             runInAction(() => {
-                this.startQueryRunning = false;
+                this.results = response.hits.hits;
             });
         }
     };
 
-    public _createStartRequest = (blankRequest: ESRequest): ESRequest => {
-        const startRequest = objKeys(this.filters).reduce((request, filterName) => {
-            const filter = this.filters[filterName];
-            if (!filter) {
-                return request;
-            }
-            return filter.startRequestTransform(request);
-        }, blankRequest);
-        return this._addPageSizeToQuery(startRequest);
-    };
-
-    public _extractStateFromStartResponse = (response: ESResponse<ResultObject>): void => {
+    public _extractUnfilteredAggsStateFromResponse = (response: ESResponse<ResultObject>): void => {
         objKeys(this.filters).forEach(filterName => {
             const filter = this.filters[filterName];
             if (!filter) {
                 return;
             }
-            filter.extractStateFromStartResponse(response);
+            filter.extractUnfilteredAggsStateFromResponse(response);
+        });
+    };
+
+    public _extractFilteredAggsStateFromResponse = (response: ESResponse<ResultObject>): void => {
+        objKeys(this.filters).forEach(filterName => {
+            const filter = this.filters[filterName];
+            if (!filter) {
+                return;
+            }
+            filter.extractFilteredAggsStateFromResponse(response);
         });
     };
 
     /**
-     * Executes a filtered query.
-     * This query will likely have both a `query` component and an `ags` component.
+     * ***************************************************************************
+     * REQUEST BUILDERS
+     * ***************************************************************************
      */
-    public runFilteredQuery = async () => {
-        try {
-            runInAction(() => {
-                this.filterQueryRunning = true;
-                this.clearQueryQueues();
-            });
 
-            const request = this._createFilterRequest(BLANK_ES_REQUEST);
-            const response = await this.client.search(removeEmptyArrays(request));
-
-            // Save the results
-            this._saveQueryResults(response);
-
-            // Pass the response to the filter instances so they can extract info relevant to them.
-            this._extractStateFromFilterResponse(response);
-
-            // Timeout used as the debounce time.
-            await Timeout.set(this.queryDebounceInMS);
-        } catch (e) {
-            throw e;
-        } finally {
-            // Since the filters have changed, we should set the cursor back to
-            // the first page.
-            this._setCursorToFirstPage();
-            runInAction(() => {
-                this.filterQueryRunning = false;
-            });
-        }
+    public _createUnfilteredQueryAndAggsRequest = (blankRequest: ESRequest): ESRequest => {
+        const startRequest = objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            if (!filter) {
+                return request;
+            }
+            return filter.addUnfilteredQueryAndAggsToRequest(request);
+        }, blankRequest);
+        return this._addPageSizeToQuery(startRequest);
     };
 
-    public _createFilterRequest = (blankRequest: ESRequest): ESRequest => {
+    public _createUnfilteredAggsRequest = (blankRequest: ESRequest): ESRequest => {
+        const startRequest = objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            if (!filter) {
+                return request;
+            }
+            return filter.addUnfilteredAggsToRequest(request);
+        }, blankRequest);
+        return this._addPageSizeToQuery(startRequest);
+    };
+
+    public _createFilteredQueryAndAggsRequest = (blankRequest: ESRequest): ESRequest => {
         const requestWithFilters = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
             if (!filter) {
                 return request;
             }
 
-            return filter.filterRequestTransform(request);
+            return filter.addFilteredQueryAndAggsToRequest(request);
         }, blankRequest);
 
         return this._addPageSizeToQuery(requestWithFilters);
     };
 
-    public _extractStateFromFilterResponse = (response: ESResponse<ResultObject>): void => {
-        objKeys(this.filters).forEach(filterName => {
+    public _createFilteredQueryRequest = (blankRequest: ESRequest): ESRequest => {
+        const requestWithFilters = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
             if (!filter) {
-                return;
+                return request;
             }
-            filter.extractStateFromFilterResponse(response);
-        });
+
+            return filter.addFilteredQueryToRequest(request);
+        }, blankRequest);
+
+        return this._addPageSizeToQuery(requestWithFilters);
+    };
+
+    /**
+     * ***************************************************************************
+     * ES QUERY MANAGERS
+     * ***************************************************************************
+     */
+
+    /**
+     * Executes a query that runs on instantiation.
+     * This query is used to get the unfiltered aggs, which describe the shape of the
+     * total data set.
+     * This query will have no `query` component but likely have an `ags` component.
+     */
+    public runUnfilteredQueryAndAggs = async () => {
+        try {
+            const request = this._createUnfilteredQueryAndAggsRequest(BLANK_ES_REQUEST);
+            const response = await this.client.search(removeEmptyArrays(request));
+            const formattedResponse = this.formatResponse(response);
+            this._saveQueryResults(formattedResponse);
+            this._extractUnfilteredAggsStateFromResponse(formattedResponse);
+
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryThrottleInMS);
+        } catch (e) {
+            throw e;
+        } finally {
+            // Since the filters have changed, we should set the cursor back to
+            // the first page.
+            this._setCursorToFirstPage();
+        }
+    };
+
+    /**
+     * Executes a filtered query.
+     * This query will likely have both a `query` component and an `ags` component.
+     */
+    public runFilteredQueryAndAggs = async () => {
+        try {
+            const request = this._createFilteredQueryAndAggsRequest(BLANK_ES_REQUEST);
+            const response = await this.client.search(removeEmptyArrays(request));
+
+            // Save the results
+            this._saveQueryResults(response);
+
+            // Pass the response to the filter instances so they can extract info relevant to them.
+            this._extractFilteredAggsStateFromResponse(response);
+
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryThrottleInMS);
+        } catch (e) {
+            throw e;
+        } finally {
+            // Since the filters have changed, we should set the cursor back to
+            // the first page.
+            this._setCursorToFirstPage();
+        }
     };
 
     /**
      * Executes a pagination query.
      * This query will likely have a `query` component but not an agg component.
      */
-    public runPaginationQuery = async (direction: 'forward' | 'backwards') => {
+    public runFilteredQuery = async (direction: 'forward' | 'backwards') => {
         try {
-            runInAction(() => {
-                this.paginationQueryRunning = true;
-                this.clearQueryQueues();
-            });
-
             const startingRequest =
                 direction === 'forward' ? this._nextPageRequest() : this._prevPageRequest();
 
-            const request = this._createPaginationRequest(startingRequest);
+            const request = this._createFilteredQueryRequest(startingRequest);
             const response = await this.client.search(removeEmptyArrays(request));
 
             // Save the results
             this._saveQueryResults(response);
 
-            await Timeout.set(this.queryDebounceInMS);
+            await Timeout.set(this.queryThrottleInMS);
         } catch (e) {
             throw e;
         } finally {
@@ -429,33 +610,47 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             } else {
                 this._decrementCursorToPrevPage();
             }
-            runInAction(() => {
-                this.paginationQueryRunning = false;
-            });
         }
     };
 
-    public _createPaginationRequest = (blankRequest: ESRequest): ESRequest => {
-        const requestWithFilters = objKeys(this.filters).reduce((request, filterName) => {
-            const filter = this.filters[filterName];
-            if (!filter) {
-                return request;
-            }
+    /**
+     * Executes a filtered query.
+     * This query will likely have both a `query` component and an `ags` component.
+     */
+    public runUnfilteredAggs = async () => {
+        try {
+            const request = this._createUnfilteredAggsRequest(BLANK_ES_REQUEST);
+            const response = await this.client.search(removeEmptyArrays(request));
 
-            return filter.paginationRequestTransform(request);
-        }, blankRequest);
+            // Save the results
+            this._saveQueryResults(response);
 
-        return this._addPageSizeToQuery(requestWithFilters);
+            // Pass the response to the filter instances so they can extract info relevant to them.
+            this._extractUnfilteredAggsStateFromResponse(response);
+
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryThrottleInMS);
+        } catch (e) {
+            throw e;
+        } finally {
+            // Since the filters have changed, we should set the cursor back to
+            // the first page.
+            this._setCursorToFirstPage();
+        }
     };
+
+    /**
+     * ***************************************************************************
+     * PAGINATION
+     * ***************************************************************************
+     */
 
     public _addPageSizeToQuery = (request: ESRequest): ESRequest => {
         return {...request, size: this.pageSize, sort: ['_doc', '_score'], track_scores: true};
     };
 
     public nextPage = () => {
-        runInAction(() => {
-            this.enqueueForwardsPaginationQuery = true;
-        });
+        this.enqueueFilteredQuery('forward');
     };
 
     public _nextPageRequest = () => {
@@ -467,9 +662,10 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     };
 
     public prevPage = () => {
-        runInAction(() => {
-            this.enqueueBackwardsPaginationQuery = true;
-        });
+        this.enqueueFilteredQuery('backward');
+        // runInAction(() => {
+        //     this.enqueueBackwardsPaginationQuery = true;
+        // });
     };
 
     public _prevPageRequest = () => {
@@ -535,33 +731,21 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     public get _nextPageCursor(): ESRequestSortField {
         return this.results[this.results.length - 1].sort;
     }
-
-    /**
-     * Save the results
-     * The results contain the documents found in the query that match the filters
-     */
-    public _saveQueryResults = (response: ESResponse<ResultObject>) => {
-        if (response.timed_out === false && response.hits.total > 0) {
-            runInAction(() => {
-                this.results = response.hits.hits;
-            });
-        }
-    };
 }
 
 decorate(Manager, {
-    startQueryRunning: observable,
-    paginationQueryRunning: observable,
-    filterQueryRunning: observable,
-    enqueueStartQuery: observable,
-    enqueueFilteredQuery: observable,
-    enqueueForwardsPaginationQuery: observable,
-    enqueueBackwardsPaginationQuery: observable,
+    // startQueryRunning: observable,
+    // paginationQueryRunning: observable,
+    // filterQueryRunning: observable,
+    // enqueueStartQuery: observable,
+    // enqueueFilteredQuery: observable,
+    // enqueueForwardsPaginationQuery: observable,
+    // enqueueBackwardsPaginationQuery: observable,
     filters: observable,
     results: observable,
     client: observable,
     pageSize: observable,
-    queryDebounceInMS: observable,
+    queryThrottleInMS: observable,
     currentPage: observable,
     pageCursorInfo: observable,
     shouldEnqueueQuery: computed,
