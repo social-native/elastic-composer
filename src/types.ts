@@ -30,7 +30,7 @@ export type ESResponse<Source extends object = object> = {
     timed_out: boolean;
     _shards: {total: number; successful: number; skipped: number; failed: number};
     hits: {total: number; max_score: number; hits: Array<ESHit<Source>>};
-    aggregations: {
+    aggregations?: {
         [boundary: string]: AllRangeAggregationResults;
     };
 };
@@ -62,17 +62,18 @@ export type ESMappingType = 'long' | 'double' | 'integer';
  * Base Filter
  */
 
-export type BaseDefaultConfig = {
-    defaultFilterKind: 'should' | 'must';
-};
-
 export type BaseConfig = {
     field: string;
     defaultFilterKind?: 'should' | 'must';
+    aggsEnabled?: boolean;
 };
 
 export type FieldConfigs<Fields extends string, Config extends BaseConfig> = {
     [esFieldName in Fields]: Required<Config>;
+};
+
+export type PartialFieldConfigs<Fields extends string, Config extends BaseConfig> = {
+    [esFieldName in Fields]: Config;
 };
 
 export type FieldFilters<Fields extends string, Filter extends object> = {

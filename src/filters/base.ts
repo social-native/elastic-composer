@@ -1,28 +1,26 @@
-import {runInAction, set, observable, decorate, computed} from 'mobx';
+import {runInAction, set, observable, decorate, computed, toJS} from 'mobx';
 import {objKeys} from '../utils';
 import {
     BaseConfig,
-    BaseDefaultConfig,
     FieldConfigs,
     FieldKinds,
     FieldFilters,
     FilterKind,
     ESRequest,
-    ESResponse
+    ESResponse,
+    PartialFieldConfigs
 } from '../types';
 
-class BaseFilter<
-    Fields extends string,
-    Config extends BaseConfig,
-    ConfigDefault extends BaseDefaultConfig,
-    Filter extends object
-> {
-    public fieldConfigDefault: ConfigDefault;
+class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extends object> {
+    public fieldConfigDefault: Omit<Required<BaseConfig>, 'field'>;
     public fieldConfigs: FieldConfigs<Fields, Config>;
     public fieldKinds: FieldKinds<Fields>;
     public fieldFilters: FieldFilters<Fields, Filter>;
 
-    constructor(defaultConfig: ConfigDefault, specificConfigs?: FieldConfigs<Fields, Config>) {
+    constructor(
+        defaultConfig: Omit<Required<BaseConfig>, 'field'>,
+        specificConfigs?: PartialFieldConfigs<Fields, Config>
+    ) {
         runInAction(() => {
             this.fieldConfigDefault = defaultConfig;
             this.fieldFilters = {} as FieldFilters<Fields, Filter>;
@@ -40,6 +38,8 @@ class BaseFilter<
         this.clearFilter = this.clearFilter.bind(this);
         this.setKind = this.setKind.bind(this);
         this.kindForField = this.kindForField.bind(this);
+        this.setAggsEnabledToTrue = this.setAggsEnabledToTrue.bind(this);
+        this.setAggsEnabledToFalse = this.setAggsEnabledToFalse.bind(this);
     }
 
     /**
@@ -106,28 +106,54 @@ class BaseFilter<
      * Uses the default config unless an override config has already been specified.
      */
     public addConfigForField(field: Fields): void {
+        if (Object.keys(this.fieldConfigs).length > 15) {
+            return;
+        }
         const configAlreadyExists = this.findConfigForField(field);
         if (!configAlreadyExists) {
             runInAction(() => {
-                this.fieldConfigs = {...this.fieldConfigs, ...this.fieldConfigDefault, field};
+                set(this.fieldConfigs, {
+                    [field]: {...this.fieldConfigDefault, field}
+                });
             });
         }
+        console.log(toJS(this.fieldConfigs));
+    }
+
+    public get fields() {
+        return Object.keys(this.fieldConfigs);
+    }
+
+    public setAggsEnabledToTrue(field: Fields): void {
+        runInAction(() => {
+            set(this.fieldConfigs, {
+                [field]: {...this.fieldConfigs, aggsEnabled: true}
+            });
+        });
+    }
+
+    public setAggsEnabledToFalse(field: Fields): void {
+        runInAction(() => {
+            set(this.fieldConfigs, {
+                [field]: {...this.fieldConfigs, aggsEnabled: true}
+            });
+        });
     }
 
     /**
      * Sets the config for a filter
      */
-    public setConfigs(fieldConfigs: FieldConfigs<Fields, Config>): void {
+    public setConfigs(fieldConfigs: PartialFieldConfigs<Fields, Config>): void {
         runInAction(() => {
-            this.fieldConfigs = objKeys(fieldConfigs).reduce((parsedConfig, field) => {
-                const config = fieldConfigs[field];
+            this.fieldConfigs = objKeys(fieldConfigs).reduce((parsedConfig, field: Fields) => {
+                const config = fieldConfigs[field] as Config;
 
                 parsedConfig[field] = {
                     ...this.fieldConfigDefault,
                     ...config
-                };
+                } as Required<Config>;
                 return parsedConfig;
-            }, {} as {[field in Fields]: Required<Config>});
+            }, {} as FieldConfigs<Fields, Config>);
         });
     }
 
@@ -167,6 +193,7 @@ class BaseFilter<
 
 decorate(BaseFilter, {
     filterAffectiveState: computed,
+    fields: computed,
     fieldConfigs: observable,
     fieldFilters: observable,
     fieldKinds: observable

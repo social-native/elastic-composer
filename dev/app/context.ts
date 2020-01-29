@@ -33,7 +33,13 @@ const defaultRangeConfig: RangeConfigs<RF> = {
 };
 
 const rangeFilter = new RangeFilterClass<RF>(
-    {defaultFilterKind: 'should', getDistribution: true, getRangeBounds: true, rangeInterval: 1},
+    {
+        aggsEnabled: false,
+        defaultFilterKind: 'should',
+        getDistribution: true,
+        getRangeBounds: true,
+        rangeInterval: 1
+    },
     defaultRangeConfig
 );
 
@@ -48,6 +54,11 @@ const creatorCRM = new Manager<typeof rangeFilter>(
 );
 
 creatorCRM.runStartQuery();
+creatorCRM.getFieldNamesAndTypes();
+
+setTimeout(() => {
+    console.log('fields found', creatorCRM.filters.range.fields);
+}, 4000);
 
 export default {
     gqlClient: React.createContext(gqlClient),

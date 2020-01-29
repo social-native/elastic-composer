@@ -10,15 +10,17 @@ const RANGE_CONFIG_DEFAULT = {
     defaultFilterKind: 'should',
     getDistribution: true,
     getRangeBounds: true,
-    rangeInterval: 1
+    rangeInterval: 1,
+    aggsEnabled: false
 };
 
-export type RangeConfigDefault = {
-    defaultFilterKind: 'should' | 'must';
-    getDistribution: boolean;
-    getRangeBounds: boolean;
-    rangeInterval: number;
-};
+// export type RangeConfigDefault = {
+//     defaultFilterKind: 'should' | 'must';
+//     getDistribution: boolean;
+//     getRangeBounds: boolean;
+//     rangeInterval: number;
+//     aggsEnabled: boolean;
+// };
 
 export type RangeConfig = {
     field: string;
@@ -26,10 +28,11 @@ export type RangeConfig = {
     getDistribution?: boolean;
     getRangeBounds?: boolean;
     rangeInterval?: number;
+    aggsEnabled?: boolean;
 };
 
 export type RangeConfigs<RangeFields extends string> = {
-    [esFieldName in RangeFields]: Required<RangeConfig>;
+    [esFieldName in RangeFields]: RangeConfig;
 };
 
 /**
@@ -190,7 +193,6 @@ export type RangeBoundResults<RangeFields extends string> = {
 class RangeFilterClass<RangeFields extends string> extends BaseFilter<
     RangeFields,
     RangeConfig,
-    RangeConfigDefault,
     RangeFilter
 > {
     public filteredRangeBounds: RangeBoundResults<RangeFields>;
@@ -198,8 +200,14 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
     public filteredDistribution: RangeDistributionResults<RangeFields>;
     public unfilteredDistribution: RangeDistributionResults<RangeFields>;
 
-    constructor(defaultConfig?: RangeConfigDefault, specificConfigs?: RangeConfigs<RangeFields>) {
-        super(defaultConfig || (RANGE_CONFIG_DEFAULT as RangeConfigDefault), specificConfigs);
+    constructor(
+        defaultConfig?: Omit<Required<RangeConfig>, 'field'>,
+        specificConfigs?: RangeConfigs<RangeFields>
+    ) {
+        super(
+            defaultConfig || (RANGE_CONFIG_DEFAULT as Omit<Required<RangeConfig>, 'field'>),
+            specificConfigs as RangeConfigs<RangeFields>
+        );
         runInAction(() => {
             this.filteredRangeBounds = {} as RangeBoundResults<RangeFields>;
             this.unfilteredRangeBounds = {} as RangeBoundResults<RangeFields>;
@@ -324,6 +332,9 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         return objKeys(super.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
             const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
+            if (!config.aggsEnabled) {
+                return acc;
+            }
             if (config.getRangeBounds) {
                 return {
                     ...acc,
@@ -351,7 +362,9 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         return objKeys(super.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
             const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
-
+            if (!config.aggsEnabled) {
+                return acc;
+            }
             if (config.getDistribution) {
                 if (!config.rangeInterval) {
                     throw new Error(`rangeInterval must be specified for ${name}`);
@@ -383,7 +396,8 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
             const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
 
-            if (config.getRangeBounds) {
+            if (config.getRangeBounds && response.aggregations) {
+                console.log('resssss', response);
                 const minResult = response.aggregations[`${name}__min`];
                 const maxResult = response.aggregations[`${name}__max`];
                 if (
@@ -438,7 +452,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
             const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
 
-            if (config.getDistribution) {
+            if (config.getDistribution && response.aggregations) {
                 const histResult = response.aggregations[`${name}__hist`];
                 if (histResult && isHistResult(histResult)) {
                     return {

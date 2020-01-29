@@ -132,7 +132,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
 
         reaction(
             () => this.fieldNamesAndTypes,
-            fieldNamesAndTypes => {
+            (fieldNamesAndTypes: Record<string, ESMappingType>) => {
                 Object.keys(fieldNamesAndTypes).forEach(fieldName => {
                     const type = fieldNamesAndTypes[fieldName];
                     if (type === 'long' || type === 'double' || type === 'integer') {
@@ -141,7 +141,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
                 });
             }
         );
-        // );
     }
 
     /**
@@ -185,6 +184,12 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         });
     };
 
+    public formatResponse = (
+        response: ESResponse<ResultObject>
+    ): Required<ESResponse<ResultObject>> => {
+        return {aggregations: {}, ...response};
+    };
+
     /**
      * Executes a query that runs on instantiation.
      * This query is used to get the unfiltered aggs, which describe the shape of the
@@ -200,18 +205,18 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
 
             const request = this._createStartRequest(BLANK_ES_REQUEST);
             const response = await this.client.search(removeEmptyArrays(request));
-            this._saveQueryResults(response);
-            this._extractStateFromStartResponse(response);
+            const formattedResponse = this.formatResponse(response);
+            this._saveQueryResults(formattedResponse);
+            this._extractStateFromStartResponse(formattedResponse);
 
             // Timeout used as the debounce time.
             await Timeout.set(this.queryDebounceInMS);
-
-            // Since the filters have changed, we should set the cursor back to
-            // the first page.
-            this._setCursorToFirstPage();
         } catch (e) {
             throw e;
         } finally {
+            // Since the filters have changed, we should set the cursor back to
+            // the first page.
+            this._setCursorToFirstPage();
             runInAction(() => {
                 this.startQueryRunning = false;
             });
@@ -219,13 +224,14 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     };
 
     public _createStartRequest = (blankRequest: ESRequest): ESRequest => {
-        return objKeys(this.filters).reduce((request, filterName) => {
+        const startRequest = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
             if (!filter) {
                 return request;
             }
             return filter.startRequestTransform(request);
         }, blankRequest);
+        return this._addPageSizeToQuery(startRequest);
     };
 
     public _extractStateFromStartResponse = (response: ESResponse<ResultObject>): void => {
@@ -260,13 +266,12 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
 
             // Timeout used as the debounce time.
             await Timeout.set(this.queryDebounceInMS);
-
-            // Since the filters have changed, we should set the cursor back to
-            // the first page.
-            this._setCursorToFirstPage();
         } catch (e) {
             throw e;
         } finally {
+            // Since the filters have changed, we should set the cursor back to
+            // the first page.
+            this._setCursorToFirstPage();
             runInAction(() => {
                 this.filterQueryRunning = false;
             });
@@ -283,7 +288,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             return filter.filterRequestTransform(request);
         }, blankRequest);
 
-        return this._addPageSizeToFilterQuery(requestWithFilters);
+        return this._addPageSizeToQuery(requestWithFilters);
     };
 
     public _extractStateFromFilterResponse = (response: ESResponse<ResultObject>): void => {
@@ -317,15 +322,14 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             this._saveQueryResults(response);
 
             await Timeout.set(this.queryDebounceInMS);
-
+        } catch (e) {
+            throw e;
+        } finally {
             if (direction === 'forward') {
                 this._incrementCursorToNextPage();
             } else {
                 this._decrementCursorToPrevPage();
             }
-        } catch (e) {
-            throw e;
-        } finally {
             runInAction(() => {
                 this.paginationQueryRunning = false;
             });
@@ -342,10 +346,10 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             return filter.paginationRequestTransform(request);
         }, blankRequest);
 
-        return this._addPageSizeToFilterQuery(requestWithFilters);
+        return this._addPageSizeToQuery(requestWithFilters);
     };
 
-    public _addPageSizeToFilterQuery = (request: ESRequest): ESRequest => {
+    public _addPageSizeToQuery = (request: ESRequest): ESRequest => {
         return {...request, size: this.pageSize, sort: ['_doc', '_score'], track_scores: true};
     };
 
@@ -463,7 +467,8 @@ decorate(Manager, {
     pageCursorInfo: observable,
     shouldEnqueueQuery: computed,
     isQueryRunning: computed,
-    _nextPageCursor: computed
+    _nextPageCursor: computed,
+    fieldNamesAndTypes: observable
 });
 
 export default Manager;
