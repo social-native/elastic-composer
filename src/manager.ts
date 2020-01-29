@@ -43,22 +43,26 @@ type ManagerOptions = {
     queryDebounceInMS?: number;
 };
 
+type QueryFn = (request: ESRequest) => ESRequest;
 class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends object = object> {
     public pageSize: number;
     public queryDebounceInMS: number;
     public filters: Filters<RangeFilter>;
     public results: Array<ESHit<ResultObject>>;
-    public enqueueStartQuery: boolean;
-    public enqueueFilteredQuery: boolean;
-    public enqueueForwardsPaginationQuery: boolean;
-    public enqueueBackwardsPaginationQuery: boolean;
-    public startQueryRunning: boolean;
-    public filterQueryRunning: boolean;
-    public paginationQueryRunning: boolean;
+    public sideEffectQueue: QueryFn[];
+    public isSideEffectRunning: boolean;
+
+    // public enqueueStartQuery: boolean;
+    // public enqueueFilteredQuery: boolean;
+    // public enqueueForwardsPaginationQuery: boolean;
+    // public enqueueBackwardsPaginationQuery: boolean;
+    // public startQueryRunning: boolean;
+    // public filterQueryRunning: boolean;
+    // public paginationQueryRunning: boolean;
     public client: IClient<ResultObject>;
     public currentPage: number;
     public pageCursorInfo: Record<number, ESRequestSortField>;
-    public fieldNamesAndTypes: Record<string, ESMappingType>;
+    public indexFieldNamesAndTypes: Record<string, ESMappingType>;
 
     constructor(
         client: IClient<ResultObject>,
@@ -70,19 +74,20 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         runInAction(() => {
             this.client = client;
             this.filters = filters;
-            this.enqueueStartQuery = false;
-            this.enqueueFilteredQuery = false;
-            this.enqueueForwardsPaginationQuery = false;
-            this.enqueueBackwardsPaginationQuery = false;
-            this.startQueryRunning = false;
-            this.filterQueryRunning = false;
-            this.paginationQueryRunning = false;
+            this.isSideEffectRunning = false;
+            // this.enqueueStartQuery = false;
+            // this.enqueueFilteredQuery = false;
+            // this.enqueueForwardsPaginationQuery = false;
+            // this.enqueueBackwardsPaginationQuery = false;
+            // this.startQueryRunning = false;
+            // this.filterQueryRunning = false;
+            // this.paginationQueryRunning = false;
             this.pageSize = (options && options.pageSize) || DEFAULT_MANAGER_OPTIONS.pageSize;
             this.queryDebounceInMS =
                 (options && options.queryDebounceInMS) || DEFAULT_MANAGER_OPTIONS.queryDebounceInMS;
             this.pageCursorInfo = {};
             this.currentPage = 0; // set to 0 b/c there are no results on init
-            this.fieldNamesAndTypes = {};
+            this.indexFieldNamesAndTypes = {};
         });
 
         /**
@@ -92,12 +97,15 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         reaction(
             () => {
                 return objKeys(this.filters).reduce((acc, filterName) => {
-                    return {acc, [filterName]: toJS(this.filters[filterName].filterAffectiveState)};
+                    return {
+                        acc,
+                        [filterName]: toJS(this.filters[filterName].enqueueFilteredQueryAndAggs)
+                    };
                 }, {});
             },
             () => {
                 runInAction(() => {
-                    this.enqueueFilteredQuery = true;
+                    this.enqueueFilteredQueryAndAggs;
                 });
             }
         );
@@ -106,41 +114,132 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
          * React to changes in query run state or requests to enqueue a query.
          * Run any queries that are enqueued.
          */
-        reaction(
-            () => this.isQueryRunning || this.shouldEnqueueQuery,
-            () => {
-                // tslint:disable-next-line
-                if (this.startQueryRunning === false && this.enqueueStartQuery) {
-                    this.runStartQuery();
-                } else if (this.filterQueryRunning === false && this.enqueueFilteredQuery) {
-                    this.runFilteredQuery();
-                } else if (
-                    this.paginationQueryRunning === false &&
-                    this.enqueueForwardsPaginationQuery
-                ) {
-                    this.runPaginationQuery('forward');
-                } else if (
-                    this.paginationQueryRunning === false &&
-                    this.enqueueBackwardsPaginationQuery
-                ) {
-                    this.runPaginationQuery('backwards');
-                } else {
-                    this.clearQueryQueues();
-                }
-            }
-        );
+        // reaction(
+        //     () => this.isQueryRunning || this.shouldEnqueueQuery,
+        //     () => {
+        //         // tslint:disable-next-line
+        //         if (this.startQueryRunning === false && this.enqueueStartQuery) {
+        //             this.runStartQuery();
+        //         } else if (this.filterQueryRunning === false && this.enqueueFilteredQuery) {
+        //             this.runFilteredQuery();
+        //         } else if (
+        //             this.paginationQueryRunning === false &&
+        //             this.enqueueForwardsPaginationQuery
+        //         ) {
+        //             this.runPaginationQuery('forward');
+        //         } else if (
+        //             this.paginationQueryRunning === false &&
+        //             this.enqueueBackwardsPaginationQuery
+        //         ) {
+        //             this.runPaginationQuery('backwards');
+        //         } else {
+        //             this.clearQueryQueues();
+        //         }
+        //     }
+        // );
 
         reaction(
-            () => this.fieldNamesAndTypes,
-            (fieldNamesAndTypes: Record<string, ESMappingType>) => {
-                Object.keys(fieldNamesAndTypes).forEach(fieldName => {
-                    const type = fieldNamesAndTypes[fieldName];
+            () => this.indexFieldNamesAndTypes,
+            (indexFieldNamesAndTypes: Record<string, ESMappingType>) => {
+                Object.keys(indexFieldNamesAndTypes).forEach(fieldName => {
+                    const type = indexFieldNamesAndTypes[fieldName];
                     if (type === 'long' || type === 'double' || type === 'integer') {
                         this.filters.range.addConfigForField(fieldName);
                     }
                 });
             }
         );
+
+        reaction(
+            () => [...this.sideEffectQueue],
+            () => {
+                const effect = this.shiftFirstEffectOffQueue()
+                if (effect.shouldDebounce) {
+                    const newEffect = this.findLastEffectOfKindAndRemoveAllOthersFromQueue(effect.kind)
+                    await runEffect(effect)
+                    await timeout(DEBOUNCE_TIMEOUT)
+                } else {
+                    await runEffect(effect)
+                }
+
+            }
+        )
+    }
+
+    /**
+     * Never used but is a possible permutation. Leave as a placeholder.
+     */
+    public enqueueUnfilteredQuery = () => {
+        throw new Error('Not implemented');
+    };
+
+    /**
+     * First time a filter is shown (if not initially)
+     *
+     * We need to get the baseline for the filter if it wasn't fetched during startup
+     * (b/c it was hidden)
+     *
+     * No debouncing - b/c we need to get very specific data
+     */
+    public enqueueUnfilteredAggs = (agg: aggregation) => {
+        this.batchAggsAndAddToQueue(effect({kind: 'unfilteredAggs', effect: this.runUnfilteredAggs, shouldDebounce: false}))
+    };
+
+    /**
+     * On startup
+     *
+     * We want the initial unfilteredQuery and the unfilteredAggs
+     *
+     * No debouncing - b/c its only run once
+     */
+    public enqueueUnfilteredQueryAndAggs = () => {
+        this.batchAggsAndAddToQueue(effect({kind: 'unfilteredQueryAndAggs', effect: this.runUnfilteredQueryAndAggs, shouldDebounce: false}));
+    };
+
+    /**
+     * Pagination
+     *
+     * Aggs aren't needed b/c they don't change during pagination
+     *
+     * Debouncing - b/c you want to get to where want to be, but not necessarily all the places in between
+     * Leading edge buffer - b/c of the same reasoning as above
+     */
+    public enqueueFilteredQuery = (pageDirection: 'forward' | 'backward') => {
+        this.addToQueue(
+            effect({
+                kind: 'filteredFilteredQuery',
+                effect: this.runFilteredQuery,
+                shouldDebounce: true,
+            })
+        );
+    };
+
+    /**
+     * Never used but is a possible permutation. Leave as a placeholder.
+     */
+    public enqueueFilteredAggs = () => {
+        throw new Error('Not implemented');
+    };
+
+    /**
+     * Every time a filter is changed
+     *
+     * Debouncing - b/c you want to get to where want to be, but not necessarily all the places in between
+     * Leading edge buffer - b/c of the same reasoning as above
+     */
+    public enqueueFilteredQueryAndAggs = () => {
+        this.batchAggsAndAddToQueue(
+            effect({
+                kind: 'filteredQueryAndAggs'
+                effect: this.runFilteredQueryAndAggs,
+                shouldDebounce: true,
+            })
+        );
+    };
+
+    public batchAggsAndAddToQueue = async (effect: SideEffectFn) => {
+        const batchedEffects = this.batchAggEffects(effect)
+        // this.addBatchedEffectsToQueueOverTime(batchedEffects, 1000) // add to queue every 1000
     }
 
     /**
@@ -149,7 +248,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     public getFieldNamesAndTypes = async () => {
         const mappings = await this.client.mapping();
         runInAction(() => {
-            this.fieldNamesAndTypes = mappings;
+            this.indexFieldNamesAndTypes = mappings;
         });
     };
 
@@ -468,7 +567,7 @@ decorate(Manager, {
     shouldEnqueueQuery: computed,
     isQueryRunning: computed,
     _nextPageCursor: computed,
-    fieldNamesAndTypes: observable
+    indexFieldNamesAndTypes: observable
 });
 
 export default Manager;
