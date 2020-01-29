@@ -77,16 +77,10 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     public queryThrottleInMS: number;
     public filters: Filters<RangeFilter>;
     public results: Array<ESHit<ResultObject>>;
+
     public sideEffectQueue: Array<EffectRequest<EffectKinds> | null>;
     public isSideEffectRunning: boolean;
 
-    // public enqueueStartQuery: boolean;
-    // public enqueueFilteredQuery: boolean;
-    // public enqueueForwardsPaginationQuery: boolean;
-    // public enqueueBackwardsPaginationQuery: boolean;
-    // public startQueryRunning: boolean;
-    // public filterQueryRunning: boolean;
-    // public paginationQueryRunning: boolean;
     public client: IClient<ResultObject>;
     public currentPage: number;
     public pageCursorInfo: Record<number, ESRequestSortField>;
@@ -97,20 +91,12 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         filters: Filters<RangeFilter>,
         options?: ManagerOptions
     ) {
-        console.log('hur manager');
-
         runInAction(() => {
             this.client = client;
             this.filters = filters;
             this.isSideEffectRunning = false;
             this.sideEffectQueue = [];
-            // this.enqueueStartQuery = false;
-            // this.enqueueFilteredQuery = false;
-            // this.enqueueForwardsPaginationQuery = false;
-            // this.enqueueBackwardsPaginationQuery = false;
-            // this.startQueryRunning = false;
-            // this.filterQueryRunning = false;
-            // this.paginationQueryRunning = false;
+
             this.pageSize = (options && options.pageSize) || DEFAULT_MANAGER_OPTIONS.pageSize;
             this.queryThrottleInMS =
                 (options && options.queryThrottleInMS) || DEFAULT_MANAGER_OPTIONS.queryThrottleInMS;
@@ -326,12 +312,12 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     };
 
     /**
-     * First time a filter is shown (if not initially)
+     * Used for batching aggs that are calculated the first time a filter is shown (if not initially)
      *
      * We need to get the baseline for the filter if it wasn't fetched during startup
      * (b/c it was hidden)
      *
-     * No debouncing - b/c we need to get very specific data
+     * No debouncing - b/c used in batching
      */
     public enqueueUnfilteredAggs = (agg: aggregation) => {
         this.addToQueue(
@@ -385,10 +371,21 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     };
 
     /**
-     * Never used but is a possible permutation. Leave as a placeholder.
+     * Used for batching aggs for a visible filter
+     *
+     *
+     * No debouncing - b/c used in batching
      */
-    public enqueueFilteredAggs = () => {
-        throw new Error('Not implemented');
+    public enqueueFilteredAggs = (agg: aggregation) => {
+        this.addToQueue(
+            createEffectRequest({
+                kind: 'filteredAggs',
+                effect: this.runFilteredAggs,
+                debounce: undefined,
+                throttle: this.queryThrottleInMS,
+                params: [agg]
+            })
+        );
     };
 
     /**
@@ -663,9 +660,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
 
     public prevPage = () => {
         this.enqueueFilteredQuery('backward');
-        // runInAction(() => {
-        //     this.enqueueBackwardsPaginationQuery = true;
-        // });
     };
 
     public _prevPageRequest = () => {
