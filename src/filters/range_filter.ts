@@ -14,14 +14,6 @@ const RANGE_CONFIG_DEFAULT = {
     aggsEnabled: false
 };
 
-// export type RangeConfigDefault = {
-//     defaultFilterKind: 'should' | 'must';
-//     getDistribution: boolean;
-//     getRangeBounds: boolean;
-//     rangeInterval: number;
-//     aggsEnabled: boolean;
-// };
-
 export type RangeConfig = {
     field: string;
     defaultFilterKind?: 'should' | 'must';
