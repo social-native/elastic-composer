@@ -11,21 +11,34 @@ import {
     PartialFieldConfigs
 } from '../types';
 
+type FieldSubscribers<Fields extends string> = (filterKind: string, fieldName: Fields) => void;
+
+type FieldUnfilteredStateFetched<Fields extends string> = Record<Fields, boolean>;
+
 class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extends object> {
     public fieldConfigDefault: Omit<Required<BaseConfig>, 'field'>;
     public fieldConfigs: FieldConfigs<Fields, Config>;
     public fieldKinds: FieldKinds<Fields>;
     public fieldFilters: FieldFilters<Fields, Filter>;
+    public fieldsThatHaveUnfilteredStateFetched: FieldUnfilteredStateFetched<Fields>;
+    public shouldUpdateUnfilteredAggsSubscribers: Array<FieldSubscribers<Fields>>;
+    public shouldUpdateFilteredAggsSubscribers: Array<FieldSubscribers<Fields>>;
+    public filterKind: string;
 
     constructor(
+        filterKind: string,
         defaultConfig: Omit<Required<BaseConfig>, 'field'>,
         specificConfigs?: PartialFieldConfigs<Fields, Config>
     ) {
         runInAction(() => {
+            this.filterKind = filterKind;
             this.fieldConfigDefault = defaultConfig;
             this.fieldFilters = {} as FieldFilters<Fields, Filter>;
             this.fieldKinds = {} as FieldKinds<Fields>;
             this.fieldConfigs = {} as FieldConfigs<Fields, Config>;
+            this.shouldUpdateUnfilteredAggsSubscribers = [];
+            this.shouldUpdateFilteredAggsSubscribers = [];
+            this.fieldsThatHaveUnfilteredStateFetched = {} as FieldUnfilteredStateFetched<Fields>;
             if (specificConfigs) {
                 this.setConfigs(specificConfigs);
             }
@@ -42,6 +55,18 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
         this.setAggsEnabledToFalse = this.setAggsEnabledToFalse.bind(this);
     }
 
+    public subscribeToShouldUpdateUnfilteredAggs = (subscriber: FieldSubscribers<Fields>) => {
+        runInAction(() => {
+            this.shouldUpdateUnfilteredAggsSubscribers.push(subscriber);
+        });
+    };
+
+    public subscribeToShouldUpdateFilteredAggs = (subscriber: FieldSubscribers<Fields>) => {
+        runInAction(() => {
+            this.shouldUpdateFilteredAggsSubscribers.push(subscriber);
+        });
+    };
+
     /**
      * State that affects the global filters
      *
@@ -49,6 +74,10 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
      * Ideally, this
      */
     public get filterAffectiveState(): object {
+        throw new Error('filterAffectiveState is not defined');
+    }
+
+    public get hasUnfilteredState(): object {
         throw new Error('filterAffectiveState is not defined');
     }
 
@@ -130,6 +159,10 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
                 [field]: {...this.fieldConfigs, aggsEnabled: true}
             });
         });
+        if (!this.fieldsThatHaveUnfilteredStateFetched[field]) {
+            this.shouldUpdateUnfilteredAggsSubscribers.forEach(s => s(this.filterKind, field));
+        }
+        this.shouldUpdateFilteredAggsSubscribers.forEach(s => s(this.filterKind, field));
     }
 
     public setAggsEnabledToFalse(field: Fields): void {
@@ -196,7 +229,11 @@ decorate(BaseFilter, {
     fields: computed,
     fieldConfigs: observable,
     fieldFilters: observable,
-    fieldKinds: observable
+    fieldKinds: observable,
+    fieldsThatHaveUnfilteredStateFetched: observable,
+    shouldUpdateUnfilteredAggsSubscribers: observable,
+    shouldUpdateFilteredAggsSubscribers: observable,
+    filterKind: observable
 });
 
 export default BaseFilter;

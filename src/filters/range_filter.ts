@@ -197,6 +197,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         specificConfigs?: RangeConfigs<RangeFields>
     ) {
         super(
+            'range',
             defaultConfig || (RANGE_CONFIG_DEFAULT as Omit<Required<RangeConfig>, 'field'>),
             specificConfigs as RangeConfigs<RangeFields>
         );

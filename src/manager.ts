@@ -417,7 +417,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * ***************************************************************************
      */
 
-    public batchAggsMiddleware = (request: ESRequest, effect: EffectRequest): ESRequest => {
+    public batchAggsMiddleware = (request: ESRequest, effect: EffectRequest<EffectKinds>): ESRequest => {
         if (!request.aggs) {
             return;
         }
@@ -448,9 +448,9 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         return firstRequest;
     };
 
-    public requestMiddleware = (request: ESRequest): ESRequest => {
+    public requestMiddleware = (request: ESRequest, effect: EffectRequest<EffectKinds>): ESRequest => {
         return [this.batchAggsMiddleware].reduce((newRequest, m) => {
-            return m(newRequest);
+            return m(newRequest, effect);
         }, request);
     };
     /**
