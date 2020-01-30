@@ -13,7 +13,7 @@ export type ESRequest = {
             should: object[];
         };
     };
-    aggs: object;
+    aggs: Record<string, any>;
     from?: number;
     size?: number;
     track_scores?: boolean;

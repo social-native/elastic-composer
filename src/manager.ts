@@ -4,6 +4,7 @@ import {ESRequest, ESResponse, IClient, ESHit, ESRequestSortField, ESMappingType
 import {objKeys} from './utils';
 import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx';
 import Timeout from 'await-timeout';
+import chunk from 'lodash.chunk';
 
 type Filters<RangeFilter extends RangeFilterClass<any>> = {
     range: RangeFilter;
@@ -46,6 +47,7 @@ type ManagerOptions = {
 type EffectInput<EffectKind extends string> = {
     kind: EffectKind;
     effect: QueryFn;
+    debouncedByKind?: string[];
     debounce?: 'leading' | 'trailing';
     throttle: number; // in miliseconds
     params: any[];
@@ -53,6 +55,7 @@ type EffectInput<EffectKind extends string> = {
 type EffectRequest<EffectKind extends string> = {
     kind: EffectKind;
     effect: QueryFn;
+    debouncedByKind?: string[];
     debounce?: 'leading' | 'trailing';
     throttle: number; // in miliseconds
     params: any[];
@@ -109,27 +112,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
          * React to state changes in the filters.
          * Run a new filter query.
          */
-        // reaction(() => {
-        //     return objKeys(this.filters).reduce((acc, filterName) => {
-        //         return {
-        //             acc,
-        //             [filterName]: toJS(this.filters[filterName].shouldRunFilteredQuery)
-        //         };
-        //     }, {});
-        // }, this.enqueueFilteredQuery);
-
-        /**
-         * Never used but is a possible permutation. Leave as a placeholder.
-         */
-        // reaction(() => {
-        //     return objKeys(this.filters).reduce((acc, filterName) => {
-        //         return {
-        //             acc,
-        //             [filterName]: toJS(this.filters[filterName].shouldRunFilteredAggs)
-        //         };
-        //     }, {});
-        // }, this.enqueueFilteredAggs);
-
         reaction(() => {
             return objKeys(this.filters).reduce((acc, filterName) => {
                 return {
@@ -138,64 +120,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
                 };
             }, {});
         }, this.enqueueFilteredQueryAndAggs);
-
-        /**
-         * Never used but is a possible permutation. Leave as a placeholder.
-         */
-        // reaction(() => {
-        //     return objKeys(this.filters).reduce((acc, filterName) => {
-        //         return {
-        //             acc,
-        //             [filterName]: toJS(this.filters[filterName].shouldRunUnfilteredQuery)
-        //         };
-        //     }, {});
-        // }, this.enqueueUnfilteredQuery);
-
-        // reaction(() => {
-        //     return objKeys(this.filters).reduce((acc, filterName) => {
-        //         return {
-        //             acc,
-        //             [filterName]: toJS(this.filters[filterName].shouldRunUnfilteredAggs)
-        //         };
-        //     }, {});
-        // }, this.enqueueUnfilteredAggs);
-
-        // reaction(() => {
-        //     return objKeys(this.filters).reduce((acc, filterName) => {
-        //         return {
-        //             acc,
-        //             [filterName]: toJS(this.filters[filterName].shouldRunUnfilteredQueryAndAggs)
-        //         };
-        //     }, {});
-        // }, this.enqueueUnfilteredQueryAndAggs);
-
-        /**
-         * React to changes in query run state or requests to enqueue a query.
-         * Run any queries that are enqueued.
-         */
-        // reaction(
-        //     () => this.isQueryRunning || this.shouldEnqueueQuery,
-        //     () => {
-        //         // tslint:disable-next-line
-        //         if (this.startQueryRunning === false && this.enqueueStartQuery) {
-        //             this.runStartQuery();
-        //         } else if (this.filterQueryRunning === false && this.enqueueFilteredQuery) {
-        //             this.runFilteredQuery();
-        //         } else if (
-        //             this.paginationQueryRunning === false &&
-        //             this.enqueueForwardsPaginationQuery
-        //         ) {
-        //             this.runPaginationQuery('forward');
-        //         } else if (
-        //             this.paginationQueryRunning === false &&
-        //             this.enqueueBackwardsPaginationQuery
-        //         ) {
-        //             this.runPaginationQuery('backwards');
-        //         } else {
-        //             this.clearQueryQueues();
-        //         }
-        //     }
-        // );
 
         reaction(
             () => this.indexFieldNamesAndTypes,
@@ -273,9 +197,18 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     ): void => {
         runInAction(() => {
             this.sideEffectQueue = this.sideEffectQueue.filter(
-                e => e && e.kind !== effectRequest.kind
+                e =>
+                    e &&
+                    e.kind !== effectRequest.kind &&
+                    // debounce other kinds.
+                    // this clears the queue of stale batched effect requests.
+                    !(e.debouncedByKind && e.debouncedByKind.includes(effectRequest.kind))
             );
         });
+    };
+
+    public runStart = () => {
+        this.enqueueUnfilteredQueryAndAggs();
     };
 
     /**
@@ -292,9 +225,15 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     /**
      *
      */
-    public addToQueue = (effect: EffectRequest<EffectKinds>) => {
+    public addToQueueLiFo = (effect: EffectRequest<EffectKinds>) => {
         runInAction(() => {
-            this.sideEffectQueue.push(effect);
+            this.sideEffectQueue = [effect, ...this.sideEffectQueue];
+        });
+    };
+
+    public addToQueueFiFo = (effect: EffectRequest<EffectKinds>) => {
+        runInAction(() => {
+            this.sideEffectQueue = [...this.sideEffectQueue, effect];
         });
     };
 
@@ -320,7 +259,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * No debouncing - b/c used in batching
      */
     public enqueueUnfilteredAggs = (agg: aggregation) => {
-        this.addToQueue(
+        this.addToQueueLiFo(
             createEffectRequest({
                 kind: 'unfilteredAggs',
                 effect: this.runUnfilteredAggs,
@@ -339,7 +278,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * No debouncing - b/c its only run once
      */
     public enqueueUnfilteredQueryAndAggs = () => {
-        this.addToQueue(
+        this.addToQueueLiFo(
             createEffectRequest({
                 kind: 'unfilteredQueryAndAggs',
                 effect: this.runUnfilteredQueryAndAggs,
@@ -359,9 +298,9 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * Leading edge buffer - b/c of the same reasoning as above
      */
     public enqueueFilteredQuery = (pageDirection: 'forward' | 'backward') => {
-        this.addToQueue(
+        this.addToQueueLiFo(
             createEffectRequest({
-                kind: 'filteredFilteredQuery',
+                kind: 'filteredQuery',
                 effect: this.runFilteredQuery,
                 params: [pageDirection],
                 debounce: 'trailing',
@@ -377,7 +316,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * No debouncing - b/c used in batching
      */
     public enqueueFilteredAggs = (agg: aggregation) => {
-        this.addToQueue(
+        this.addToQueueLiFo(
             createEffectRequest({
                 kind: 'filteredAggs',
                 effect: this.runFilteredAggs,
@@ -395,7 +334,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * Leading edge buffer - b/c of the same reasoning as above
      */
     public enqueueFilteredQueryAndAggs = () => {
-        this.addToQueue(
+        this.addToQueueLiFo(
             createEffectRequest({
                 kind: 'filteredQueryAndAggs',
                 effect: this.runFilteredQueryAndAggs,
@@ -474,34 +413,76 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
 
     /**
      * ***************************************************************************
+     * REQUEST MIDDLEWARE
+     * ***************************************************************************
+     */
+
+    public batchAggsMiddleware = (request: ESRequest, effect: EffectRequest): ESRequest => {
+        if (!request.aggs) {
+            return;
+        }
+
+        const aggregationKeys = Object.keys(request.aggs);
+        // const numberOfAggTerms = terms.length;
+        const batchedAggregationTerms = chunk(aggregationKeys, 6);
+
+        const batchedRequests = batchedAggregationTerms.map(terms => {
+            const batchAggregations = terms.reduce((agg, term) => {
+                agg[term] = request.aggs[term];
+            }, {} as Record<string, any>);
+            return {...request, aggs: batchAggregations};
+        });
+        const firstRequest = batchedRequests.shift();
+        batchedRequests.forEach(r => {
+            this.addToQueueFiFo(
+                createEffectRequest({
+                    kind: 'batchAggs',
+                    debouncedByKind: [effect.kind],
+                    debounce: undefined,
+                    throttle: 0,
+                    params: []
+                    request: r
+                })
+            );
+        });
+        return firstRequest;
+    };
+
+    public requestMiddleware = (request: ESRequest): ESRequest => {
+        return [this.batchAggsMiddleware].reduce((newRequest, m) => {
+            return m(newRequest);
+        }, request);
+    };
+    /**
+     * ***************************************************************************
      * REQUEST BUILDERS
      * ***************************************************************************
      */
 
     public _createUnfilteredQueryAndAggsRequest = (blankRequest: ESRequest): ESRequest => {
-        const startRequest = objKeys(this.filters).reduce((request, filterName) => {
+        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
             if (!filter) {
                 return request;
             }
             return filter.addUnfilteredQueryAndAggsToRequest(request);
         }, blankRequest);
-        return this._addPageSizeToQuery(startRequest);
+        return this._addPageSizeToQuery(this.requestMiddleware(fullRequest));
     };
 
     public _createUnfilteredAggsRequest = (blankRequest: ESRequest): ESRequest => {
-        const startRequest = objKeys(this.filters).reduce((request, filterName) => {
+        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
             if (!filter) {
                 return request;
             }
             return filter.addUnfilteredAggsToRequest(request);
         }, blankRequest);
-        return this._addPageSizeToQuery(startRequest);
+        return this._addPageSizeToQuery(this.requestMiddleware(fullRequest));
     };
 
     public _createFilteredQueryAndAggsRequest = (blankRequest: ESRequest): ESRequest => {
-        const requestWithFilters = objKeys(this.filters).reduce((request, filterName) => {
+        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
             if (!filter) {
                 return request;
@@ -510,11 +491,11 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             return filter.addFilteredQueryAndAggsToRequest(request);
         }, blankRequest);
 
-        return this._addPageSizeToQuery(requestWithFilters);
+        return this._addPageSizeToQuery(this.requestMiddleware(fullRequest));
     };
 
     public _createFilteredQueryRequest = (blankRequest: ESRequest): ESRequest => {
-        const requestWithFilters = objKeys(this.filters).reduce((request, filterName) => {
+        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
             if (!filter) {
                 return request;
@@ -523,7 +504,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             return filter.addFilteredQueryToRequest(request);
         }, blankRequest);
 
-        return this._addPageSizeToQuery(requestWithFilters);
+        return this._addPageSizeToQuery(this.requestMiddleware(fullRequest));
     };
 
     /**
