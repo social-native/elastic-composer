@@ -3,6 +3,7 @@ import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
 import BaseFilter from './base';
 import {decorateFilter} from './utils';
+
 /**
  * Range config
  */
@@ -215,33 +216,31 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      * Changes to this state is tracked by the manager so that it knows when to run a new filter query
      * Ideally, this
      */
-    public get filterAffectiveState(): object {
+    public get shouldRunFilteredQueryAndAggs(): object {
         return {filters: {...super.fieldFilters}, kinds: {...super.fieldKinds}};
     }
 
     /**
-     * Transforms the request obj that is created `onStart` with the addition of specific aggs
+     * ***************************************************************************
+     * REQUEST BUILDERS
+     * ***************************************************************************
      */
-    public startRequestTransform = (request: ESRequest): ESRequest => {
+
+    public _addUnfilteredQueryAndAggsToRequest = (request: ESRequest): ESRequest => {
         return [this.addDistributionsAggsToEsRequest, this.addBoundsAggsToEsRequest].reduce(
             (newRequest, fn) => fn(newRequest),
             request
         );
     };
 
-    /**
-     * Extracts state, relative to this filter type, from an elastic search response
-     */
-    public extractStateFromStartResponse = (response: ESResponse): void => {
-        [this.parseBoundsFromResponse, this.parseDistributionFromResponse].forEach(fn =>
-            fn(true, response)
+    public _addUnfilteredAggsToRequest = (request: ESRequest): ESRequest => {
+        return [this.addDistributionsAggsToEsRequest, this.addBoundsAggsToEsRequest].reduce(
+            (newRequest, fn) => fn(newRequest),
+            request
         );
     };
 
-    /**
-     * Transforms the request, run on filter state change, with the addition of specific aggs and queries
-     */
-    public filterRequestTransform = (request: ESRequest): ESRequest => {
+    public _addFilteredQueryAndAggsToRequest = (request: ESRequest): ESRequest => {
         return [
             this.addQueriesToESRequest,
             this.addDistributionsAggsToEsRequest,
@@ -249,36 +248,33 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         ].reduce((newRequest, fn) => fn(newRequest), request);
     };
 
+    public _addFilteredQueryToRequest = (request: ESRequest): ESRequest => {
+        return [this.addQueriesToESRequest].reduce((newRequest, fn) => fn(newRequest), request);
+    };
+
     /**
-     * Extracts state, relative to this filter type, from an elastic search response
+     * ***************************************************************************
+     * RESPONSE PARSERS
+     * ***************************************************************************
      */
-    public extractStateFromFilterResponse = (response: ESResponse): void => {
+
+    public _extractUnfilteredAggsStateFromResponse = (response: ESResponse): void => {
+        [this.parseBoundsFromResponse, this.parseDistributionFromResponse].forEach(fn =>
+            fn(true, response)
+        );
+    };
+
+    public _extractFilteredAggsStateFromResponse = (response: ESResponse): void => {
         [this.parseBoundsFromResponse, this.parseDistributionFromResponse].forEach(fn =>
             fn(false, response)
         );
     };
 
     /**
-     * Transforms the request, run on pagination change, with the addition of queries
+     * ***************************************************************************
+     * CUSTOM TO TEMPLATE
+     * ***************************************************************************
      */
-    public paginationRequestTransform = (request: ESRequest): ESRequest => {
-        return [this.addQueriesToESRequest].reduce((newRequest, fn) => fn(newRequest), request);
-    };
-
-    /**
-     * Returns any config obj that has the same filter name or field name as the passed in field
-     */
-    public findConfigForField = (field: RangeFields): RangeConfig | undefined => {
-        const foundFilterName = objKeys(super.fieldConfigs).find(filterName => {
-            const config = super.fieldConfigs[filterName];
-            return config.field === field || filterName === field;
-        });
-        if (foundFilterName) {
-            return super.fieldConfigs[foundFilterName];
-        } else {
-            return undefined;
-        }
-    };
 
     public addQueriesToESRequest = (request: ESRequest): ESRequest => {
         if (!super.fieldFilters) {

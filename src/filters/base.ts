@@ -1,4 +1,4 @@
-import {runInAction, set, observable, decorate, computed, toJS} from 'mobx';
+import {runInAction, set, observable, decorate, computed} from 'mobx';
 import {objKeys} from '../utils';
 import {
     BaseConfig,
@@ -11,8 +11,14 @@ import {
     PartialFieldConfigs
 } from '../types';
 
+/**
+ * A filter subscriber that will get notified when a field changes
+ */
 type FieldSubscribers<Fields extends string> = (filterKind: string, fieldName: Fields) => void;
 
+/**
+ * A record tracking whether the unfiltered state (baseline state) for a fields filter has been fetched from the DB
+ */
 type FieldUnfilteredStateFetched<Fields extends string> = Record<Fields, boolean>;
 
 class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extends object> {
@@ -21,8 +27,8 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
     public fieldKinds: FieldKinds<Fields>;
     public fieldFilters: FieldFilters<Fields, Filter>;
     public fieldsThatHaveUnfilteredStateFetched: FieldUnfilteredStateFetched<Fields>;
-    public shouldUpdateUnfilteredAggsSubscribers: Array<FieldSubscribers<Fields>>;
-    public shouldUpdateFilteredAggsSubscribers: Array<FieldSubscribers<Fields>>;
+    public _shouldUpdateUnfilteredAggsSubscribers: Array<FieldSubscribers<Fields>>;
+    public _shouldUpdateFilteredAggsSubscribers: Array<FieldSubscribers<Fields>>;
     public filterKind: string;
 
     constructor(
@@ -36,17 +42,17 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
             this.fieldFilters = {} as FieldFilters<Fields, Filter>;
             this.fieldKinds = {} as FieldKinds<Fields>;
             this.fieldConfigs = {} as FieldConfigs<Fields, Config>;
-            this.shouldUpdateUnfilteredAggsSubscribers = [];
-            this.shouldUpdateFilteredAggsSubscribers = [];
+            this._shouldUpdateUnfilteredAggsSubscribers = [];
+            this._shouldUpdateFilteredAggsSubscribers = [];
             this.fieldsThatHaveUnfilteredStateFetched = {} as FieldUnfilteredStateFetched<Fields>;
             if (specificConfigs) {
-                this.setConfigs(specificConfigs);
+                this._setConfigs(specificConfigs);
             }
         });
 
-        this.findConfigForField = this.findConfigForField.bind(this);
-        this.addConfigForField = this.addConfigForField.bind(this);
-        this.setConfigs = this.setConfigs.bind(this);
+        this._findConfigForField = this._findConfigForField.bind(this);
+        this._addConfigForField = this._addConfigForField.bind(this);
+        this._setConfigs = this._setConfigs.bind(this);
         this.setFilter = this.setFilter.bind(this);
         this.clearFilter = this.clearFilter.bind(this);
         this.setKind = this.setKind.bind(this);
@@ -55,71 +61,91 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
         this.setAggsEnabledToFalse = this.setAggsEnabledToFalse.bind(this);
     }
 
-    public subscribeToShouldUpdateUnfilteredAggs = (subscriber: FieldSubscribers<Fields>) => {
+    /**
+     * Subscribe to actions that should update a single fields unfiltered aggs state
+     */
+    public _subscribeToShouldUpdateUnfilteredAggs(subscriber: FieldSubscribers<Fields>) {
         runInAction(() => {
-            this.shouldUpdateUnfilteredAggsSubscribers.push(subscriber);
+            this._shouldUpdateUnfilteredAggsSubscribers.push(subscriber);
         });
-    };
-
-    public subscribeToShouldUpdateFilteredAggs = (subscriber: FieldSubscribers<Fields>) => {
-        runInAction(() => {
-            this.shouldUpdateFilteredAggsSubscribers.push(subscriber);
-        });
-    };
+    }
 
     /**
-     * State that affects the global filters
+     * Subscribe to actions that should update a single fields filtered aggs state
+     */
+    public _subscribeToShouldUpdateFilteredAggs(subscriber: FieldSubscribers<Fields>) {
+        runInAction(() => {
+            this._shouldUpdateFilteredAggsSubscribers.push(subscriber);
+        });
+    }
+
+    public get fields() {
+        return Object.keys(this.fieldConfigs);
+    }
+
+    /**
+     * State that should cause a global ES query request using all filters
      *
      * Changes to this state is tracked by the manager so that it knows when to run a new filter query
-     * Ideally, this
      */
-    public get filterAffectiveState(): object {
-        throw new Error('filterAffectiveState is not defined');
-    }
-
-    public get hasUnfilteredState(): object {
-        throw new Error('filterAffectiveState is not defined');
+    public get _shouldRunFilteredQueryAndAggs(): object {
+        throw new Error('_shouldRunFilteredQueryAndAggs is not defined');
     }
 
     /**
-     * Transforms the request obj that is created `onStart` with the addition of specific aggs
+     * Transforms the request obj.
+     *
+     * Adds aggs to the request, but no query.
      */
-    public startRequestTransform = (_request: ESRequest): ESRequest => {
-        throw new Error('startRequestTransform is not defined');
-    };
+    public _addUnfilteredQueryAndAggsToRequest(_request: ESRequest): ESRequest {
+        throw new Error('_addUnfilteredQueryAndAggsToRequest is not defined');
+    }
 
     /**
-     * Extracts state, relative to this filter type, from an elastic search response
+     * Transforms the request obj.
+     *
+     * Adds aggs to the request, but no query.
      */
-    public extractStateFromStartResponse = (_response: ESResponse): void => {
-        throw new Error('extractStateFromStartResponse is not defined');
-    };
+    public _addUnfilteredAggsToRequest(_request: ESRequest): ESRequest {
+        throw new Error('_addUnfilteredAggsToRequest is not defined');
+    }
 
     /**
-     * Transforms the request, run on filter state change, with the addition of specific aggs and queries
+     * Transforms the request obj.
+     *
+     * Adds query and aggs to the request.
      */
-    public filterRequestTransform = (_request: ESRequest): ESRequest => {
-        throw new Error('filterRequestTransform is not defined');
-    };
+    public _addFilteredQueryAndAggsToRequest(_request: ESRequest): ESRequest {
+        throw new Error('_addFilteredQueryAndAggsToRequest is not defined');
+    }
 
     /**
-     * Extracts state, relative to this filter type, from an elastic search response
+     * Transforms the request obj.
+     *
+     * Adds query to the request, but no aggs.
      */
-    public extractStateFromFilterResponse = (_response: ESResponse): void => {
-        throw new Error('extractStateFromFilterResponse is not defined');
-    };
+    public _addFilteredQueryToRequest(_request: ESRequest): ESRequest {
+        throw new Error('_addFilteredQueryToRequest is not defined');
+    }
 
     /**
-     * Transforms the request, run on pagination change, with the addition of queries
+     * Extracts unfiltered agg stats from a response obj.
      */
-    public paginationRequestTransform = (_request: ESRequest): ESRequest => {
-        throw new Error('paginationRequestTransform is not defined');
-    };
+    public _extractUnfilteredAggsStateFromResponse(_response: ESResponse): void {
+        throw new Error('_extractUnfilteredAggsStateFromResponse is not defined');
+    }
+
+    /**
+     * Extracts filtered agg stats from a response obj.
+     */
+    public _extractFilteredAggsStateFromResponse(_response: ESResponse): void {
+        throw new Error('_extractFilteredAggsStateFromResponse is not defined');
+    }
 
     /**
      * Returns any config obj that has the same filter name or field name as the passed in field
      */
-    public findConfigForField(field: Fields): Config | undefined {
+    public _findConfigForField(field: Fields): Config | undefined {
         const foundFilterName = objKeys(this.fieldConfigs).find(filterName => {
             const config = this.fieldConfigs[filterName];
             return config.field === field || filterName === field;
@@ -134,11 +160,11 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
      * Creates configs for the passed in fields.
      * Uses the default config unless an override config has already been specified.
      */
-    public addConfigForField(field: Fields): void {
+    public _addConfigForField(field: Fields): void {
         if (Object.keys(this.fieldConfigs).length > 3) {
             return;
         }
-        const configAlreadyExists = this.findConfigForField(field);
+        const configAlreadyExists = this._findConfigForField(field);
         if (!configAlreadyExists) {
             runInAction(() => {
                 set(this.fieldConfigs, {
@@ -146,13 +172,12 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
                 });
             });
         }
-        console.log(toJS(this.fieldConfigs));
     }
 
-    public get fields() {
-        return Object.keys(this.fieldConfigs);
-    }
-
+    /**
+     * Updates a fields config such that aggs will be included when a manager asks this
+     * filter to add aggs to a request object.
+     */
     public setAggsEnabledToTrue(field: Fields): void {
         runInAction(() => {
             set(this.fieldConfigs, {
@@ -160,11 +185,15 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
             });
         });
         if (!this.fieldsThatHaveUnfilteredStateFetched[field]) {
-            this.shouldUpdateUnfilteredAggsSubscribers.forEach(s => s(this.filterKind, field));
+            this._shouldUpdateUnfilteredAggsSubscribers.forEach(s => s(this.filterKind, field));
         }
-        this.shouldUpdateFilteredAggsSubscribers.forEach(s => s(this.filterKind, field));
+        this._shouldUpdateFilteredAggsSubscribers.forEach(s => s(this.filterKind, field));
     }
 
+    /**
+     * Updates a fields config such that aggs will NOT be included when a manager asks this
+     * filter to add aggs to a request object.
+     */
     public setAggsEnabledToFalse(field: Fields): void {
         runInAction(() => {
             set(this.fieldConfigs, {
@@ -174,9 +203,9 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
     }
 
     /**
-     * Sets the config for a filter
+     * Sets the config for a filter.
      */
-    public setConfigs(fieldConfigs: PartialFieldConfigs<Fields, Config>): void {
+    public _setConfigs(fieldConfigs: PartialFieldConfigs<Fields, Config>): void {
         runInAction(() => {
             this.fieldConfigs = objKeys(fieldConfigs).reduce((parsedConfig, field: Fields) => {
                 const config = fieldConfigs[field] as Config;
@@ -190,6 +219,9 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
         });
     }
 
+    /**
+     * Sets a filter for a field.
+     */
     public setFilter(field: Fields, filter: Filter): void {
         runInAction(() => {
             set(this.fieldFilters, {
@@ -198,12 +230,18 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
         });
     }
 
+    /**
+     * Clears a filter for a field.
+     */
     public clearFilter(field: Fields): void {
         runInAction(() => {
             delete this.fieldFilters[field];
         });
     }
 
+    /**
+     * Sets the kind for a field. For example, this is how you change a field from 'must' to 'should' and vice versa.
+     */
     public setKind(field: Fields, kind: FilterKind): void {
         runInAction(() => {
             this.fieldKinds[field] = kind;
@@ -225,14 +263,15 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
 }
 
 decorate(BaseFilter, {
-    filterAffectiveState: computed,
     fields: computed,
+    _shouldRunFilteredQueryAndAggs: computed,
+    fieldConfigDefault: observable,
     fieldConfigs: observable,
-    fieldFilters: observable,
     fieldKinds: observable,
+    fieldFilters: observable,
     fieldsThatHaveUnfilteredStateFetched: observable,
-    shouldUpdateUnfilteredAggsSubscribers: observable,
-    shouldUpdateFilteredAggsSubscribers: observable,
+    _shouldUpdateUnfilteredAggsSubscribers: observable,
+    _shouldUpdateFilteredAggsSubscribers: observable,
     filterKind: observable
 });
 
