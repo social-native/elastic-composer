@@ -211,12 +211,11 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
     }
 
     /**
-     * State that affects the global filters
+     * State that should cause a global ES query request using all filters
      *
      * Changes to this state is tracked by the manager so that it knows when to run a new filter query
-     * Ideally, this
      */
-    public get shouldRunFilteredQueryAndAggs(): object {
+    public get _shouldRunFilteredQueryAndAggs(): object {
         return {filters: {...super.fieldFilters}, kinds: {...super.fieldKinds}};
     }
 
@@ -226,30 +225,50 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      * ***************************************************************************
      */
 
+    /**
+     * Transforms the request obj.
+     *
+     * Adds aggs to the request, but no query.
+     */
     public _addUnfilteredQueryAndAggsToRequest = (request: ESRequest): ESRequest => {
-        return [this.addDistributionsAggsToEsRequest, this.addBoundsAggsToEsRequest].reduce(
+        return [this._addDistributionsAggsToEsRequest, this._addBoundsAggsToEsRequest].reduce(
             (newRequest, fn) => fn(newRequest),
             request
         );
     };
 
+    /**
+     * Transforms the request obj.
+     *
+     * Adds aggs to the request, but no query.
+     */
     public _addUnfilteredAggsToRequest = (request: ESRequest): ESRequest => {
-        return [this.addDistributionsAggsToEsRequest, this.addBoundsAggsToEsRequest].reduce(
+        return [this._addDistributionsAggsToEsRequest, this._addBoundsAggsToEsRequest].reduce(
             (newRequest, fn) => fn(newRequest),
             request
         );
     };
 
+    /**
+     * Transforms the request obj.
+     *
+     * Adds query and aggs to the request.
+     */
     public _addFilteredQueryAndAggsToRequest = (request: ESRequest): ESRequest => {
         return [
-            this.addQueriesToESRequest,
-            this.addDistributionsAggsToEsRequest,
-            this.addBoundsAggsToEsRequest
+            this._addQueriesToESRequest,
+            this._addDistributionsAggsToEsRequest,
+            this._addBoundsAggsToEsRequest
         ].reduce((newRequest, fn) => fn(newRequest), request);
     };
 
+    /**
+     * Transforms the request obj.
+     *
+     * Adds query to the request, but no aggs.
+     */
     public _addFilteredQueryToRequest = (request: ESRequest): ESRequest => {
-        return [this.addQueriesToESRequest].reduce((newRequest, fn) => fn(newRequest), request);
+        return [this._addQueriesToESRequest].reduce((newRequest, fn) => fn(newRequest), request);
     };
 
     /**
@@ -258,14 +277,20 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      * ***************************************************************************
      */
 
+    /**
+     * Extracts unfiltered agg stats from a response obj.
+     */
     public _extractUnfilteredAggsStateFromResponse = (response: ESResponse): void => {
-        [this.parseBoundsFromResponse, this.parseDistributionFromResponse].forEach(fn =>
+        [this._parseBoundsFromResponse, this._parseDistributionFromResponse].forEach(fn =>
             fn(true, response)
         );
     };
 
+    /**
+     * Extracts filtered agg stats from a response obj.
+     */
     public _extractFilteredAggsStateFromResponse = (response: ESResponse): void => {
-        [this.parseBoundsFromResponse, this.parseDistributionFromResponse].forEach(fn =>
+        [this._parseBoundsFromResponse, this._parseDistributionFromResponse].forEach(fn =>
             fn(false, response)
         );
     };
@@ -276,7 +301,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      * ***************************************************************************
      */
 
-    public addQueriesToESRequest = (request: ESRequest): ESRequest => {
+    public _addQueriesToESRequest = (request: ESRequest): ESRequest => {
         if (!super.fieldFilters) {
             return request;
         }
@@ -317,7 +342,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         }, request);
     };
 
-    public addBoundsAggsToEsRequest = (request: ESRequest): ESRequest => {
+    public _addBoundsAggsToEsRequest = (request: ESRequest): ESRequest => {
         return objKeys(super.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
             const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
@@ -347,7 +372,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         }, request);
     };
 
-    public addDistributionsAggsToEsRequest = (request: ESRequest): ESRequest => {
+    public _addDistributionsAggsToEsRequest = (request: ESRequest): ESRequest => {
         return objKeys(super.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
             const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
@@ -376,7 +401,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         }, request);
     };
 
-    public parseBoundsFromResponse = (isUnfilteredQuery: boolean, response: ESResponse): void => {
+    public _parseBoundsFromResponse = (isUnfilteredQuery: boolean, response: ESResponse): void => {
         if (!super.fieldFilters) {
             return;
         }
@@ -386,7 +411,6 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
             const name = config.field;
 
             if (config.getRangeBounds && response.aggregations) {
-                console.log('resssss', response);
                 const minResult = response.aggregations[`${name}__min`];
                 const maxResult = response.aggregations[`${name}__max`];
                 if (
@@ -429,7 +453,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         }
     };
 
-    public parseDistributionFromResponse = (
+    public _parseDistributionFromResponse = (
         isUnfilteredQuery: boolean,
         response: ESResponse
     ): void => {

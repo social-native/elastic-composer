@@ -2,9 +2,15 @@ import {decorate, computed, observable} from 'mobx';
 
 export const decorateFilter = (filterClass: any) => {
     decorate(filterClass, {
-        filterAffectiveState: computed,
+        fields: computed,
+        _shouldRunFilteredQueryAndAggs: computed,
+        fieldConfigDefault: observable,
         fieldConfigs: observable,
+        fieldKinds: observable,
         fieldFilters: observable,
-        fieldKinds: observable
+        filterKind: observable,
+        _fieldsThatHaveUnfilteredStateFetched: observable,
+        _shouldUpdateUnfilteredAggsSubscribers: observable,
+        _shouldUpdateFilteredAggsSubscribers: observable
     });
 };
