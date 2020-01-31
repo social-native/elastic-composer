@@ -53,8 +53,10 @@ const creatorCRM = new Manager<typeof rangeFilter>(
     {pageSize: 10, queryThrottleInMS: 350}
 );
 
-creatorCRM.runStartQuery();
 creatorCRM.getFieldNamesAndTypes();
+setTimeout(() => {
+    creatorCRM.runStartQuery();
+}, 3000);
 
 setTimeout(() => {
     console.log('fields found', creatorCRM.filters.range.fields);

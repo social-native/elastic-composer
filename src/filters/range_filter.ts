@@ -1,4 +1,4 @@
-import {runInAction, decorate, observable} from 'mobx';
+import {runInAction, decorate, observable, toJS} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
 import BaseFilter from './base';
@@ -12,7 +12,7 @@ const RANGE_CONFIG_DEFAULT = {
     getDistribution: true,
     getRangeBounds: true,
     rangeInterval: 1,
-    aggsEnabled: false
+    aggsEnabled: true
 };
 
 export type RangeConfig = {
@@ -202,6 +202,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
             defaultConfig || (RANGE_CONFIG_DEFAULT as Omit<Required<RangeConfig>, 'field'>),
             specificConfigs as RangeConfigs<RangeFields>
         );
+        console.log('*******', super.fieldConfigs);
         runInAction(() => {
             this.filteredRangeBounds = {} as RangeBoundResults<RangeFields>;
             this.unfilteredRangeBounds = {} as RangeBoundResults<RangeFields>;
@@ -231,10 +232,13 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      * Adds aggs to the request, but no query.
      */
     public _addUnfilteredQueryAndAggsToRequest = (request: ESRequest): ESRequest => {
-        return [this._addDistributionsAggsToEsRequest, this._addBoundsAggsToEsRequest].reduce(
+        console.log('DOING _addUnfilteredQueryAndAggsToRequest');
+        const b = [this._addDistributionsAggsToEsRequest, this._addBoundsAggsToEsRequest].reduce(
             (newRequest, fn) => fn(newRequest),
             request
         );
+        console.log('OKAY', b);
+        return b;
     };
 
     /**
@@ -398,11 +402,14 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         request: ESRequest,
         fieldToFilterOn?: string
     ): ESRequest => {
+        console.log('YUUUP', toJS(super.fieldConfigs));
         // tslint:disable-next-line
         return objKeys(super.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
             if (fieldToFilterOn && rangeFieldName !== fieldToFilterOn) {
+                console.log('existing');
                 return acc;
             }
+            console.log('inside here HEERRRREEEE');
             const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
             if (!config.aggsEnabled) {
