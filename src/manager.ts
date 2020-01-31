@@ -152,14 +152,30 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             }
         );
 
-        reaction(() => [...this.sideEffectQueue] && this.isSideEffectRunning, this.tryToRunEffect);
+        reaction(
+            () => ({
+                queue: [...this.sideEffectQueue],
+                isSideEffectRunning: !!this.isSideEffectRunning
+            }),
+            data => {
+                if (data.isSideEffectRunning === false) {
+                    this.tryToRunEffect();
+                    console.log(' reacting');
+                }
+
+                console.log('not reacting');
+            }
+        );
     }
 
     public tryToRunEffect = () => {
+        console.log('Trying to run effect');
         if (this.isSideEffectRunning) {
             return;
         }
         const effect = this.shiftFirstEffectOffQueue();
+        console.log('Effect to run', toJS(effect));
+
         if (!effect) {
             return;
         } else {
@@ -226,10 +242,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         });
     };
 
-    public runStart = () => {
-        this.enqueueUnfilteredQueryAndAggs();
-    };
-
     /**
      *
      */
@@ -248,6 +260,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         runInAction(() => {
             this.sideEffectQueue = [effect, ...this.sideEffectQueue];
         });
+        console.log('new queue', this.sideEffectQueue);
     };
 
     public addToQueueFiFo = (effect: EffectRequest<EffectKinds>) => {
@@ -294,16 +307,23 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      *
      * No debouncing - b/c its only run once
      */
+
+    public runStartQuery = () => {
+        console.log('runnign start');
+
+        this.enqueueUnfilteredQueryAndAggs();
+    };
+
     public enqueueUnfilteredQueryAndAggs = () => {
-        this.addToQueueLiFo(
-            createEffectRequest({
-                kind: 'unfilteredQueryAndAggs',
-                effect: this.runUnfilteredQueryAndAggs,
-                debounce: undefined,
-                throttle: 0,
-                params: []
-            })
-        );
+        const r = createEffectRequest({
+            kind: 'unfilteredQueryAndAggs',
+            effect: this.runUnfilteredQueryAndAggs,
+            debounce: undefined,
+            throttle: 0,
+            params: []
+        });
+        console.log(r);
+        this.addToQueueLiFo(r);
     };
 
     /**
@@ -438,7 +458,9 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         effectRequest: EffectRequest<EffectKinds>,
         request: ESRequest
     ): ESRequest => {
-        if (!request.aggs) {
+        console.log('BATCHING', request);
+        if (!request.aggs || Object.keys(request.aggs).length === 0) {
+            console.log('no aggs found. existing aggs middleware');
             return request;
         }
 
@@ -455,6 +477,8 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             }, {} as Record<string, any>);
             return {...request, aggs: batchAggregations};
         });
+
+        console.log('BATCHED REQUESTS', batchedRequests);
         const firstRequest = batchedRequests.shift() as ESRequest; // this should always exist
         batchedRequests.forEach(r => {
             // add FiFo so its easy to debounce these in case
@@ -571,7 +595,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
 
     public _createFilteredQueryRequest = (
         effectRequest: EffectRequest<EffectKinds>,
-        blankRequest: ESRequest
+        startingRequest: ESRequest
     ): ESRequest => {
         const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
@@ -580,8 +604,9 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             }
 
             return filter._addFilteredQueryToRequest(request);
-        }, blankRequest);
+        }, startingRequest);
 
+        console.log('fulllll request', fullRequest);
         // We want:
         // - a page of results
         // - the results to be sorted
@@ -665,7 +690,9 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             const startingRequest =
                 direction === 'forward' ? this._nextPageRequest() : this._prevPageRequest();
 
+            console.log('paginating', startingRequest);
             const request = this._createFilteredQueryRequest(effectRequest, startingRequest);
+            console.log('paginating request', request);
             const response = await this.client.search(removeEmptyArrays(request));
 
             // Save the results

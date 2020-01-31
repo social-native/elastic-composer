@@ -42,13 +42,15 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
             this.fieldFilters = {} as FieldFilters<Fields, Filter>;
             this.fieldKinds = {} as FieldKinds<Fields>;
             this.fieldConfigs = {} as FieldConfigs<Fields, Config>;
+
             this._shouldUpdateUnfilteredAggsSubscribers = [];
             this._shouldUpdateFilteredAggsSubscribers = [];
             this._fieldsThatHaveUnfilteredStateFetched = {} as FieldUnfilteredStateFetched<Fields>;
-            if (specificConfigs) {
-                this._setConfigs(specificConfigs);
-            }
         });
+
+        if (specificConfigs) {
+            this._setConfigs(specificConfigs);
+        }
 
         this._subscribeToShouldUpdateUnfilteredAggs = this._subscribeToShouldUpdateUnfilteredAggs.bind(
             this
@@ -277,17 +279,17 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
     }
 }
 
-decorate(BaseFilter, {
-    fields: computed,
-    _shouldRunFilteredQueryAndAggs: computed,
-    fieldConfigDefault: observable,
-    fieldConfigs: observable,
-    fieldKinds: observable,
-    fieldFilters: observable,
-    filterKind: observable,
-    _fieldsThatHaveUnfilteredStateFetched: observable,
-    _shouldUpdateUnfilteredAggsSubscribers: observable,
-    _shouldUpdateFilteredAggsSubscribers: observable
-});
+// decorate(BaseFilter, {
+//     fields: computed,
+//     _shouldRunFilteredQueryAndAggs: computed,
+//     fieldConfigDefault: observable,
+//     fieldConfigs: observable,
+//     fieldKinds: observable,
+//     fieldFilters: observable,
+//     filterKind: observable,
+//     _fieldsThatHaveUnfilteredStateFetched: observable,
+//     _shouldUpdateUnfilteredAggsSubscribers: observable,
+//     _shouldUpdateFilteredAggsSubscribers: observable
+// });
 
 export default BaseFilter;

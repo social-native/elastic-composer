@@ -2,7 +2,7 @@ import {decorate, computed, observable} from 'mobx';
 
 export const decorateFilter = (filterClass: any) => {
     decorate(filterClass, {
-        fields: computed,
+        // fields: computed,
         _shouldRunFilteredQueryAndAggs: computed,
         fieldConfigDefault: observable,
         fieldConfigs: observable,

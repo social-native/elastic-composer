@@ -50,7 +50,7 @@ const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
 const creatorCRM = new Manager<typeof rangeFilter>(
     client,
     {range: rangeFilter},
-    {pageSize: 10, queryDebounceInMS: 350}
+    {pageSize: 10, queryThrottleInMS: 350}
 );
 
 creatorCRM.runStartQuery();

@@ -11,5 +11,5 @@ configure({
     computedRequiresReaction: true,
     reactionRequiresObservable: true,
     enforceActions: 'always',
-    isolateGlobalState: true
+    isolateGlobalState: false
 });
