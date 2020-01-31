@@ -112,7 +112,16 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
      *
      * Adds aggs to the request, but no query.
      */
-    public _addUnfilteredAggsToRequest(_request: ESRequest): ESRequest {
+    public _addFilteredAggsToRequest(_request: ESRequest, _fieldToFilterOn: string): ESRequest {
+        throw new Error('_addFilteredAggsToRequest is not defined');
+    }
+
+    /**
+     * Transforms the request obj.
+     *
+     * Adds aggs to the request, but no query.
+     */
+    public _addUnfilteredAggsToRequest(_request: ESRequest, _fieldToFilterOn: string): ESRequest {
         throw new Error('_addUnfilteredAggsToRequest is not defined');
     }
 

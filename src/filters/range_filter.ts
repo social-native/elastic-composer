@@ -242,11 +242,27 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      *
      * Adds aggs to the request, but no query.
      */
-    public _addUnfilteredAggsToRequest = (request: ESRequest): ESRequest => {
+    public _addUnfilteredAggsToRequest = (
+        request: ESRequest,
+        fieldToFilterOn: string
+    ): ESRequest => {
         return [this._addDistributionsAggsToEsRequest, this._addBoundsAggsToEsRequest].reduce(
-            (newRequest, fn) => fn(newRequest),
+            (newRequest, fn) => fn(newRequest, fieldToFilterOn),
             request
         );
+    };
+
+    /**
+     * Transforms the request obj.
+     *
+     * Adds aggs to the request, but no query.
+     */
+    public _addFilteredAggsToRequest = (request: ESRequest, fieldToFilterOn: string): ESRequest => {
+        return [
+            this._addQueriesToESRequest,
+            this._addDistributionsAggsToEsRequest,
+            this._addBoundsAggsToEsRequest
+        ].reduce((newRequest, fn) => fn(newRequest, fieldToFilterOn), request);
     };
 
     /**
@@ -342,8 +358,14 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         }, request);
     };
 
-    public _addBoundsAggsToEsRequest = (request: ESRequest): ESRequest => {
+    public _addBoundsAggsToEsRequest = (
+        request: ESRequest,
+        fieldToFilterOn?: string
+    ): ESRequest => {
         return objKeys(super.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
+            if (fieldToFilterOn && rangeFieldName !== fieldToFilterOn) {
+                return acc;
+            }
             const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
             if (!config.aggsEnabled) {
@@ -372,8 +394,15 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         }, request);
     };
 
-    public _addDistributionsAggsToEsRequest = (request: ESRequest): ESRequest => {
+    public _addDistributionsAggsToEsRequest = (
+        request: ESRequest,
+        fieldToFilterOn?: string
+    ): ESRequest => {
+        // tslint:disable-next-line
         return objKeys(super.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
+            if (fieldToFilterOn && rangeFieldName !== fieldToFilterOn) {
+                return acc;
+            }
             const config = super.fieldConfigs[rangeFieldName];
             const name = config.field;
             if (!config.aggsEnabled) {

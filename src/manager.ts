@@ -6,6 +6,18 @@ import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx'
 import Timeout from 'await-timeout';
 import chunk from 'lodash.chunk';
 
+/**
+ * How the naming works:
+ *
+ * [un]filtered - whether the query section has a filter applied
+ * query - whether results (hits) come back in the query section
+ * aggs - whether aggregations come bck in the aggs section
+ *
+ * Ex:
+ * filteredQueryAggs - would have a query filter applied, hits returned,  and aggs on the result set
+ * filteredAggs - would have a query filter applied,  no hits returned, and aggs on the result set
+ */
+
 type Filters<RangeFilter extends RangeFilterClass<any>> = {
     range: RangeFilter;
 };
@@ -47,7 +59,7 @@ type ManagerOptions = {
 type EffectInput<EffectKind extends string> = {
     kind: EffectKind;
     effect: QueryFn;
-    debouncedByKind?: string[];
+    debouncedByKind?: EffectKind[];
     debounce?: 'leading' | 'trailing';
     throttle: number; // in miliseconds
     params: any[];
@@ -55,7 +67,7 @@ type EffectInput<EffectKind extends string> = {
 type EffectRequest<EffectKind extends string> = {
     kind: EffectKind;
     effect: QueryFn;
-    debouncedByKind?: string[];
+    debouncedByKind?: EffectKind[];
     debounce?: 'leading' | 'trailing';
     throttle: number; // in miliseconds
     params: any[];
@@ -66,6 +78,7 @@ const createEffectRequest = <EffectKind extends string>(
 ): EffectRequest<EffectKind> => input;
 
 type EffectKinds =
+    | 'batchAggs'
     | 'unfilteredQuery'
     | 'unfilteredAggs'
     | 'unfilteredQueryAndAggs'
@@ -108,6 +121,12 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             this.indexFieldNamesAndTypes = {};
         });
 
+        objKeys(this.filters).forEach(filterName => {
+            const filter = this.filters[filterName];
+            filter._subscribeToShouldUpdateFilteredAggs(this.enqueueFilteredAggs);
+            filter._subscribeToShouldUpdateUnfilteredAggs(this.enqueueFilteredAggs);
+        });
+
         /**
          * React to state changes in the filters.
          * Run a new filter query.
@@ -116,7 +135,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             return objKeys(this.filters).reduce((acc, filterName) => {
                 return {
                     acc,
-                    [filterName]: toJS(this.filters[filterName].shouldRunFilteredQueryAndAggs)
+                    [filterName]: toJS(this.filters[filterName]._shouldRunFilteredQueryAndAggs)
                 };
             }, {});
         }, this.enqueueFilteredQueryAndAggs);
@@ -127,7 +146,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
                 Object.keys(indexFieldNamesAndTypes).forEach(fieldName => {
                     const type = indexFieldNamesAndTypes[fieldName];
                     if (type === 'long' || type === 'double' || type === 'integer') {
-                        this.filters.range.addConfigForField(fieldName);
+                        this.filters.range._addConfigForField(fieldName);
                     }
                 });
             }
@@ -167,9 +186,9 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
                 const newEffectRequest = this.findLastEffectOfKindAndRemoveAllOthersFromQueue(
                     effectRequest
                 );
-                await newEffectRequest.effect(...params);
+                await newEffectRequest.effect(effectRequest, ...params);
             } else {
-                await effectRequest.effect(...params);
+                await effectRequest.effect(effectRequest, ...params);
             }
         } catch (e) {
             throw e;
@@ -251,21 +270,19 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     };
 
     /**
-     * Used for batching aggs that are calculated the first time a filter is shown (if not initially)
-     *
      * We need to get the baseline for the filter if it wasn't fetched during startup
      * (b/c it was hidden)
      *
-     * No debouncing - b/c used in batching
+     * No debouncing - b/c we don't want the data request lost
      */
-    public enqueueUnfilteredAggs = (agg: aggregation) => {
+    public enqueueUnfilteredAggs = (filter: string, field: string) => {
         this.addToQueueLiFo(
             createEffectRequest({
                 kind: 'unfilteredAggs',
                 effect: this.runUnfilteredAggs,
                 debounce: undefined,
                 throttle: this.queryThrottleInMS,
-                params: [agg]
+                params: [filter, field]
             })
         );
     };
@@ -310,19 +327,19 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     };
 
     /**
-     * Used for batching aggs for a visible filter
-     *
+     * We need to get the current filter data for the filter if it was hidden.
      *
      * No debouncing - b/c used in batching
      */
-    public enqueueFilteredAggs = (agg: aggregation) => {
+    public enqueueFilteredAggs = (filter: string, field: string) => {
         this.addToQueueLiFo(
             createEffectRequest({
                 kind: 'filteredAggs',
+                debouncedByKind: ['filteredQueryAndAggs'],
                 effect: this.runFilteredAggs,
                 debounce: undefined,
                 throttle: this.queryThrottleInMS,
-                params: [agg]
+                params: [filter, field]
             })
         );
     };
@@ -397,7 +414,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             if (!filter) {
                 return;
             }
-            filter.extractUnfilteredAggsStateFromResponse(response);
+            filter._extractUnfilteredAggsStateFromResponse(response);
         });
     };
 
@@ -407,7 +424,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             if (!filter) {
                 return;
             }
-            filter.extractFilteredAggsStateFromResponse(response);
+            filter._extractFilteredAggsStateFromResponse(response);
         });
     };
 
@@ -417,94 +434,160 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * ***************************************************************************
      */
 
-    public batchAggsMiddleware = (request: ESRequest, effect: EffectRequest<EffectKinds>): ESRequest => {
+    public batchAggsMiddleware = (
+        effectRequest: EffectRequest<EffectKinds>,
+        request: ESRequest
+    ): ESRequest => {
         if (!request.aggs) {
-            return;
+            return request;
         }
 
         const aggregationKeys = Object.keys(request.aggs);
-        // const numberOfAggTerms = terms.length;
         const batchedAggregationTerms = chunk(aggregationKeys, 6);
 
         const batchedRequests = batchedAggregationTerms.map(terms => {
             const batchAggregations = terms.reduce((agg, term) => {
-                agg[term] = request.aggs[term];
+                const a = request.aggs[term];
+                if (a) {
+                    agg[term] = a;
+                }
+                return agg;
             }, {} as Record<string, any>);
             return {...request, aggs: batchAggregations};
         });
-        const firstRequest = batchedRequests.shift();
+        const firstRequest = batchedRequests.shift() as ESRequest; // this should always exist
         batchedRequests.forEach(r => {
+            // add FiFo so its easy to debounce these in case
+            // a competing filter comes about
             this.addToQueueFiFo(
                 createEffectRequest({
                     kind: 'batchAggs',
-                    debouncedByKind: [effect.kind],
+                    debouncedByKind: [effectRequest.kind],
                     debounce: undefined,
+                    effect:
+                        effectRequest.kind === 'unfilteredAggs' ||
+                        effectRequest.kind === 'unfilteredQueryAndAggs'
+                            ? this.runUnfilteredBatchedAggs
+                            : this.runFilteredBatchedAggs,
                     throttle: 0,
-                    params: []
-                    request: r
+                    params: [r]
                 })
             );
         });
         return firstRequest;
     };
 
-    public requestMiddleware = (request: ESRequest, effect: EffectRequest<EffectKinds>): ESRequest => {
+    public requestMiddleware = (
+        effectRequest: EffectRequest<EffectKinds>,
+        request: ESRequest
+    ): ESRequest => {
         return [this.batchAggsMiddleware].reduce((newRequest, m) => {
-            return m(newRequest, effect);
-        }, request);
+            return m(effectRequest, newRequest);
+        }, request as ESRequest);
     };
+
     /**
      * ***************************************************************************
      * REQUEST BUILDERS
      * ***************************************************************************
      */
 
-    public _createUnfilteredQueryAndAggsRequest = (blankRequest: ESRequest): ESRequest => {
+    public _createUnfilteredQueryAndAggsRequest = (
+        effectRequest: EffectRequest<EffectKinds>,
+        blankRequest: ESRequest
+    ): ESRequest => {
         const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
             if (!filter) {
                 return request;
             }
-            return filter.addUnfilteredQueryAndAggsToRequest(request);
+            return filter._addUnfilteredQueryAndAggsToRequest(request);
         }, blankRequest);
-        return this._addPageSizeToQuery(this.requestMiddleware(fullRequest));
+
+        // We want:
+        // - a page of results
+        // - the results to be sorted
+        return this._addSortToQuery(
+            this._addPageSizeToQuery(this.requestMiddleware(effectRequest, fullRequest))
+        );
     };
 
-    public _createUnfilteredAggsRequest = (blankRequest: ESRequest): ESRequest => {
-        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
-            const filter = this.filters[filterName];
-            if (!filter) {
-                return request;
-            }
-            return filter.addUnfilteredAggsToRequest(request);
-        }, blankRequest);
-        return this._addPageSizeToQuery(this.requestMiddleware(fullRequest));
+    public _createFilteredAggsRequest = (
+        effectRequest: EffectRequest<EffectKinds>,
+        blankRequest: ESRequest,
+        filterName: string,
+        field: string
+    ): ESRequest => {
+        const filter = (this.filters as any)[filterName as any];
+        if (!filter) {
+            throw new Error('Tried to create an ESRequest for a filter that doesnt exist');
+        }
+        const fullRequest = filter._addFilteredAggsToRequest(blankRequest, field);
+
+        // We want:
+        // - no results
+        // - the results to be sorted
+        return this._addZeroPageSizeToQuery(this.requestMiddleware(effectRequest, fullRequest));
     };
 
-    public _createFilteredQueryAndAggsRequest = (blankRequest: ESRequest): ESRequest => {
-        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
-            const filter = this.filters[filterName];
-            if (!filter) {
-                return request;
-            }
+    public _createUnfilteredAggsRequest = (
+        effectRequest: EffectRequest<EffectKinds>,
+        blankRequest: ESRequest,
+        filterName: string,
+        field: string
+    ): ESRequest => {
+        const filter = (this.filters as any)[filterName as any];
+        if (!filter) {
+            throw new Error('Tried to create an ESRequest for a filter that doesnt exist');
+        }
+        const fullRequest = filter._addUnfilteredAggsToRequest(blankRequest, field);
 
-            return filter.addFilteredQueryAndAggsToRequest(request);
-        }, blankRequest);
-
-        return this._addPageSizeToQuery(this.requestMiddleware(fullRequest));
+        // We want:
+        // - no results
+        // - the results to be sorted
+        return this._addZeroPageSizeToQuery(this.requestMiddleware(effectRequest, fullRequest));
     };
 
-    public _createFilteredQueryRequest = (blankRequest: ESRequest): ESRequest => {
+    public _createFilteredQueryAndAggsRequest = (
+        effectRequest: EffectRequest<EffectKinds>,
+        blankRequest: ESRequest
+    ): ESRequest => {
         const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
             if (!filter) {
                 return request;
             }
 
-            return filter.addFilteredQueryToRequest(request);
+            return filter._addFilteredQueryAndAggsToRequest(request);
         }, blankRequest);
 
-        return this._addPageSizeToQuery(this.requestMiddleware(fullRequest));
+        // We want:
+        // - a page of results
+        // - the results to be sorted
+        return this._addSortToQuery(
+            this._addPageSizeToQuery(this.requestMiddleware(effectRequest, fullRequest))
+        );
+    };
+
+    public _createFilteredQueryRequest = (
+        effectRequest: EffectRequest<EffectKinds>,
+        blankRequest: ESRequest
+    ): ESRequest => {
+        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            if (!filter) {
+                return request;
+            }
+
+            return filter._addFilteredQueryToRequest(request);
+        }, blankRequest);
+
+        // We want:
+        // - a page of results
+        // - the results to be sorted
+        return this._addSortToQuery(
+            this._addPageSizeToQuery(this.requestMiddleware(effectRequest, fullRequest))
+        );
     };
 
     /**
@@ -519,9 +602,12 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * total data set.
      * This query will have no `query` component but likely have an `ags` component.
      */
-    public runUnfilteredQueryAndAggs = async () => {
+    public runUnfilteredQueryAndAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
         try {
-            const request = this._createUnfilteredQueryAndAggsRequest(BLANK_ES_REQUEST);
+            const request = this._createUnfilteredQueryAndAggsRequest(
+                effectRequest,
+                BLANK_ES_REQUEST
+            );
             const response = await this.client.search(removeEmptyArrays(request));
             const formattedResponse = this.formatResponse(response);
             this._saveQueryResults(formattedResponse);
@@ -542,9 +628,12 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * Executes a filtered query.
      * This query will likely have both a `query` component and an `ags` component.
      */
-    public runFilteredQueryAndAggs = async () => {
+    public runFilteredQueryAndAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
         try {
-            const request = this._createFilteredQueryAndAggsRequest(BLANK_ES_REQUEST);
+            const request = this._createFilteredQueryAndAggsRequest(
+                effectRequest,
+                BLANK_ES_REQUEST
+            );
             const response = await this.client.search(removeEmptyArrays(request));
 
             // Save the results
@@ -568,12 +657,15 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * Executes a pagination query.
      * This query will likely have a `query` component but not an agg component.
      */
-    public runFilteredQuery = async (direction: 'forward' | 'backwards') => {
+    public runFilteredQuery = async (
+        effectRequest: EffectRequest<EffectKinds>,
+        direction: 'forward' | 'backwards'
+    ) => {
         try {
             const startingRequest =
                 direction === 'forward' ? this._nextPageRequest() : this._prevPageRequest();
 
-            const request = this._createFilteredQueryRequest(startingRequest);
+            const request = this._createFilteredQueryRequest(effectRequest, startingRequest);
             const response = await this.client.search(removeEmptyArrays(request));
 
             // Save the results
@@ -595,13 +687,47 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * Executes a filtered query.
      * This query will likely have both a `query` component and an `ags` component.
      */
-    public runUnfilteredAggs = async () => {
+    public runFilteredAggs = async (
+        effectRequest: EffectRequest<EffectKinds>,
+        filter: string,
+        field: string
+    ) => {
         try {
-            const request = this._createUnfilteredAggsRequest(BLANK_ES_REQUEST);
+            const request = this._createFilteredAggsRequest(
+                effectRequest,
+                BLANK_ES_REQUEST,
+                filter,
+                field
+            );
             const response = await this.client.search(removeEmptyArrays(request));
 
-            // Save the results
-            this._saveQueryResults(response);
+            // Pass the response to the filter instances so they can extract info relevant to them.
+            this._extractFilteredAggsStateFromResponse(response);
+
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryThrottleInMS);
+        } catch (e) {
+            throw e;
+        } // No cursor change b/c only dealing with filters
+    };
+
+    /**
+     * Executes a filtered query.
+     * This query will likely have both a `query` component and an `ags` component.
+     */
+    public runUnfilteredAggs = async (
+        effectRequest: EffectRequest<EffectKinds>,
+        filter: string,
+        field: string
+    ) => {
+        try {
+            const request = this._createUnfilteredAggsRequest(
+                effectRequest,
+                BLANK_ES_REQUEST,
+                filter,
+                field
+            );
+            const response = await this.client.search(removeEmptyArrays(request));
 
             // Pass the response to the filter instances so they can extract info relevant to them.
             this._extractUnfilteredAggsStateFromResponse(response);
@@ -610,11 +736,37 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             await Timeout.set(this.queryThrottleInMS);
         } catch (e) {
             throw e;
-        } finally {
-            // Since the filters have changed, we should set the cursor back to
-            // the first page.
-            this._setCursorToFirstPage();
-        }
+        } // No cursor change b/c only dealing with filters
+    };
+
+    public runUnfilteredBatchedAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
+        try {
+            const request = effectRequest.params;
+            const response = await this.client.search(removeEmptyArrays(request));
+
+            // Pass the response to the filter instances so they can extract info relevant to them.
+            this._extractUnfilteredAggsStateFromResponse(response);
+
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryThrottleInMS);
+        } catch (e) {
+            throw e;
+        } // no cursor change b/c that should already be handled by the initial request in the batch
+    };
+
+    public runFilteredBatchedAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
+        try {
+            const request = effectRequest.params;
+            const response = await this.client.search(removeEmptyArrays(request));
+
+            // Pass the response to the filter instances so they can extract info relevant to them.
+            this._extractFilteredAggsStateFromResponse(response);
+
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryThrottleInMS);
+        } catch (e) {
+            throw e;
+        } // no cursor change b/c that should already be handled by the initial request in the batch
     };
 
     /**
@@ -624,7 +776,15 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      */
 
     public _addPageSizeToQuery = (request: ESRequest): ESRequest => {
-        return {...request, size: this.pageSize, sort: ['_doc', '_score'], track_scores: true};
+        return {...request, size: this.pageSize, track_scores: true};
+    };
+
+    public _addSortToQuery = (request: ESRequest): ESRequest => {
+        return {...request, sort: ['_doc', '_score']};
+    };
+
+    public _addZeroPageSizeToQuery = (request: ESRequest): ESRequest => {
+        return {...request, size: 0, track_scores: false};
     };
 
     public nextPage = () => {
@@ -709,24 +869,17 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
 }
 
 decorate(Manager, {
-    // startQueryRunning: observable,
-    // paginationQueryRunning: observable,
-    // filterQueryRunning: observable,
-    // enqueueStartQuery: observable,
-    // enqueueFilteredQuery: observable,
-    // enqueueForwardsPaginationQuery: observable,
-    // enqueueBackwardsPaginationQuery: observable,
-    filters: observable,
-    results: observable,
-    client: observable,
     pageSize: observable,
     queryThrottleInMS: observable,
+    filters: observable,
+    results: observable,
+    sideEffectQueue: observable,
+    isSideEffectRunning: observable,
+    client: observable,
     currentPage: observable,
     pageCursorInfo: observable,
-    shouldEnqueueQuery: computed,
-    isQueryRunning: computed,
-    _nextPageCursor: computed,
-    indexFieldNamesAndTypes: observable
+    indexFieldNamesAndTypes: observable,
+    _nextPageCursor: computed
 });
 
 export default Manager;
