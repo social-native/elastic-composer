@@ -1,4 +1,4 @@
-import {runInAction, set, observable, decorate, computed} from 'mobx';
+import {runInAction, set, observable, decorate, computed, toJS} from 'mobx';
 import {objKeys} from '../utils';
 import {
     BaseConfig,

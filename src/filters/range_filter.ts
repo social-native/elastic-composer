@@ -202,7 +202,6 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
             defaultConfig || (RANGE_CONFIG_DEFAULT as Omit<Required<RangeConfig>, 'field'>),
             specificConfigs as RangeConfigs<RangeFields>
         );
-        console.log('*******', super.fieldConfigs);
         runInAction(() => {
             this.filteredRangeBounds = {} as RangeBoundResults<RangeFields>;
             this.unfilteredRangeBounds = {} as RangeBoundResults<RangeFields>;
@@ -217,7 +216,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      * Changes to this state is tracked by the manager so that it knows when to run a new filter query
      */
     public get _shouldRunFilteredQueryAndAggs(): object {
-        return {filters: {...super.fieldFilters}, kinds: {...super.fieldKinds}};
+        return {filters: {...this.fieldFilters}, kinds: {...this.fieldKinds}};
     }
 
     /**
@@ -232,12 +231,11 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      * Adds aggs to the request, but no query.
      */
     public _addUnfilteredQueryAndAggsToRequest = (request: ESRequest): ESRequest => {
-        console.log('DOING _addUnfilteredQueryAndAggsToRequest');
         const b = [this._addDistributionsAggsToEsRequest, this._addBoundsAggsToEsRequest].reduce(
             (newRequest, fn) => fn(newRequest),
             request
         );
-        console.log('OKAY', b);
+        console.log('_addUnfilteredQueryAndAggsToRequest', b);
         return b;
     };
 
@@ -322,23 +320,23 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      */
 
     public _addQueriesToESRequest = (request: ESRequest): ESRequest => {
-        if (!super.fieldFilters) {
+        if (!this.fieldFilters) {
             return request;
         }
         // tslint:disable-next-line
-        return objKeys(super.fieldConfigs).reduce((acc, rangeFieldName) => {
-            if (!super.fieldFilters) {
+        return objKeys(this.fieldConfigs).reduce((acc, rangeFieldName) => {
+            if (!this.fieldFilters) {
                 return acc;
             }
-            const config = super.fieldConfigs[rangeFieldName];
+            const config = this.fieldConfigs[rangeFieldName];
             const name = config.field;
 
-            const filter = super.fieldFilters[rangeFieldName];
+            const filter = this.fieldFilters[rangeFieldName];
             if (!filter) {
                 return acc;
             }
 
-            const kind = super.kindForField(rangeFieldName);
+            const kind = this.kindForField(rangeFieldName);
             if (!kind) {
                 throw new Error(`kind is not set for range type ${rangeFieldName}`);
             }
@@ -366,11 +364,11 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         request: ESRequest,
         fieldToFilterOn?: string
     ): ESRequest => {
-        return objKeys(super.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
+        return objKeys(this.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
             if (fieldToFilterOn && rangeFieldName !== fieldToFilterOn) {
                 return acc;
             }
-            const config = super.fieldConfigs[rangeFieldName];
+            const config = this.fieldConfigs[rangeFieldName];
             const name = config.field;
             if (!config.aggsEnabled) {
                 return acc;
@@ -402,15 +400,12 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         request: ESRequest,
         fieldToFilterOn?: string
     ): ESRequest => {
-        console.log('YUUUP', toJS(super.fieldConfigs));
         // tslint:disable-next-line
-        return objKeys(super.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
+        return objKeys(this.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
             if (fieldToFilterOn && rangeFieldName !== fieldToFilterOn) {
-                console.log('existing');
                 return acc;
             }
-            console.log('inside here HEERRRREEEE');
-            const config = super.fieldConfigs[rangeFieldName];
+            const config = this.fieldConfigs[rangeFieldName];
             const name = config.field;
             if (!config.aggsEnabled) {
                 return acc;
@@ -438,45 +433,72 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
     };
 
     public _parseBoundsFromResponse = (isUnfilteredQuery: boolean, response: ESResponse): void => {
-        if (!super.fieldFilters) {
+        if (!this.fieldFilters) {
             return;
         }
-        // tslint:disable-next-line
-        const rangeBounds = objKeys(super.fieldConfigs).reduce((acc, rangeFieldName) => {
-            const config = super.fieldConfigs[rangeFieldName];
-            const name = config.field;
+        const existingBounds = isUnfilteredQuery
+            ? this.unfilteredRangeBounds
+            : this.filteredRangeBounds;
+        const rangeBounds = objKeys(this.fieldConfigs).reduce(
+            // tslint:disable-next-line
+            (acc, rangeFieldName) => {
+                const config = this.fieldConfigs[rangeFieldName];
+                const name = config.field;
 
-            if (config.getRangeBounds && response.aggregations) {
-                const minResult = response.aggregations[`${name}__min`];
-                const maxResult = response.aggregations[`${name}__max`];
-                if (
-                    minResult &&
-                    maxResult &&
-                    isRangeResult(minResult) &&
-                    isRangeResult(maxResult)
-                ) {
-                    return {
-                        ...acc,
-                        [rangeFieldName]: {
-                            min: isRangeResultWithString(minResult)
-                                ? minResult.value_as_string
-                                : minResult.value,
-                            max: isRangeResultWithString(maxResult)
-                                ? maxResult.value_as_string
-                                : maxResult.value
-                        }
-                    };
-                } else if (minResult || maxResult) {
-                    throw new Error(
-                        `Only found one bound for field ${name}. Min: ${minResult}. Max: ${maxResult}`
-                    );
+                if (config.getRangeBounds && response.aggregations) {
+                    const minResult = response.aggregations[`${name}__min`];
+                    const maxResult = response.aggregations[`${name}__max`];
+                    if (
+                        minResult &&
+                        maxResult &&
+                        isRangeResult(minResult) &&
+                        isRangeResult(maxResult)
+                    ) {
+                        return {
+                            ...acc,
+                            [rangeFieldName]: {
+                                min: isRangeResultWithString(minResult)
+                                    ? minResult.value_as_string
+                                    : minResult.value,
+                                max: isRangeResultWithString(maxResult)
+                                    ? maxResult.value_as_string
+                                    : maxResult.value
+                            }
+                        };
+                    } else if (minResult && isRangeResult(minResult)) {
+                        return {
+                            ...acc,
+                            [rangeFieldName]: {
+                                ...existingBounds[rangeFieldName],
+                                min: isRangeResultWithString(minResult)
+                                    ? minResult.value_as_string
+                                    : minResult.value
+                            }
+                        };
+                    } else if (maxResult && isRangeResult(maxResult)) {
+                        return {
+                            ...acc,
+                            [rangeFieldName]: {
+                                ...existingBounds[rangeFieldName],
+                                min: isRangeResultWithString(maxResult)
+                                    ? maxResult.value_as_string
+                                    : maxResult.value
+                            }
+                        };
+                        // }
+                        // else if (minResult || maxResult) {
+                        //     throw new Error(
+                        //         `Only found one bound for field ${name}. Min: ${minResult}. Max: ${maxResult}`
+                        //     );
+                    } else {
+                        return acc;
+                    }
                 } else {
                     return acc;
                 }
-            } else {
-                return acc;
-            }
-        }, {} as RangeBoundResults<RangeFields>);
+            },
+            {...existingBounds} as RangeBoundResults<RangeFields>
+        );
 
         if (isUnfilteredQuery) {
             runInAction(() => {
@@ -493,28 +515,35 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         isUnfilteredQuery: boolean,
         response: ESResponse
     ): void => {
-        if (!super.fieldFilters) {
+        if (!this.fieldFilters) {
             return;
         }
-        // tslint:disable-next-line
-        const rangeHist = objKeys(super.fieldConfigs).reduce((acc, rangeFieldName) => {
-            const config = super.fieldConfigs[rangeFieldName];
-            const name = config.field;
 
-            if (config.getDistribution && response.aggregations) {
-                const histResult = response.aggregations[`${name}__hist`];
-                if (histResult && isHistResult(histResult)) {
-                    return {
-                        ...acc,
-                        [rangeFieldName]: histResult.buckets
-                    };
+        const existingDistribution = isUnfilteredQuery
+            ? this.unfilteredDistribution
+            : this.filteredDistribution;
+        // tslint:disable-next-line
+        const rangeHist = objKeys(this.fieldConfigs).reduce(
+            (acc, rangeFieldName) => {
+                const config = this.fieldConfigs[rangeFieldName];
+                const name = config.field;
+
+                if (config.getDistribution && response.aggregations) {
+                    const histResult = response.aggregations[`${name}__hist`];
+                    if (histResult && isHistResult(histResult)) {
+                        return {
+                            ...acc,
+                            [rangeFieldName]: histResult.buckets
+                        };
+                    } else {
+                        return acc;
+                    }
                 } else {
                     return acc;
                 }
-            } else {
-                return acc;
-            }
-        }, {} as RangeDistributionResults<RangeFields>);
+            },
+            {...existingDistribution} as RangeDistributionResults<RangeFields>
+        );
 
         if (isUnfilteredQuery) {
             runInAction(() => {

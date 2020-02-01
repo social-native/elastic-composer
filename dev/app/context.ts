@@ -29,6 +29,10 @@ const defaultRangeConfig: RangeConfigs<RF> = {
         getDistribution: true,
         getRangeBounds: true,
         rangeInterval: 1
+    },
+    'best_city.population': {
+        field: 'best_city.population',
+        rangeInterval: 1000
     }
 };
 
@@ -44,7 +48,7 @@ const rangeFilter = new RangeFilterClass<RF>(
 );
 
 const mapping = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
-mapping.mapping().then(d => console.log(d));
+// mapping.mapping().then(d => console.log(d));
 
 const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
 const creatorCRM = new Manager<typeof rangeFilter>(
@@ -58,9 +62,9 @@ setTimeout(() => {
     creatorCRM.runStartQuery();
 }, 3000);
 
-setTimeout(() => {
-    console.log('fields found', creatorCRM.filters.range.fields);
-}, 4000);
+// setTimeout(() => {
+//     console.log('fields found', creatorCRM.filters.range.fields);
+// }, 4000);
 
 export default {
     gqlClient: React.createContext(gqlClient),

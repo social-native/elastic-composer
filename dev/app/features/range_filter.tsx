@@ -79,7 +79,7 @@ const Range = createSliderWithTooltip(Slider.Range);
 // tslint:disable-next-line
 export default observer(({filterName, maxRange}) => {
     const creatorCRM = useContext(Context.creatorCRM);
-    console.log('look at me', filterName)
+    // console.log('look at me', filterName)
     if (!filterName) {
         return null
     }

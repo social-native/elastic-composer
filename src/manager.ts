@@ -124,7 +124,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         objKeys(this.filters).forEach(filterName => {
             const filter = this.filters[filterName];
             filter._subscribeToShouldUpdateFilteredAggs(this.enqueueFilteredAggs);
-            filter._subscribeToShouldUpdateUnfilteredAggs(this.enqueueFilteredAggs);
+            filter._subscribeToShouldUpdateUnfilteredAggs(this.enqueueUnfilteredAggs);
         });
 
         /**
@@ -160,25 +160,22 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             data => {
                 if (data.isSideEffectRunning === false) {
                     this.tryToRunEffect();
-                    console.log(' reacting');
                 }
-
-                console.log('not reacting');
             }
         );
     }
 
     public tryToRunEffect = () => {
-        console.log('Trying to run effect');
         if (this.isSideEffectRunning) {
             return;
         }
         const effect = this.shiftFirstEffectOffQueue();
-        console.log('Effect to run', toJS(effect));
 
         if (!effect) {
             return;
         } else {
+            console.log('Running effect: ', toJS(effect));
+
             this.runEffect(effect);
         }
     };
@@ -219,6 +216,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         effectRequest: EffectRequest<EffectKinds>
     ): EffectRequest<EffectKinds> => {
         const lastEffectOfKind = this.sideEffectQueue
+            .slice()
             .reverse()
             .find(e => e && e.kind === effectRequest.kind);
 
@@ -260,7 +258,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         runInAction(() => {
             this.sideEffectQueue = [effect, ...this.sideEffectQueue];
         });
-        console.log('new queue', this.sideEffectQueue);
     };
 
     public addToQueueFiFo = (effect: EffectRequest<EffectKinds>) => {
@@ -309,21 +306,19 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      */
 
     public runStartQuery = () => {
-        console.log('runnign start');
-
         this.enqueueUnfilteredQueryAndAggs();
     };
 
     public enqueueUnfilteredQueryAndAggs = () => {
-        const r = createEffectRequest({
-            kind: 'unfilteredQueryAndAggs',
-            effect: this.runUnfilteredQueryAndAggs,
-            debounce: undefined,
-            throttle: 0,
-            params: []
-        });
-        console.log(r);
-        this.addToQueueLiFo(r);
+        this.addToQueueLiFo(
+            createEffectRequest({
+                kind: 'unfilteredQueryAndAggs',
+                effect: this.runUnfilteredQueryAndAggs,
+                debounce: undefined,
+                throttle: 0,
+                params: []
+            })
+        );
     };
 
     /**
@@ -458,14 +453,12 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         effectRequest: EffectRequest<EffectKinds>,
         request: ESRequest
     ): ESRequest => {
-        console.log('BATCHING', request);
         if (!request.aggs || Object.keys(request.aggs).length === 0) {
-            console.log('no aggs found. existing aggs middleware');
             return request;
         }
 
         const aggregationKeys = Object.keys(request.aggs);
-        const batchedAggregationTerms = chunk(aggregationKeys, 6);
+        const batchedAggregationTerms = chunk(aggregationKeys, 1);
 
         const batchedRequests = batchedAggregationTerms.map(terms => {
             const batchAggregations = terms.reduce((agg, term) => {
@@ -606,7 +599,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             return filter._addFilteredQueryToRequest(request);
         }, startingRequest);
 
-        console.log('fulllll request', fullRequest);
         // We want:
         // - a page of results
         // - the results to be sorted
@@ -690,9 +682,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             const startingRequest =
                 direction === 'forward' ? this._nextPageRequest() : this._prevPageRequest();
 
-            console.log('paginating', startingRequest);
             const request = this._createFilteredQueryRequest(effectRequest, startingRequest);
-            console.log('paginating request', request);
             const response = await this.client.search(removeEmptyArrays(request));
 
             // Save the results
@@ -768,7 +758,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
 
     public runUnfilteredBatchedAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
         try {
-            const request = effectRequest.params;
+            const request = effectRequest.params[0] as ESRequest;
             const response = await this.client.search(removeEmptyArrays(request));
 
             // Pass the response to the filter instances so they can extract info relevant to them.
@@ -783,7 +773,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
 
     public runFilteredBatchedAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
         try {
-            const request = effectRequest.params;
+            const request = effectRequest.params[0] as ESRequest;
             const response = await this.client.search(removeEmptyArrays(request));
 
             // Pass the response to the filter instances so they can extract info relevant to them.
