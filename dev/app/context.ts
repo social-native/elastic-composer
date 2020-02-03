@@ -59,10 +59,10 @@ setTimeout(() => {
     creatorCRM.runStartQuery();
 }, 3000);
 
-setTimeout(() => {
-    console.log('ma map', creatorCRM.fieldsToFilterType);
-    // console.log('fields found', creatorCRM.filters.range.fields);
-}, 4000);
+// setTimeout(() => {
+//     console.log('ma map', creatorCRM.fieldsToFilterType);
+//     // console.log('fields found', creatorCRM.filters.range.fields);
+// }, 4000);
 
 export default {
     gqlClient: React.createContext(gqlClient),
