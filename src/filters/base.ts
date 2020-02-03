@@ -1,4 +1,4 @@
-import {runInAction, set, observable, decorate, computed, toJS} from 'mobx';
+import {runInAction, set} from 'mobx';
 import {objKeys} from '../utils';
 import {
     BaseConfig,
@@ -202,10 +202,8 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
             });
         });
         if (!this._fieldsThatHaveUnfilteredStateFetched[field]) {
-            console.log('has yet to get unfiltered ags. fetching for', field);
             this._shouldUpdateUnfilteredAggsSubscribers.forEach(s => s(this.filterKind, field));
         }
-        console.log('getting filtered ags. fetching for', field);
 
         this._shouldUpdateFilteredAggsSubscribers.forEach(s => s(this.filterKind, field));
     }
@@ -282,6 +280,9 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
     }
 }
 
+/**
+ * Base class, so decorating it isn't necessary
+ */
 // decorate(BaseFilter, {
 //     fields: computed,
 //     _shouldRunFilteredQueryAndAggs: computed,

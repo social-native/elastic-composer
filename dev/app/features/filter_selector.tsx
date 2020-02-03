@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import Dropdown from 'react-dropdown-now';
 import Context, {RF} from '../context';
 const FilterSelectorContainer = styled.div`
-    height: 350px;
+    height: 400px;
     width: 250px;
     padding: 25px;
     border: 1px solid rgba(0, 0, 0, 0.75);

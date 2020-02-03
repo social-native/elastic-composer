@@ -141,7 +141,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
                 }, {});
             },
             data => {
-                console.log('detected change in filter', toJS(data));
                 this.enqueueFilteredQueryAndAggs();
             }
         );
@@ -180,11 +179,20 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         if (!effect) {
             return;
         } else {
-            console.log('Running effect: ', toJS(effect));
-
             this.runEffect(effect);
         }
     };
+
+    public get fieldsToFilterType() {
+        return objKeys(this.filters).reduce((map, filterName) => {
+            const filter = this.filters[filterName];
+            const typeMaps = filter.fields.reduce((filterMap, fieldName) => {
+                return {...filterMap, [fieldName]: filter.filterKind};
+            }, {} as Record<string, string>);
+
+            return {...map, ...typeMaps};
+        }, {} as Record<string, string>);
+    }
 
     public runEffect = async (effectRequest: EffectRequest<EffectKinds>) => {
         try {
@@ -358,7 +366,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * No debouncing - b/c used in batching
      */
     public enqueueFilteredAggs = (filter: string, field: string) => {
-        console.log('enqueueFilteredAggs');
         this.addToQueueLiFo(
             createEffectRequest({
                 kind: 'filteredAggs',
@@ -483,7 +490,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             return {...request, aggs: batchAggregations};
         });
 
-        console.log('BATCHED REQUESTS', batchedRequests);
         const firstRequest = batchedRequests.shift() as ESRequest; // this should always exist
         batchedRequests.forEach(r => {
             // add FiFo so its easy to debounce these in case
@@ -552,7 +558,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             throw new Error('Tried to create an ESRequest for a filter that doesnt exist');
         }
         const fullRequest = filter._addFilteredAggsToRequest(blankRequest, field);
-        console.log('full request- _createFilteredAggsRequest', fullRequest);
         // We want:
         // - no results
         // - the results to be sorted
@@ -722,14 +727,12 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         field: string
     ) => {
         try {
-            console.log('runFilteredAggs');
             const request = this._createFilteredAggsRequest(
                 effectRequest,
                 BLANK_ES_REQUEST,
                 filter,
                 field
             );
-            console.log('runFilteredAggs', request);
             const response = await this.client.search(removeEmptyArrays(request));
 
             // Pass the response to the filter instances so they can extract info relevant to them.
@@ -910,7 +913,8 @@ decorate(Manager, {
     currentPage: observable,
     pageCursorInfo: observable,
     indexFieldNamesAndTypes: observable,
-    _nextPageCursor: computed
+    _nextPageCursor: computed,
+    fieldsToFilterType: computed
 });
 
 export default Manager;

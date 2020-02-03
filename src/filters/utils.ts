@@ -2,7 +2,7 @@ import {decorate, computed, observable} from 'mobx';
 
 export const decorateFilter = (filterClass: any) => {
     decorate(filterClass, {
-        // fields: computed,
+        // fields: computed, // TODO figure out why this cant be decorated without causing memory issues
         _shouldRunFilteredQueryAndAggs: computed,
         fieldConfigDefault: observable,
         fieldConfigs: observable,

@@ -25,10 +25,7 @@ const rangeFieldsConfig: RangeConfigs<RF> = {
     },
     user_profile_age: {
         field: 'user_profile.age',
-        defaultFilterKind: 'should',
-        getDistribution: true,
-        getRangeBounds: true,
-        rangeInterval: 1
+        rangeInterval: 2
     },
     'best_city.population': {
         field: 'best_city.population',
@@ -62,9 +59,10 @@ setTimeout(() => {
     creatorCRM.runStartQuery();
 }, 3000);
 
-// setTimeout(() => {
-//     console.log('fields found', creatorCRM.filters.range.fields);
-// }, 4000);
+setTimeout(() => {
+    console.log('ma map', creatorCRM.fieldsToFilterType);
+    // console.log('fields found', creatorCRM.filters.range.fields);
+}, 4000);
 
 export default {
     gqlClient: React.createContext(gqlClient),

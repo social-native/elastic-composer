@@ -1,4 +1,4 @@
-import {runInAction, decorate, observable, toJS} from 'mobx';
+import {runInAction, decorate, observable} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
 import BaseFilter from './base';
@@ -231,12 +231,10 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      * Adds aggs to the request, but no query.
      */
     public _addUnfilteredQueryAndAggsToRequest = (request: ESRequest): ESRequest => {
-        const b = [this._addDistributionsAggsToEsRequest, this._addBoundsAggsToEsRequest].reduce(
+        return [this._addDistributionsAggsToEsRequest, this._addBoundsAggsToEsRequest].reduce(
             (newRequest, fn) => fn(newRequest),
             request
         );
-        console.log('_addUnfilteredQueryAndAggsToRequest', b);
-        return b;
     };
 
     /**
@@ -260,7 +258,6 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      * Adds aggs to the request, but no query.
      */
     public _addFilteredAggsToRequest = (request: ESRequest, fieldToFilterOn: string): ESRequest => {
-        console.log('herrree', '_addFilteredAggsToRequest');
         return [
             this._addQueriesToESRequest,
             this._addDistributionsAggsToEsRequest,
@@ -330,7 +327,6 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
                 return acc;
             }
             const config = this.fieldConfigs[rangeFieldName];
-            console.log('look at my config', rangeFieldName, toJS(config));
             const name = config.field;
 
             const filter = this.fieldFilters[rangeFieldName];
@@ -487,11 +483,6 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
                                     : maxResult.value
                             }
                         };
-                        // }
-                        // else if (minResult || maxResult) {
-                        //     throw new Error(
-                        //         `Only found one bound for field ${name}. Min: ${minResult}. Max: ${maxResult}`
-                        //     );
                     } else {
                         return acc;
                     }
