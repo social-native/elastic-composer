@@ -198,12 +198,15 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
     public setAggsEnabledToTrue(field: Fields): void {
         runInAction(() => {
             set(this.fieldConfigs, {
-                [field]: {...this.fieldConfigs, aggsEnabled: true}
+                [field]: {...this.fieldConfigs[field], aggsEnabled: true}
             });
         });
         if (!this._fieldsThatHaveUnfilteredStateFetched[field]) {
+            console.log('has yet to get unfiltered ags. fetching for', field);
             this._shouldUpdateUnfilteredAggsSubscribers.forEach(s => s(this.filterKind, field));
         }
+        console.log('getting filtered ags. fetching for', field);
+
         this._shouldUpdateFilteredAggsSubscribers.forEach(s => s(this.filterKind, field));
     }
 
@@ -214,7 +217,7 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
     public setAggsEnabledToFalse(field: Fields): void {
         runInAction(() => {
             set(this.fieldConfigs, {
-                [field]: {...this.fieldConfigs, aggsEnabled: true}
+                [field]: {...this.fieldConfigs[field], aggsEnabled: true}
             });
         });
     }

@@ -175,9 +175,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         if (this.isSideEffectRunning) {
             return;
         }
-        console.log('shift -before');
         const effect = this.shiftFirstEffectOffQueue();
-        console.log('shift -after');
 
         if (!effect) {
             return;
@@ -201,18 +199,13 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             }
 
             if (effectRequest.debounce === 'leading') {
-                console.log('before');
                 this.removeAllOtherEffectsOfKindFromQueue(effectRequest);
-                console.log('after');
 
                 await effectRequest.effect(...params);
             } else if (effectRequest.debounce === 'trailing') {
-                console.log('before');
-
                 const newEffectRequest = this.findLastEffectOfKindAndRemoveAllOthersFromQueue(
                     effectRequest
                 );
-                console.log('after');
 
                 await newEffectRequest.effect(effectRequest, ...params);
             } else {
@@ -365,6 +358,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * No debouncing - b/c used in batching
      */
     public enqueueFilteredAggs = (filter: string, field: string) => {
+        console.log('enqueueFilteredAggs');
         this.addToQueueLiFo(
             createEffectRequest({
                 kind: 'filteredAggs',
@@ -558,7 +552,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             throw new Error('Tried to create an ESRequest for a filter that doesnt exist');
         }
         const fullRequest = filter._addFilteredAggsToRequest(blankRequest, field);
-
+        console.log('full request- _createFilteredAggsRequest', fullRequest);
         // We want:
         // - no results
         // - the results to be sorted
@@ -728,12 +722,14 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         field: string
     ) => {
         try {
+            console.log('runFilteredAggs');
             const request = this._createFilteredAggsRequest(
                 effectRequest,
                 BLANK_ES_REQUEST,
                 filter,
                 field
             );
+            console.log('runFilteredAggs', request);
             const response = await this.client.search(removeEmptyArrays(request));
 
             // Pass the response to the filter instances so they can extract info relevant to them.

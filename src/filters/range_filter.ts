@@ -260,6 +260,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
      * Adds aggs to the request, but no query.
      */
     public _addFilteredAggsToRequest = (request: ESRequest, fieldToFilterOn: string): ESRequest => {
+        console.log('herrree', '_addFilteredAggsToRequest');
         return [
             this._addQueriesToESRequest,
             this._addDistributionsAggsToEsRequest,
@@ -329,6 +330,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
                 return acc;
             }
             const config = this.fieldConfigs[rangeFieldName];
+            console.log('look at my config', rangeFieldName, toJS(config));
             const name = config.field;
 
             const filter = this.fieldFilters[rangeFieldName];

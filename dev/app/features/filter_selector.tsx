@@ -50,7 +50,7 @@ const FilterSelector: React.FunctionComponent<IProps> = observer(
                             if (value === 'Aggs ON') {
                                 creatorCRM.filters.range.setAggsEnabledToTrue(filterName as RF);
                             } else {
-                                creatorCRM.filters.range.setAggsEnabledToTrue(filterName as RF);
+                                creatorCRM.filters.range.setAggsEnabledToFalse(filterName as RF);
                             }
                         }}
                         value={creatorCRM.filters.range.fieldConfigs[filterName as RF].aggsEnabled ? 'Aggs ON' : 'Aggs OFF'}

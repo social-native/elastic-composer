@@ -114,8 +114,8 @@ export default observer(({filterName, maxRange}) => {
 
     const filterConfig = range.fieldConfigs[filterName];
 
-    console.log('filteredData', filterName, filteredData);
-    console.log('unfilteredData', filterName, unfilteredData);
+    // console.log('filteredData', filterName, filteredData);
+    // console.log('unfilteredData', filterName, unfilteredData);
     const maxSliderRange = maxRange
         ? maxRange
         : unfilteredBounds.max > upperValue
@@ -123,7 +123,7 @@ export default observer(({filterName, maxRange}) => {
         : upperValue;
 
     const minSliderRange = unfilteredBounds.min < lowerValue ? unfilteredBounds.min : lowerValue;
-    console.log('Slider range', filterName, minSliderRange, maxSliderRange, [lowerValue, upperValue]);
+    // console.log('Slider range', filterName, minSliderRange, maxSliderRange, [lowerValue, upperValue]);
     return (
         <RangeContainer>
             <TopMenu>
@@ -160,7 +160,7 @@ export default observer(({filterName, maxRange}) => {
                     defaultValue={[minSliderRange, maxSliderRange]}
                     value={[lowerValue, upperValue]}
                     onChange={(v: number[]) => {
-                        console.log('*****************Setting filter', v, [minSliderRange, maxSliderRange])
+                        // console.log('*****************Setting filter', v, [minSliderRange, maxSliderRange])
                         if (v[0] === minSliderRange && v[1] === maxSliderRange) {
                             return;
                         }
