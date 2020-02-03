@@ -217,7 +217,7 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
     public setAggsEnabledToFalse(field: Fields): void {
         runInAction(() => {
             set(this.fieldConfigs, {
-                [field]: {...this.fieldConfigs[field], aggsEnabled: true}
+                [field]: {...this.fieldConfigs[field], aggsEnabled: false}
             });
         });
     }
