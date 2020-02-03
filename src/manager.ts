@@ -47,13 +47,18 @@ const removeEmptyArrays = <O extends {}>(data: O): any => {
     return data;
 };
 
-const DEFAULT_MANAGER_OPTIONS: Required<ManagerOptions> = {
+const DEFAULT_MANAGER_OPTIONS: Omit<
+    Required<ManagerOptions>,
+    'fieldWhiteList' | 'fieldBlackList'
+> = {
     pageSize: 10,
     queryThrottleInMS: 2000
 };
 type ManagerOptions = {
     pageSize?: number;
     queryThrottleInMS?: number;
+    fieldWhiteList?: string[];
+    fieldBlackList?: string[];
 };
 
 type EffectInput<EffectKind extends string> = {
@@ -102,11 +107,15 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
     public pageCursorInfo: Record<number, ESRequestSortField>;
     public indexFieldNamesAndTypes: Record<string, ESMappingType>;
 
+    public fieldWhiteList: string[];
+    public fieldBlackList: string[];
+
     constructor(
         client: IClient<ResultObject>,
         filters: Filters<RangeFilter>,
         options?: ManagerOptions
     ) {
+        // tslint:disable-next-line
         runInAction(() => {
             this.client = client;
             this.filters = filters;
@@ -119,6 +128,22 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             this.pageCursorInfo = {};
             this.currentPage = 0; // set to 0 b/c there are no results on init
             this.indexFieldNamesAndTypes = {};
+
+            if (options && options.fieldWhiteList && options.fieldBlackList) {
+                throw new Error(
+                    `Field blacklist used with field whitelist. Only one can be used at a time`
+                );
+            }
+            if (options && options.fieldWhiteList) {
+                this.fieldWhiteList = options.fieldWhiteList;
+            } else {
+                this.fieldWhiteList = [];
+            }
+            if (options && options.fieldBlackList) {
+                this.fieldBlackList = options.fieldBlackList;
+            } else {
+                this.fieldBlackList = [];
+            }
         });
 
         objKeys(this.filters).forEach(filterName => {
@@ -140,7 +165,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
                     };
                 }, {});
             },
-            data => {
+            () => {
                 this.enqueueFilteredQueryAndAggs();
             }
         );
@@ -402,13 +427,42 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * ***************************************************************************
      */
 
+    public filterFieldNamesAndTypesUsingWhiteAndBlackList = (
+        mappings: Record<string, ESMappingType>
+    ): Record<string, ESMappingType> => {
+        if (this.fieldWhiteList.length > 0) {
+            return objKeys(mappings)
+                .filter(fieldName => this.fieldWhiteList.includes(fieldName))
+                .reduce(
+                    (newMappings, filteredFieldName) => ({
+                        ...newMappings,
+                        [filteredFieldName]: mappings[filteredFieldName]
+                    }),
+                    {} as Record<string, ESMappingType>
+                );
+        } else if (this.fieldBlackList.length > 0) {
+            return objKeys(mappings)
+                .filter(fieldName => !this.fieldBlackList.includes(fieldName))
+                .reduce(
+                    (newMappings, filteredFieldName) => ({
+                        ...newMappings,
+                        [filteredFieldName]: mappings[filteredFieldName]
+                    }),
+                    {} as Record<string, ESMappingType>
+                );
+        } else {
+            return mappings;
+        }
+    };
     /**
      * Returns the field names and types for the elasticsearch mapping(s)
      */
     public getFieldNamesAndTypes = async () => {
         const mappings = await this.client.mapping();
         runInAction(() => {
-            this.indexFieldNamesAndTypes = mappings;
+            this.indexFieldNamesAndTypes = this.filterFieldNamesAndTypesUsingWhiteAndBlackList(
+                mappings
+            );
         });
     };
 
@@ -914,7 +968,9 @@ decorate(Manager, {
     pageCursorInfo: observable,
     indexFieldNamesAndTypes: observable,
     _nextPageCursor: computed,
-    fieldsToFilterType: computed
+    fieldsToFilterType: computed,
+    fieldBlackList: observable,
+    fieldWhiteList: observable
 });
 
 export default Manager;
