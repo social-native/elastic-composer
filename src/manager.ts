@@ -175,7 +175,9 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         if (this.isSideEffectRunning) {
             return;
         }
+        console.log('shift -before');
         const effect = this.shiftFirstEffectOffQueue();
+        console.log('shift -after');
 
         if (!effect) {
             return;
@@ -199,12 +201,19 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
             }
 
             if (effectRequest.debounce === 'leading') {
+                console.log('before');
                 this.removeAllOtherEffectsOfKindFromQueue(effectRequest);
+                console.log('after');
+
                 await effectRequest.effect(...params);
             } else if (effectRequest.debounce === 'trailing') {
+                console.log('before');
+
                 const newEffectRequest = this.findLastEffectOfKindAndRemoveAllOthersFromQueue(
                     effectRequest
                 );
+                console.log('after');
+
                 await newEffectRequest.effect(effectRequest, ...params);
             } else {
                 await effectRequest.effect(effectRequest, ...params);
@@ -250,6 +259,9 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      *
      */
     public shiftFirstEffectOffQueue = (): EffectRequest<EffectKinds> | null => {
+        if (this.sideEffectQueue.length === 0) {
+            return null;
+        }
         const firstEffect = this.sideEffectQueue[0];
         runInAction(() => {
             this.sideEffectQueue.shift();

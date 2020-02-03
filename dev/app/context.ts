@@ -7,7 +7,7 @@ import {RangeFilterClass, Manager, RangeConfigs, Axios, ESRequest} from '../../s
 
 const exampleFormInstance = new ExampleForm();
 
-type RF = 'instagram_avg_like_rate' | 'invites_pending' | 'user_profile_age';
+export type RF = 'instagram_avg_like_rate' | 'invites_pending' | 'user_profile_age';
 const rangeFieldsConfig: RangeConfigs<RF> = {
     instagram_avg_like_rate: {
         field: 'instagram.avg_like_rate',
