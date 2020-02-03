@@ -480,7 +480,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
                             ...acc,
                             [rangeFieldName]: {
                                 ...existingBounds[rangeFieldName],
-                                min: isRangeResultWithString(maxResult)
+                                max: isRangeResultWithString(maxResult)
                                     ? maxResult.value_as_string
                                     : maxResult.value
                             }

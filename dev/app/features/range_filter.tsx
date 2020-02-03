@@ -16,7 +16,7 @@ import {
     isLessThanFilter
 } from '../../../src';
 import {FilterKind} from '../../../src/';
-import { toJS } from 'mobx';
+import {toJS} from 'mobx';
 
 const RangeContainer = styled.div`
     height: 300px;
@@ -67,7 +67,7 @@ const BoundsContainer = styled.div`
 `;
 
 const SliderContainer = styled.div`
-height: 40px;
+    height: 40px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -79,13 +79,12 @@ const Range = createSliderWithTooltip(Slider.Range);
 // tslint:disable-next-line
 export default observer(({filterName, maxRange}) => {
     const creatorCRM = useContext(Context.creatorCRM);
-    // console.log('look at me', filterName)
     if (!filterName) {
-        return null
+        return null;
     }
     const {
         filters: {range}
-    } = creatorCRM
+    } = creatorCRM;
     const filteredDistribution = range.filteredDistribution[filterName];
     const filteredData = filteredDistribution
         ? filteredDistribution.map(d => ({x: d.key, y: d.doc_count})).filter(d => d.x && d.y)
@@ -115,6 +114,16 @@ export default observer(({filterName, maxRange}) => {
 
     const filterConfig = range.fieldConfigs[filterName];
 
+    console.log('filteredData', filterName, filteredData);
+    console.log('unfilteredData', filterName, unfilteredData);
+    const maxSliderRange = maxRange
+        ? maxRange
+        : unfilteredBounds.max > upperValue
+        ? unfilteredBounds.max
+        : upperValue;
+
+    const minSliderRange = unfilteredBounds.min < lowerValue ? unfilteredBounds.min : lowerValue;
+    console.log('Slider range', filterName, minSliderRange, maxSliderRange, [lowerValue, upperValue]);
     return (
         <RangeContainer>
             <TopMenu>
@@ -140,22 +149,21 @@ export default observer(({filterName, maxRange}) => {
                     Filtered: {lowerValue} ↔️ {upperValue}
                 </BoundsContainer>
                 <BoundsContainer>
-                    Unfiltered: {Math.round(unfilteredBounds.min)} ↔️ {Math.round(unfilteredBounds.max)}
+                    Unfiltered: {Math.round(unfilteredBounds.min)} ↔️{' '}
+                    {Math.round(unfilteredBounds.max)}
                 </BoundsContainer>
             </AllBoundsContainer>
 
             <SliderContainer>
                 <Range
-                    max={
-                        maxRange
-                            ? maxRange
-                            : unfilteredBounds.max > upperValue
-                            ? unfilteredBounds.max
-                            : upperValue
-                    }
-                    min={unfilteredBounds.min < lowerValue ? unfilteredBounds.min : lowerValue}
+                 
+                    defaultValue={[minSliderRange, maxSliderRange]}
                     value={[lowerValue, upperValue]}
                     onChange={(v: number[]) => {
+                        console.log('*****************Setting filter', v, [minSliderRange, maxSliderRange])
+                        if (v[0] === minSliderRange && v[1] === maxSliderRange) {
+                            return;
+                        }
                         range.setFilter(filterName, {
                             lessThan: Math.round(v[1]),
                             greaterThan: Math.round(v[0])

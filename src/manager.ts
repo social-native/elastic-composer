@@ -131,14 +131,20 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
          * React to state changes in the filters.
          * Run a new filter query.
          */
-        reaction(() => {
-            return objKeys(this.filters).reduce((acc, filterName) => {
-                return {
-                    acc,
-                    [filterName]: toJS(this.filters[filterName]._shouldRunFilteredQueryAndAggs)
-                };
-            }, {});
-        }, this.enqueueFilteredQueryAndAggs);
+        reaction(
+            () => {
+                return objKeys(this.filters).reduce((acc, filterName) => {
+                    return {
+                        acc,
+                        [filterName]: toJS(this.filters[filterName]._shouldRunFilteredQueryAndAggs)
+                    };
+                }, {});
+            },
+            data => {
+                console.log('detected change in filter', toJS(data));
+                this.enqueueFilteredQueryAndAggs();
+            }
+        );
 
         reaction(
             () => this.indexFieldNamesAndTypes,
@@ -458,7 +464,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         }
 
         const aggregationKeys = Object.keys(request.aggs);
-        const batchedAggregationTerms = chunk(aggregationKeys, 1);
+        const batchedAggregationTerms = chunk(aggregationKeys, 6);
 
         const batchedRequests = batchedAggregationTerms.map(terms => {
             const batchAggregations = terms.reduce((agg, term) => {

@@ -8,7 +8,7 @@ import {RangeFilterClass, Manager, RangeConfigs, Axios, ESRequest} from '../../s
 const exampleFormInstance = new ExampleForm();
 
 type RF = 'instagram_avg_like_rate' | 'invites_pending' | 'user_profile_age';
-const defaultRangeConfig: RangeConfigs<RF> = {
+const rangeFieldsConfig: RangeConfigs<RF> = {
     instagram_avg_like_rate: {
         field: 'instagram.avg_like_rate',
         defaultFilterKind: 'should',
@@ -38,13 +38,13 @@ const defaultRangeConfig: RangeConfigs<RF> = {
 
 const rangeFilter = new RangeFilterClass<RF>(
     {
-        aggsEnabled: true,
+        aggsEnabled: false,
         defaultFilterKind: 'should',
         getDistribution: true,
         getRangeBounds: true,
         rangeInterval: 1
     },
-    defaultRangeConfig
+    rangeFieldsConfig
 );
 
 const mapping = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
