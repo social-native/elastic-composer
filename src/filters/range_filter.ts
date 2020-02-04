@@ -361,13 +361,14 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         request: ESRequest,
         fieldToFilterOn?: string
     ): ESRequest => {
+        // tslint:disable-next-line
         return objKeys(this.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
             if (fieldToFilterOn && rangeFieldName !== fieldToFilterOn) {
                 return acc;
             }
             const config = this.fieldConfigs[rangeFieldName];
             const name = config.field;
-            if (!config.aggsEnabled) {
+            if (!config || !config.aggsEnabled) {
                 return acc;
             }
             if (config.getRangeBounds) {

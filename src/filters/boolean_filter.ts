@@ -87,7 +87,7 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
         specificConfigs?: BooleanConfigs<BooleanFields>
     ) {
         super(
-            'range',
+            'boolean',
             defaultConfig || (BOOLEAN_CONFIG_DEFAULT as Omit<Required<BooleanConfig>, 'field'>),
             specificConfigs as BooleanConfigs<BooleanFields>
         );
@@ -241,13 +241,14 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
     };
 
     public _addCountAggsToEsRequest = (request: ESRequest, fieldToFilterOn?: string): ESRequest => {
+        // tslint:disable-next-line
         return objKeys(this.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
             if (fieldToFilterOn && rangeFieldName !== fieldToFilterOn) {
                 return acc;
             }
             const config = this.fieldConfigs[rangeFieldName];
             const name = config.field;
-            if (!config.aggsEnabled) {
+            if (!config || !config.aggsEnabled) {
                 return acc;
             }
             if (config.getCount) {

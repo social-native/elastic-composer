@@ -37,6 +37,7 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
         specificConfigs?: PartialFieldConfigs<Fields, Config>
     ) {
         runInAction(() => {
+            console.log('HERE', filterKind, defaultConfig);
             this.filterKind = filterKind;
             this.fieldConfigDefault = defaultConfig;
             this.fieldFilters = {} as FieldFilters<Fields, Filter>;
@@ -270,6 +271,7 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
     public kindForField(field: Fields): FilterKind {
         const kind = this.fieldKinds[field];
         if (kind === undefined) {
+            console.log('HEREE - kindforfield', this.fieldConfigDefault);
             return this.fieldConfigDefault.defaultFilterKind;
         } else {
             return kind as FilterKind;

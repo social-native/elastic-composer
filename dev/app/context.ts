@@ -3,7 +3,14 @@ import React from 'react';
 import {GqlClient} from '@social-native/snpkg-client-graphql-client';
 import {ExampleForm} from './state';
 const gqlClient = new GqlClient({enablePersistance: true, headers: {testme: 'ethan'}});
-import {RangeFilterClass, Manager, RangeConfigs, Axios, ESRequest} from '../../src';
+import {
+    RangeFilterClass,
+    Manager,
+    RangeConfigs,
+    Axios,
+    ESRequest,
+    BooleanFilterClass
+} from '../../src';
 
 const exampleFormInstance = new ExampleForm();
 
@@ -44,13 +51,19 @@ const rangeFilter = new RangeFilterClass<RF>(
     rangeFieldsConfig
 );
 
+const booleanFilter = new BooleanFilterClass<string>({
+    aggsEnabled: true,
+    defaultFilterKind: 'should',
+    getCount: true
+});
+
 const mapping = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
 // mapping.mapping().then(d => console.log(d));
 
 const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
-const creatorCRM = new Manager<typeof rangeFilter>(
+const creatorCRM = new Manager<typeof rangeFilter, typeof booleanFilter>(
     client,
-    {range: rangeFilter},
+    {range: rangeFilter, boolean: booleanFilter},
     {pageSize: 10, queryThrottleInMS: 350}
 );
 

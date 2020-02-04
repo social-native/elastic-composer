@@ -123,6 +123,7 @@ class Manager<
         filters: Filters<RangeFilter, BooleanFilter>,
         options?: ManagerOptions
     ) {
+        console.log(filters);
         // tslint:disable-next-line
         runInAction(() => {
             this.client = client;
@@ -185,6 +186,8 @@ class Manager<
                     const type = indexFieldNamesAndTypes[fieldName];
                     if (type === 'long' || type === 'double' || type === 'integer') {
                         this.filters.range._addConfigForField(fieldName);
+                    } else if (type === 'boolean') {
+                        this.filters.boolean._addConfigForField(fieldName);
                     }
                 });
             }
