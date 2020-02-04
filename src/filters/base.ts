@@ -278,7 +278,8 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
 }
 
 /**
- * Base class, so decorating it isn't necessary
+ * Base class, so decorating it isn't necessary. Don't delete b/c this is an easy validation check on the base class.
+ * These decorations are copied in to `src/filters/utils#decorateFilter`.
  */
 // decorate(BaseFilter, {
 //     fields: computed,
