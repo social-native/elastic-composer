@@ -61,6 +61,7 @@ export type ESMappingType = 'long' | 'double' | 'integer';
 /**
  * Base Filter
  */
+export type FilterKind = 'should' | 'must';
 
 export type BaseConfig = {
     field: string;
@@ -79,8 +80,6 @@ export type PartialFieldConfigs<Fields extends string, Config extends BaseConfig
 export type FieldFilters<Fields extends string, Filter extends object> = {
     [esFieldName in Fields]: Filter | undefined;
 };
-
-export type FilterKind = 'should' | 'must';
 
 export type FieldKinds<Fields extends string> = {
     [esFieldName in Fields]: FilterKind | undefined;

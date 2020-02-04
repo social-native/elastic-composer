@@ -1,5 +1,5 @@
 'use strict';
-import {RangeFilterClass} from 'filters';
+import {RangeFilterClass, BooleanFilterClass} from 'filters';
 import {ESRequest, ESResponse, IClient, ESHit, ESRequestSortField, ESMappingType} from 'types';
 import {objKeys} from './utils';
 import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx';
@@ -18,8 +18,12 @@ import chunk from 'lodash.chunk';
  * filteredAggs - would have a query filter applied,  no hits returned, and aggs on the result set
  */
 
-type Filters<RangeFilter extends RangeFilterClass<any>> = {
+type Filters<
+    RangeFilter extends RangeFilterClass<any>,
+    BooleanFilter extends BooleanFilterClass<any>
+> = {
     range: RangeFilter;
+    boolean: BooleanFilter;
 };
 
 const BLANK_ES_REQUEST = {
@@ -93,10 +97,14 @@ type EffectKinds =
 
 type QueryFn = (...params: any[]) => void;
 
-class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends object = object> {
+class Manager<
+    RangeFilter extends RangeFilterClass<any>,
+    BooleanFilter extends BooleanFilterClass<any>,
+    ResultObject extends object = object
+> {
     public pageSize: number;
     public queryThrottleInMS: number;
-    public filters: Filters<RangeFilter>;
+    public filters: Filters<RangeFilter, BooleanFilter>;
     public results: Array<ESHit<ResultObject>>;
 
     public _sideEffectQueue: Array<EffectRequest<EffectKinds> | null>;
@@ -112,7 +120,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
 
     constructor(
         client: IClient<ResultObject>,
-        filters: Filters<RangeFilter>,
+        filters: Filters<RangeFilter, BooleanFilter>,
         options?: ManagerOptions
     ) {
         // tslint:disable-next-line
