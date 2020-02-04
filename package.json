@@ -48,7 +48,7 @@
         "await-timeout": "^1.1.1",
         "axios": "^0.19.1",
         "mobx": "^5.14.2",
-        "lodash.chunk": "^4.2.0",
+        "lodash.chunk": "^4.2.0"
     },
     "devDependencies": {
         "@devexpress/dx-react-core": "^2.4.0",

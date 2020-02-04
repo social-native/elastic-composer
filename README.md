@@ -7,6 +7,8 @@
   - [Peer dependencies](#peer-dependencies)
   - [About](#about)
   - [Quick Examples](#quick-examples)
+      - [Instantiate a manager with a range filter](#instantiate-a-manager-with-a-range-filter)
+      - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
       - [Setting a range filter](#setting-a-range-filter)
       - [Access the results of a query](#access-the-results-of-a-query)
       - [Paginating through the results set](#paginating-through-the-results-set)
@@ -55,6 +57,51 @@ The currently available filters are:
 There also exists a `manager` object which is how you access each filter, get the results of a query, and paginate through the result set.
 
 ## Quick Examples
+
+#### Instantiate a manager with a range filter
+
+```typescript
+// instantiate an elasticsearch axios client made for this lib
+const client = new Axios('my_url/my_index');
+
+// set the default config all filters will have if not explicitly set
+const defaultRangeFilterConfig = {
+    aggsEnabled: false,
+    defaultFilterKind: 'should',
+    getDistribution: true,
+    getRangeBounds: true,
+    rangeInterval: 1
+};
+
+// explicitly set the config for certain fields
+const customRangeFilterConfig = {
+    userAge: {
+        field: 'user.age',
+        rangeInterval: 10,
+    },
+    userInvites: {
+        field: 'user.invites',
+        getDistribution: false
+    }
+}
+
+// instantiate a range filter
+const rangeFilter = new RangeFilter(defaultRangeFilterConfig, customRangeFilterConfig);
+
+// instantiate a manager
+const manager = new Manager<typeof rangeFilter>(
+    client,
+    {range: rangeFilter},
+    {pageSize: 100, queryThrottleInMS: 350, fieldBlackList: ['id']}
+);
+```
+#### Get the initial results for a manager
+
+All queries are treated as requests and added to an internal queue. Thus, you don't await this method but, react to the `manager.results` attribute.
+
+```typescript
+manager.runStartQuery()
+```
 
 #### Setting a range filter
 
