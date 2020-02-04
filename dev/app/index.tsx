@@ -27,8 +27,8 @@ export default () => (
             <FilterSelector filterType={'range'} defaultFilterName={'instagram_avg_like_rate'}>
                 {filterName => <RangeFilter filterName={filterName} maxRange={50} />}
             </FilterSelector>
-            <FilterSelector filterType={'range'} defaultFilterName={'invites_pending'}>
-                {filterName => <RangeFilter filterName={filterName} maxRange={50} />}
+            <FilterSelector filterType={'range'} defaultFilterName={'user_profile_age'}>
+                {filterName => <RangeFilter filterName={filterName} maxRange={100} />}
             </FilterSelector>
             <FilterSelector filterType={'boolean'} defaultFilterName={'instagram.is_business'}>
                 {filterName => <BooleanFilter filterName={filterName}/>}

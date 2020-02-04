@@ -1,22 +1,15 @@
-import React, {useContext, useState} from 'react';
+import React, {useContext} from 'react';
 import {observer} from 'mobx-react';
 import styled from 'styled-components';
-import {VictoryChart, VictoryBar} from 'victory';
-import Slider from 'rc-slider';
+import {VictoryChart, VictoryGroup, VictoryBar, VictoryAxis} from 'victory';
 import Dropdown from 'react-dropdown-now';
 import 'react-dropdown-now/style.css';
 
 import 'rc-slider/assets/index.css';
 
 import Context from '../context';
-// import {
-//     isLessThanEqualFilter,
-//     isGreaterThanEqualFilter,
-//     isGreaterThanFilter,
-//     isLessThanFilter
-// } from '../../../src';
+
 import {FilterKind} from '../../../src';
-// import {toJS} from 'mobx';
 
 const RangeContainer = styled.div`
     height: 300px;
@@ -65,24 +58,7 @@ const FilterContainer = styled.div`
     justify-content: center;
 `;
 
-// const BoundsContainer = styled.div`
-//     display: flex;
-//     justify-content: flex-start;
-//     margin: 4px;
-//     padding: 5px;
-//     font-size: 12px;
-//     border-radius: 3px;
-// `;
 
-// const SliderContainer = styled.div`
-//     height: 40px;
-//     display: flex;
-//     justify-content: center;
-//     align-items: center;
-// `;
-
-const createSliderWithTooltip = Slider.createSliderWithTooltip;
-// const Range = createSliderWithTooltip(Slider.Range);
 
 // tslint:disable-next-line
 export default observer(({filterName, maxRange}) => {
@@ -96,44 +72,10 @@ export default observer(({filterName, maxRange}) => {
     const filteredCount = booleanFilter.filteredCount[filterName];
     const unfilteredCount = booleanFilter.unfilteredCount[filterName];
 
-    // const filteredData = filteredDistribution
-    //     ? filteredDistribution.map(d => ({x: d.key, y: d.doc_count})).filter(d => d.x && d.y)
-    //     : [];
-    // const unfilteredDistribution = range.unfilteredDistribution[filterName];
-    // const unfilteredData = unfilteredDistribution
-    //     ? unfilteredDistribution.map(d => ({x: d.key, y: d.doc_count})).filter(d => d.x && d.y)
-    //     : [];
-    // const unfilteredBounds = range.unfilteredRangeBounds[filterName] || {min: 0, max: 100};
-    // const filteredBounds = range.filteredRangeBounds[filterName] || unfilteredBounds;
-
     const filter = booleanFilter.fieldFilters[filterName];
-
-    // const lowerValue =
-    //     filter && isGreaterThanEqualFilter(filter)
-    //         ? filter.greaterThanEqual
-    //         : filter && isGreaterThanFilter(filter)
-    //         ? filter.greaterThan
-    //         : unfilteredBounds.min;
-
-    // const upperValue =
-    //     filter && isLessThanEqualFilter(filter)
-    //         ? filter.lessThanEqual
-    //         : filter && isLessThanFilter(filter)
-    //         ? filter.lessThan
-    //         : unfilteredBounds.max;
-
     const filterConfig = booleanFilter.fieldConfigs[filterName];
+    const barWidth = 30
 
-    // // console.log('filteredData', filterName, filteredData);
-    // // console.log('unfilteredData', filterName, unfilteredData);
-    // const maxSliderRange = maxRange
-    //     ? maxRange
-    //     : unfilteredBounds.max > upperValue
-    //     ? unfilteredBounds.max
-    //     : upperValue;
-
-    // const minSliderRange = unfilteredBounds.min < lowerValue ? unfilteredBounds.min : lowerValue;
-    // console.log('Slider range', filterName, minSliderRange, maxSliderRange, [lowerValue, upperValue]);
     return (
         <RangeContainer>
             <TopMenu>
@@ -170,28 +112,28 @@ export default observer(({filterName, maxRange}) => {
                     />
                 </DropdownFilterContainer>
             </FilterContainer>
-            <VictoryChart>
-                <VictoryBar
-                    labels={({datum}) => datum.y}
-                    categories={{
-                        x: [
-                            'true - unfiltered',
-                            'false - unfiltered',
-                            'true - filtered',
-                            'false - filtered'
-                        ]
-                    }}
-                    style={{
-                        data: {fill: '#c43a31'}
-                    }}
-                    data={[
-                        {x: 'true - unfiltered', y: unfilteredCount ? unfilteredCount['true'] : 0},
-                        {x: 'false - unfiltered', y: unfilteredCount ? unfilteredCount['false'] : 0},
-                        {x: 'true - filtered', y: filteredCount ? filteredCount['true'] : 0}
-                        {x: 'false - filtered', y: filteredCount ? filteredCount['false'] : 0}
-
-                    ]}
-                />
+            <VictoryChart height={150}>
+                <VictoryAxis tickValues={[0, 1]} tickFormat={['true', 'false']} width={2} height={2}/>
+                <VictoryGroup offset={0}>
+                    <VictoryBar
+                        horizontal
+                        labels={({datum}) => datum.y}
+                        style={{data: {fill: 'blue', width: barWidth, opacity: 0.5}}}
+                        data={
+                            unfilteredCount
+                                ? [unfilteredCount['true'], unfilteredCount['false']]
+                                : [0, 0]
+                        }
+                    />
+                    <VictoryBar
+                        horizontal
+                        labels={({datum}) => datum.y}
+                        style={{data: {fill: 'red', width: barWidth, opacity: 0.5}}}
+                        data={
+                            filteredCount ? [filteredCount['true'], filteredCount['false']] : [0, 0]
+                        }
+                    />
+                </VictoryGroup>
             </VictoryChart>
         </RangeContainer>
     );

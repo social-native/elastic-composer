@@ -123,7 +123,6 @@ class Manager<
         filters: Filters<RangeFilter, BooleanFilter>,
         options?: ManagerOptions
     ) {
-        console.log(filters);
         // tslint:disable-next-line
         runInAction(() => {
             this.client = client;

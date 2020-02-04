@@ -36,7 +36,6 @@ const FilterSelector: React.FunctionComponent<IProps> = observer(
         const [filterName, setFilterName] = useState(defaultFilterName);
         const filter = creatorCRM.filters[filterType];
         const filterConfig = creatorCRM.filters[filterType].fieldConfigs[filterName as RF]
-        console.log('%%%%%%%', filter);
         return (
             <FilterSelectorContainer>
                 <DropDownFilterSelect>

@@ -54,10 +54,6 @@ export type RawBooleanCountResult = {
         doc_count: number;
     }>;
 };
-// export type BooleanCountResult = Array<{
-//     state: boolean;
-//     count: number;
-// }>;
 
 export type BooleanCountResult = {
     true: number;
@@ -68,10 +64,6 @@ export type BooleanCountResults<BooleanFields extends string> = {
     [esFieldName in BooleanFields]: BooleanCountResult;
 };
 
-// export type RangeBoundResults<BooleanFields extends string> = {
-//     [esFieldName in BooleanFields]: RangeBoundResult;
-// };
-
 class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
     BooleanFields,
     BooleanConfig,
@@ -79,8 +71,6 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
 > {
     public filteredCount: BooleanCountResults<BooleanFields>;
     public unfilteredCount: BooleanCountResults<BooleanFields>;
-    // public filteredDistribution: RangeDistributionResults<BooleanFields>;
-    // public unfilteredDistribution: RangeDistributionResults<BooleanFields>;
 
     constructor(
         defaultConfig?: Omit<Required<BooleanConfig>, 'field'>,
@@ -94,7 +84,6 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
         runInAction(() => {
             this.filteredCount = {} as BooleanCountResults<BooleanFields>;
             this.unfilteredCount = {} as BooleanCountResults<BooleanFields>;
-            // this.filteredDistribution = {} as RangeDistributionResults<BooleanFields>;
         });
     }
 
@@ -217,7 +206,6 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
             if (!kind) {
                 throw new Error(`kind is not set for range type ${rangeFieldName}`);
             }
-            // const range = convertRanges(name, filter);
 
             if (filter) {
                 const existingFiltersForKind = acc.query.bool[kind as FilterKind] || [];
@@ -285,7 +273,6 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
                     const allCounts = response.aggregations[
                         `${name}__count`
                     ] as RawBooleanCountResult;
-                    // const maxResult = response.aggregations[`${name}__max`];
                     if (allCounts && allCounts.buckets && allCounts.buckets.length > 1) {
                         const trueBucket = allCounts.buckets.find(b => b.key === 1);
                         const falseBucket = allCounts.buckets.find(b => b.key === 0);
