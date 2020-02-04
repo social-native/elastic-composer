@@ -684,12 +684,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * ***************************************************************************
      */
 
-    /**
-     * Executes a query that runs on instantiation.
-     * This query is used to get the unfiltered aggs, which describe the shape of the
-     * total data set.
-     * This query will have no `query` component but likely have an `ags` component.
-     */
     public _runUnfilteredQueryAndAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
         try {
             const request = this._createUnfilteredQueryAndAggsRequest(
@@ -712,10 +706,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         }
     };
 
-    /**
-     * Executes a filtered query.
-     * This query will likely have both a `query` component and an `ags` component.
-     */
     public _runFilteredQueryAndAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
         try {
             const request = this._createFilteredQueryAndAggsRequest(
@@ -741,10 +731,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         }
     };
 
-    /**
-     * Executes a pagination query.
-     * This query will likely have a `query` component but not an agg component.
-     */
     public _runFilteredQuery = async (
         effectRequest: EffectRequest<EffectKinds>,
         direction: 'forward' | 'backwards'
@@ -771,10 +757,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         }
     };
 
-    /**
-     * Executes a filtered query.
-     * This query will likely have both a `query` component and an `ags` component.
-     */
     public _runFilteredAggs = async (
         effectRequest: EffectRequest<EffectKinds>,
         filter: string,
@@ -799,10 +781,6 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
         } // No cursor change b/c only dealing with filters
     };
 
-    /**
-     * Executes a filtered query.
-     * This query will likely have both a `query` component and an `ags` component.
-     */
     public _runUnfilteredAggs = async (
         effectRequest: EffectRequest<EffectKinds>,
         filter: string,
