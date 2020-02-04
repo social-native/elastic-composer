@@ -254,7 +254,7 @@ type ManagerOptions = {
 
 #### Initialization
 
-The range constructor has the signature `(defaultConfig, specificConfig) => RangeInstance`
+All filter constructors have the signature `(defaultConfig, specificConfig) => FilterTypeInstance`
 
 `defaultConfig` and `specificConfig` are specific to each filter class type.
 
