@@ -166,7 +166,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
                 }, {});
             },
             () => {
-                this.__enqueueFilteredQueryAndAggs();
+                this._enqueueFilteredQueryAndAggs();
             }
         );
 
@@ -350,10 +350,10 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      */
 
     public runStartQuery = () => {
-        this.__enqueueUnfilteredQueryAndAggs();
+        this._enqueueUnfilteredQueryAndAggs();
     };
 
-    public __enqueueUnfilteredQueryAndAggs = () => {
+    public _enqueueUnfilteredQueryAndAggs = () => {
         this._addToQueueLiFo(
             createEffectRequest({
                 kind: 'unfilteredQueryAndAggs',
@@ -409,11 +409,11 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * Debouncing - b/c you want to get to where want to be, but not necessarily all the places in between
      * Leading edge buffer - b/c of the same reasoning as above
      */
-    public __enqueueFilteredQueryAndAggs = () => {
+    public _enqueueFilteredQueryAndAggs = () => {
         this._addToQueueLiFo(
             createEffectRequest({
                 kind: 'filteredQueryAndAggs',
-                effect: this.__runFilteredQueryAndAggs,
+                effect: this._runFilteredQueryAndAggs,
                 debounce: 'trailing',
                 params: [],
                 throttle: this.queryThrottleInMS
@@ -716,7 +716,7 @@ class Manager<RangeFilter extends RangeFilterClass<any>, ResultObject extends ob
      * Executes a filtered query.
      * This query will likely have both a `query` component and an `ags` component.
      */
-    public __runFilteredQueryAndAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
+    public _runFilteredQueryAndAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
         try {
             const request = this._createFilteredQueryAndAggsRequest(
                 effectRequest,
