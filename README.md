@@ -10,6 +10,7 @@
       - [Instantiate a manager with a range filter](#instantiate-a-manager-with-a-range-filter)
       - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
       - [Setting a range filter](#setting-a-range-filter)
+      - [Setting a boolean filter](#setting-a-boolean-filter)
       - [Access the results of a query](#access-the-results-of-a-query)
       - [Paginating through the results set](#paginating-through-the-results-set)
   - [API](#api)
@@ -20,12 +21,22 @@
         - [Options](#options)
       - [Methods](#methods)
       - [Attributes](#attributes)
-    - [Range](#range)
+    - [Common Among All Filters](#common-among-all-filters)
       - [Initialization](#initialization-1)
-        - [defaultConfig](#defaultconfig)
-        - [specificConfig](#specificconfig)
       - [Methods](#methods-1)
       - [Attributes](#attributes-1)
+    - [Boolean Specific](#boolean-specific)
+      - [Initialization](#initialization-2)
+        - [defaultConfig](#defaultconfig)
+        - [specificConfig](#specificconfig)
+      - [Methods](#methods-2)
+      - [Attributes](#attributes-2)
+    - [Range Specific](#range-specific)
+      - [Initialization](#initialization-3)
+        - [defaultConfig](#defaultconfig-1)
+        - [specificConfig](#specificconfig-1)
+      - [Methods](#methods-3)
+      - [Attributes](#attributes-3)
   - [Verbose Examples](#verbose-examples)
     - [Set the context](#set-the-context)
     - [Use a filter in a pure component](#use-a-filter-in-a-pure-component)
@@ -56,6 +67,7 @@ This package aids in querying an Elasticsearch index. You define `filters` for e
 The currently available filters are:
 
 - `range`: Filter records by specifying a LT (<), LTE(<=), GT(>), GTE(>=) range
+- `boolean`: Filter records that have a value of either `true` or `false`
 
 There also exists a `manager` object which is how you access each filter, get the results of a query, and paginate through the result set.
 
@@ -110,11 +122,16 @@ manager.runStartQuery()
 
 #### Setting a range filter
 
-This triggers a query to rurun with all the existing filters plus the range filter for `age` will be updated
-to only include people between the ages of 20-40 (inclusive to exclusive).
-
 ```typescript
 manager.filters.range.setFilter('age', { greaterThanEqual: 20, lessThan: 40, })
+```
+> Note: This triggers a query to rurun with all the existing filters plus the range filter for `age` will be updated
+to only include people between the ages of 20-40 (inclusive to exclusive).
+
+#### Setting a boolean filter
+
+```typescript
+manager.filters.boolean.setFilter('isActive', { state: true })
 ```
 
 #### Access the results of a query
@@ -233,8 +250,78 @@ type ManagerOptions = {
 | indexFieldNamesAndTypes | A list of fields that can be filtered over and the filter name that this field uses. This is populated by the method `getFieldNamesAndTypes`.
 
 
+### Common Among All Filters
 
-### Range
+#### Initialization
+
+The range constructor has the signature `(defaultConfig, specificConfig) => RangeInstance`
+
+`defaultConfig` and `specificConfig` are specific to each filter class type.
+
+#### Methods 
+
+| method | description | type |
+| - | - | - |
+| setFilter | sets the filter for a field | `(field: <name of field>, filter: <filter specific to filter class type>): void` |
+| clearFilter | clears the filter for a field | `(field: <name of field>): void` |
+| setKind | sets the kind for a field | `(field: <name of field>, kind: should or must): void` |
+
+#### Attributes
+
+| attribute | description | type |
+| - | - | - |
+| fieldConfigs | the config for a field, keyed by field name | `{ [<names of fields>]: <config specific to filter class type> }` |
+| fieldFilters | the filters for a field, keyed by field name | `{ [<names of fields>]: Filter }` |
+| fieldKinds | the kind (`should or must`) for a field, keyed by field name | `{ [<names of fields>]: 'should' or 'must' }` |
+
+
+### Boolean Specific
+
+#### Initialization
+
+The boolean constructor has the signature `(defaultConfig, specificConfig) => RangeInstance`
+
+##### defaultConfig
+
+The configuration that each field will acquire if an override is not specifically set in `specificConfig`
+
+```typescript
+type DefaultConfig = {
+    defaultFilterKind: 'should' | 'must',
+    getCount: boolean,
+    aggsEnabled: boolean
+};
+```
+
+##### specificConfig
+
+The explicit configuration set on a per field level. If a config isn't specified or only partially specified for a field, the defaultConfig will be used to fill in the gaps.
+
+```typescript
+type SpecificConfig = Record<string, BooleanConfig>;
+
+type BooleanConfig = {
+    field: string,
+    defaultFilterKind?: 'should' | 'must',
+    getCount?: boolean,
+    aggsEnabled?: boolean
+};
+```
+
+#### Methods 
+
+| method | description | type |
+| - | - | - |
+| setFilter | sets the filter for a field | `(field: <name of boolean field>, filter: {state: true | false}): void` |
+
+#### Attributes
+
+| attribute | description | type |
+| - | - | - |
+| filteredCount | the count of boolean values of all unfiltered documents, keyed by field name   | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
+| unfilteredCount | the count of boolean values of all unfiltered documents, keyed by field name  | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
+
+### Range Specific
 
 #### Initialization
 
@@ -276,16 +363,11 @@ type RangeConfig = {
 | method | description | type |
 | - | - | - |
 | setFilter | sets the filter for a field | `(field: <name of range field>, filter: {lessThan?: number, greaterThan?: number, lessThanEqual?: number, greaterThanEqual?: number): void` |
-| clearFilter | clears the filter for a field | `(field: <name of range field>): void` |
-| setKind | sets the kind for a field | `(field: <name of range field>, kind: should or must): void` |
 
 #### Attributes
 
 | attribute | description | type |
 | - | - | - |
-| fieldConfigs | the config for a field, keyed by field name | `{ [<names of range fields>]: { field: string; defaultFilterKind: 'should' or 'must'; getDistribution: boolean; getRangeBounds: boolean; rangeInterval: number; aggsEnabled: boolean;} }` |
-| fieldFilters | the filters for a field, keyed by field name | `{ [<names of range fields>]: Filter }` |
-| fieldKinds | the kind (`should or must`) for a field, keyed by field name | `{ [<names of range fields>]: 'should' or 'must' }` |
 | filteredRangeBounds | the bounds of all filtered ranges (ex: 20 - 75), keyed by field name  | `{ [<names of range fields>]: { min: { value: number; value_as_string?: string; }; max: { value: number; value_as_string?: string; };} }` |
 | unfilteredRangeBounds | the bounds of all unfiltered ranges (ex: 0 - 100), keyed by field name  | `{ [<names of range fields>]: { min: { value: number; value_as_string?: string; }; max: { value: number; value_as_string?: string; };} }` |
 | filteredDistribution | the distribution of all filtered ranges, keyed by field name | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}` |
