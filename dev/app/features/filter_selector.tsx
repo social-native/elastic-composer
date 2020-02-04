@@ -25,37 +25,49 @@ const DropDownFilterSelect = styled.div`
 
 interface IProps {
     defaultFilterName: string;
+    filterType: 'range' | 'boolean';
     children(filterName: string): ReactElement;
 }
 // tslint:disable-next-line
 const FilterSelector: React.FunctionComponent<IProps> = observer(
-    ({children, defaultFilterName}) => {
+    ({children, filterType, defaultFilterName}) => {
         const creatorCRM = useContext(Context.creatorCRM);
 
         const [filterName, setFilterName] = useState(defaultFilterName);
+        const filter = creatorCRM.filters[filterType];
+        const filterConfig = creatorCRM.filters[filterType].fieldConfigs[filterName as RF]
         return (
             <FilterSelectorContainer>
                 <DropDownFilterSelect>
-                    <Dropdown
-                        options={creatorCRM.filters.range.fields}
-                        onChange={({value}) => setFilterName(value)}
-                        value={filterName}
-                        placeholder={'Select a field to filter'}
-                    />
+                    {filter && (
+                        <Dropdown
+                            options={filter.fields}
+                            onChange={({value}) => setFilterName(value)}
+                            value={filterName}
+                            placeholder={'Select a field to filter'}
+                        />
+                    )}
                 </DropDownFilterSelect>
                 <DropDownFilterSelect>
-                    <Dropdown
-                        options={['Aggs ON', 'Aggs OFF']}
-                        onChange={({value}) => {
-                            if (value === 'Aggs ON') {
-                                creatorCRM.filters.range.setAggsEnabledToTrue(filterName as RF);
-                            } else {
-                                creatorCRM.filters.range.setAggsEnabledToFalse(filterName as RF);
+                    {filter && filterConfig && (
+                        <Dropdown
+                            options={['Aggs ON', 'Aggs OFF']}
+                            onChange={({value}) => {
+                                if (value === 'Aggs ON') {
+                                    filter.setAggsEnabledToTrue(filterName as RF);
+                                } else {
+                                    filter.setAggsEnabledToFalse(filterName as RF);
+                                }
+                            }}
+                            value={
+                                filterConfig
+                                    .aggsEnabled
+                                    ? 'Aggs ON'
+                                    : 'Aggs OFF'
                             }
-                        }}
-                        value={creatorCRM.filters.range.fieldConfigs[filterName as RF].aggsEnabled ? 'Aggs ON' : 'Aggs OFF'}
-                        placeholder={'Select a field to filter'}
-                    />
+                            placeholder={'Select a field to filter'}
+                        />
+                    )}
                 </DropDownFilterSelect>
                 {children(filterName)}
             </FilterSelectorContainer>

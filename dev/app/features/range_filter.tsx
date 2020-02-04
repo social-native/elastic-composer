@@ -130,7 +130,7 @@ export default observer(({filterName, maxRange}) => {
                 <ClearFilterButton onClick={() => range.clearFilter(filterName)}>
                     clear filter
                 </ClearFilterButton>
-                <DropdownKindContainer>
+                {filterConfig && <DropdownKindContainer>
                     <Dropdown
                         options={['should', 'must']}
                         onChange={option => {
@@ -142,7 +142,7 @@ export default observer(({filterName, maxRange}) => {
                         value={filterConfig.defaultFilterKind}
                         placeholder={'Select a filter kind'}
                     />
-                </DropdownKindContainer>
+                </DropdownKindContainer>}
             </TopMenu>
             <AllBoundsContainer>
                 <BoundsContainer>

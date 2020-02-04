@@ -45,7 +45,6 @@ const Paginate = styled.div`
 export default observer(() => {
     const creatorCRM = useContext(Context.creatorCRM);
 
-    // return <UriInput type="text" value={uri} onChange={c => setUri(c.target.value)} />;
     const [columns] = useState([
         { name: 'score', title: 'Score'},
         { name: 'id', title: 'ID' },

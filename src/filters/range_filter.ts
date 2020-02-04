@@ -1,6 +1,6 @@
 import {runInAction, decorate, observable} from 'mobx';
 import {objKeys} from '../utils';
-import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
+import {ESRequest, AllRangeAggregationResults, ESResponse, FilterKind} from '../types';
 import BaseFilter from './base';
 import {decorateFilter} from './utils';
 
@@ -114,7 +114,6 @@ const convertRanges = (fieldName: string, filter: RangeFilter | undefined) => {
 /**
  * Range Kind
  */
-export type FilterKind = 'should' | 'must';
 
 export type RangeFilterKinds<RangeFields extends string> = {
     [esFieldName in RangeFields]: FilterKind | undefined;
@@ -362,13 +361,14 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         request: ESRequest,
         fieldToFilterOn?: string
     ): ESRequest => {
+        // tslint:disable-next-line
         return objKeys(this.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
             if (fieldToFilterOn && rangeFieldName !== fieldToFilterOn) {
                 return acc;
             }
             const config = this.fieldConfigs[rangeFieldName];
             const name = config.field;
-            if (!config.aggsEnabled) {
+            if (!config || !config.aggsEnabled) {
                 return acc;
             }
             if (config.getRangeBounds) {
