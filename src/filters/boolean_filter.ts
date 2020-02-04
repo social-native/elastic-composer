@@ -229,7 +229,7 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
                             ...acc.query.bool,
                             [kind as FilterKind]: [
                                 ...existingFiltersForKind,
-                                {[name]: filter.state}
+                                {term: {[name]: filter.state}}
                             ]
                         }
                     }
