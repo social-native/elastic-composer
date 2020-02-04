@@ -174,28 +174,7 @@ type ManagerOptions = {
 | isSideEffectRunning | a flag telling if a query is running | `boolean` |
 | currentPage | the page number | `0` if there are no results. `1` for the first page. etc... |
 | fieldWhiteList | the white list of fields that filters can exist for | |
-| fieldBlack- [snpkg-client-elasticsearch](#snpkg-client-elasticsearch)
-  - [Install](#install)
-  - [Peer dependencies](#peer-dependencies)
-  - [About](#about)
-  - [Quick Examples](#quick-examples)
-      - [Setting a range filter](#setting-a-range-filter)
-      - [Access the results of a query](#access-the-results-of-a-query)
-      - [Paginating through the results set](#paginating-through-the-results-set)
-  - [API](#api)
-    - [Manager](#manager)
-      - [Initialization](#initialization)
-        - [Client](#client)
-        - [Filters](#filters)
-        - [Options](#options)
-      - [Methods](#methods)
-      - [Attributes](#attributes)
-    - [Range](#range)
-      - [Methods](#methods-1)
-      - [Attributes](#attributes-1)
-  - [Example Usage](#example-usage)
-    - [Set the context](#set-the-context)
-    - [Use a filter in a pure component](#use-a-filter-in-a-pure-component)List | the black list of fields that filters can not exist for | |
+| fieldBlackList | the black list of fields that filters can not exist for | |
 | pageSize | the page size | The default size is 10. This can be changed by setting manager options during init. |
 | queryThrottleInMS | the throttle time for queries | The default is 1000 ms. This can be changed by setting manager options during init. |
 | filters | the filter instances that the manager controls |
