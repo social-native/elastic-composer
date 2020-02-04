@@ -21,9 +21,12 @@
       - [Methods](#methods)
       - [Attributes](#attributes)
     - [Range](#range)
+      - [Initialization](#initialization-1)
+        - [defaultConfig](#defaultconfig)
+        - [specificConfig](#specificconfig)
       - [Methods](#methods-1)
       - [Attributes](#attributes-1)
-  - [Example Usage](#example-usage)
+  - [Verbose Examples](#verbose-examples)
     - [Set the context](#set-the-context)
     - [Use a filter in a pure component](#use-a-filter-in-a-pure-component)
 
@@ -65,6 +68,8 @@ There also exists a `manager` object which is how you access each filter, get th
 const client = new Axios('my_url/my_index');
 
 // set the default config all filters will have if not explicitly set
+// by default we don't want aggs enabled unless we know the filter is being shown in the UI. So,
+// we use lifecycle methods in react to toggle this config attribute and set the default to `false`.
 const defaultRangeFilterConfig = {
     aggsEnabled: false,
     defaultFilterKind: 'should',
@@ -75,11 +80,11 @@ const defaultRangeFilterConfig = {
 
 // explicitly set the config for certain fields
 const customRangeFilterConfig = {
-    userAge: {
+    age: {
         field: 'user.age',
         rangeInterval: 10,
     },
-    userInvites: {
+    invites: {
         field: 'user.invites',
         getDistribution: false
     }
@@ -231,35 +236,77 @@ type ManagerOptions = {
 
 ### Range
 
+#### Initialization
+
+The range constructor has the signature `(defaultConfig, specificConfig) => RangeInstance`
+
+##### defaultConfig
+
+The configuration that each field will acquire if an override is not specifically set in `specificConfig`
+
+```typescript
+type RangeConfig = {
+    defaultFilterKind: 'should' | 'must';
+    getDistribution: boolean;
+    getRangeBounds: boolean;
+    rangeInterval: number;
+    aggsEnabled: boolean;
+};
+```
+
+##### specificConfig
+
+The explicit configuration set on a per field level. If a config isn't specified or only partially specified for a field, the defaultConfig will be used to fill in the gaps.
+
+```typescript
+type SpecificConfig = Record<string, RangeConfig>;
+
+type RangeConfig = {
+    field: string,
+    defaultFilterKind?: 'should' | 'must';
+    getDistribution?: boolean;
+    getRangeBounds?: boolean;
+    rangeInterval?: number;
+    aggsEnabled?: boolean;
+};
+```
+
 #### Methods 
 
 | method | description | type |
 | - | - | - |
 | setFilter | sets the filter for a field | `(field: <name of range field>, filter: {lessThan?: number, greaterThan?: number, lessThanEqual?: number, greaterThanEqual?: number): void` |
 | clearFilter | clears the filter for a field | `(field: <name of range field>): void` |
-| setKind | sets the kind for a field | `should or must` |
+| setKind | sets the kind for a field | `(field: <name of range field>, kind: should or must): void` |
 
 #### Attributes
 
 | attribute | description | type |
 | - | - | - |
-| rangeConfigs | the config for a field, keyed by field name | `{ [<names of range fields>]: { field: string; defaultFilterKind?: 'should' or 'must'; getDistribution?: boolean; getRangeBounds?: boolean; rangeInterval?: number;} }` |
-| rangeFilters | the filters for a field, keyed by field name | `{ [<names of range fields>]: Filter }` |
-| rangeKinds | the kind (`should or must`) for a field, keyed by field name | `{ [<names of range fields>]: 'should' or 'must' }` |
+| fieldConfigs | the config for a field, keyed by field name | `{ [<names of range fields>]: { field: string; defaultFilterKind: 'should' or 'must'; getDistribution: boolean; getRangeBounds: boolean; rangeInterval: number; aggsEnabled: boolean;} }` |
+| fieldFilters | the filters for a field, keyed by field name | `{ [<names of range fields>]: Filter }` |
+| fieldKinds | the kind (`should or must`) for a field, keyed by field name | `{ [<names of range fields>]: 'should' or 'must' }` |
 | filteredRangeBounds | the bounds of all filtered ranges (ex: 20 - 75), keyed by field name  | `{ [<names of range fields>]: { min: { value: number; value_as_string?: string; }; max: { value: number; value_as_string?: string; };} }` |
 | unfilteredRangeBounds | the bounds of all unfiltered ranges (ex: 0 - 100), keyed by field name  | `{ [<names of range fields>]: { min: { value: number; value_as_string?: string; }; max: { value: number; value_as_string?: string; };} }` |
 | filteredDistribution | the distribution of all filtered ranges, keyed by field name | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}` |
 | unfilteredDistribution | the distribution of all filtered ranges, keyed by field name | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}` |
 
 
-## Example Usage
+## Verbose Examples
 
 ### Set the context
 
-
 ```typescript
+const defaultRangeConfig = {
+    aggsEnabled: false,
+    defaultFilterKind: 'should',
+    getDistribution: true,
+    getRangeBounds: true,
+    rangeInterval: 1
+};
+
 type RF = 'instagram_avg_like_rate' | 'invites_pending' | 'user_profile_age';
-const defaultRangeConfig: RangeConfigs<RF> = {
+const customRangeFieldConfig: RangeConfigs<RF> = {
     instagram_avg_like_rate: {
         field: 'instagram.avg_like_rate',
         defaultFilterKind: 'should',
@@ -283,7 +330,7 @@ const defaultRangeConfig: RangeConfigs<RF> = {
     }
 };
 
-const rangeFilter = new RangeFilterClass<RF>({rangeConfig: defaultRangeConfig});
+const rangeFilter = new RangeFilterClass<RF>(defaultRangeConfig,customRangeFieldConfig);
 const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
 const creatorCRM = new Manager<typeof rangeFilter>(client, {range: rangeFilter});
 

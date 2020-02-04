@@ -42,7 +42,7 @@
         "axios": "^0.19.1",
         "lodash.chunk": "^4.2.0",
         "mobx": "^5.14.2",
-        "mobx-react": "^6.1.4",
+        "mobx-react": "^6.1.4"
     },
     "peerDependencies": {
         "await-timeout": "^1.1.1",
