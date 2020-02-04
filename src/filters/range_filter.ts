@@ -1,21 +1,27 @@
-import {runInAction, decorate, observable, set, computed} from 'mobx';
+import {runInAction, decorate, observable} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, AllRangeAggregationResults, ESResponse} from '../types';
+import BaseFilter from './base';
+import {decorateFilter} from './utils';
 
 /**
  * Range config
  */
-const DEFAULT_RANGE_CONFIG = {
+const RANGE_CONFIG_DEFAULT = {
     defaultFilterKind: 'should',
     getDistribution: true,
-    getRangeBounds: true
+    getRangeBounds: true,
+    rangeInterval: 1,
+    aggsEnabled: true
 };
+
 export type RangeConfig = {
     field: string;
     defaultFilterKind?: 'should' | 'must';
     getDistribution?: boolean;
     getRangeBounds?: boolean;
     rangeInterval?: number;
+    aggsEnabled?: boolean;
 };
 
 export type RangeConfigs<RangeFields extends string> = {
@@ -62,17 +68,17 @@ export function isLessThanEqualFilter(
     return (filter as LessThanEqualFilter).lessThanEqual !== undefined;
 }
 
-export type Filter = (GreaterThanFilter | GreaterThanEqualFilter | {}) &
+export type RangeFilter = (GreaterThanFilter | GreaterThanEqualFilter | {}) &
     (LessThanFilter | LessThanEqualFilter | {});
 
 export type Filters<RangeFields extends string> = {
-    [esFieldName in RangeFields]: Filter | undefined;
+    [esFieldName in RangeFields]: RangeFilter | undefined;
 };
 
 /**
  * Range Filter Utilities
  */
-const convertGreaterRanges = (filter: Filter) => {
+const convertGreaterRanges = (filter: RangeFilter) => {
     if (isGreaterThanFilter(filter)) {
         return {gt: filter.greaterThan};
     } else if (isGreaterThanEqualFilter(filter)) {
@@ -82,7 +88,7 @@ const convertGreaterRanges = (filter: Filter) => {
     }
 };
 
-const convertLesserRanges = (filter: Filter) => {
+const convertLesserRanges = (filter: RangeFilter) => {
     if (isLessThanFilter(filter)) {
         return {lt: filter.lessThan};
     } else if (isLessThanEqualFilter(filter)) {
@@ -92,7 +98,7 @@ const convertLesserRanges = (filter: Filter) => {
     }
 };
 
-const convertRanges = (fieldName: string, filter: Filter | undefined) => {
+const convertRanges = (fieldName: string, filter: RangeFilter | undefined) => {
     if (!filter) {
         return undefined;
     }
@@ -177,154 +183,158 @@ export type RangeBoundResults<RangeFields extends string> = {
     [esFieldName in RangeFields]: RangeBoundResult;
 };
 
-class RangeFilterClass<RangeFields extends string> {
-    public rangeConfigs: RangeConfigs<RangeFields>;
-    public rangeFilters: Filters<RangeFields>;
-    public rangeKinds: RangeFilterKinds<RangeFields>;
+class RangeFilterClass<RangeFields extends string> extends BaseFilter<
+    RangeFields,
+    RangeConfig,
+    RangeFilter
+> {
     public filteredRangeBounds: RangeBoundResults<RangeFields>;
     public unfilteredRangeBounds: RangeBoundResults<RangeFields>;
     public filteredDistribution: RangeDistributionResults<RangeFields>;
     public unfilteredDistribution: RangeDistributionResults<RangeFields>;
 
-    constructor(fieldTypeConfigs: {rangeConfig?: RangeConfigs<RangeFields>}) {
+    constructor(
+        defaultConfig?: Omit<Required<RangeConfig>, 'field'>,
+        specificConfigs?: RangeConfigs<RangeFields>
+    ) {
+        super(
+            'range',
+            defaultConfig || (RANGE_CONFIG_DEFAULT as Omit<Required<RangeConfig>, 'field'>),
+            specificConfigs as RangeConfigs<RangeFields>
+        );
         runInAction(() => {
-            this.rangeFilters = {} as Filters<RangeFields>;
-            this.rangeKinds = {} as RangeFilterKinds<RangeFields>;
             this.filteredRangeBounds = {} as RangeBoundResults<RangeFields>;
             this.unfilteredRangeBounds = {} as RangeBoundResults<RangeFields>;
             this.filteredDistribution = {} as RangeDistributionResults<RangeFields>;
             this.unfilteredDistribution = {} as RangeDistributionResults<RangeFields>;
-            const {rangeConfig} = fieldTypeConfigs;
-            if (rangeConfig) {
-                this.setConfigs(rangeConfig);
-            }
         });
     }
 
     /**
-     * State that affects the global filters
+     * State that should cause a global ES query request using all filters
      *
      * Changes to this state is tracked by the manager so that it knows when to run a new filter query
-     * Ideally, this
      */
-    public get filterAffectiveState(): object {
-        return {filters: {...this.rangeFilters}, kinds: {...this.rangeKinds}};
+    public get _shouldRunFilteredQueryAndAggs(): object {
+        return {filters: {...this.fieldFilters}, kinds: {...this.fieldKinds}};
     }
 
     /**
-     * Transforms the request, run on start, with the addition specific aggs
+     * ***************************************************************************
+     * REQUEST BUILDERS
+     * ***************************************************************************
      */
-    public startRequestTransform = (request: ESRequest): ESRequest => {
-        return [this.addDistributionsAggsToEsRequest, this.addBoundsAggsToEsRequest].reduce(
+
+    /**
+     * Transforms the request obj.
+     *
+     * Adds aggs to the request, but no query.
+     */
+    public _addUnfilteredQueryAndAggsToRequest = (request: ESRequest): ESRequest => {
+        return [this._addDistributionsAggsToEsRequest, this._addBoundsAggsToEsRequest].reduce(
             (newRequest, fn) => fn(newRequest),
             request
         );
     };
 
     /**
-     * Extracts state, relative to this filter type, from an elastic search response
+     * Transforms the request obj.
+     *
+     * Adds aggs to the request, but no query.
      */
-    public extractStateFromStartResponse = (response: ESResponse): void => {
-        [this.parseBoundsFromResponse, this.parseDistributionFromResponse].forEach(fn =>
+    public _addUnfilteredAggsToRequest = (
+        request: ESRequest,
+        fieldToFilterOn: string
+    ): ESRequest => {
+        return [this._addDistributionsAggsToEsRequest, this._addBoundsAggsToEsRequest].reduce(
+            (newRequest, fn) => fn(newRequest, fieldToFilterOn),
+            request
+        );
+    };
+
+    /**
+     * Transforms the request obj.
+     *
+     * Adds aggs to the request, but no query.
+     */
+    public _addFilteredAggsToRequest = (request: ESRequest, fieldToFilterOn: string): ESRequest => {
+        return [
+            this._addQueriesToESRequest,
+            this._addDistributionsAggsToEsRequest,
+            this._addBoundsAggsToEsRequest
+        ].reduce((newRequest, fn) => fn(newRequest, fieldToFilterOn), request);
+    };
+
+    /**
+     * Transforms the request obj.
+     *
+     * Adds query and aggs to the request.
+     */
+    public _addFilteredQueryAndAggsToRequest = (request: ESRequest): ESRequest => {
+        return [
+            this._addQueriesToESRequest,
+            this._addDistributionsAggsToEsRequest,
+            this._addBoundsAggsToEsRequest
+        ].reduce((newRequest, fn) => fn(newRequest), request);
+    };
+
+    /**
+     * Transforms the request obj.
+     *
+     * Adds query to the request, but no aggs.
+     */
+    public _addFilteredQueryToRequest = (request: ESRequest): ESRequest => {
+        return [this._addQueriesToESRequest].reduce((newRequest, fn) => fn(newRequest), request);
+    };
+
+    /**
+     * ***************************************************************************
+     * RESPONSE PARSERS
+     * ***************************************************************************
+     */
+
+    /**
+     * Extracts unfiltered agg stats from a response obj.
+     */
+    public _extractUnfilteredAggsStateFromResponse = (response: ESResponse): void => {
+        [this._parseBoundsFromResponse, this._parseDistributionFromResponse].forEach(fn =>
             fn(true, response)
         );
     };
 
     /**
-     * Transforms the request, run on filter state change, with the addition of specific aggs and queries
+     * Extracts filtered agg stats from a response obj.
      */
-    public filterRequestTransform = (request: ESRequest): ESRequest => {
-        return [
-            this.addQueriesToESRequest,
-            this.addDistributionsAggsToEsRequest,
-            this.addBoundsAggsToEsRequest
-        ].reduce((newRequest, fn) => fn(newRequest), request);
-    };
-
-    /**
-     * Extracts state, relative to this filter type, from an elastic search response
-     */
-    public extractStateFromFilterResponse = (response: ESResponse): void => {
-        [this.parseBoundsFromResponse, this.parseDistributionFromResponse].forEach(fn =>
+    public _extractFilteredAggsStateFromResponse = (response: ESResponse): void => {
+        [this._parseBoundsFromResponse, this._parseDistributionFromResponse].forEach(fn =>
             fn(false, response)
         );
     };
 
     /**
-     * Transforms the request, run on pagination change, with the addition of queries
+     * ***************************************************************************
+     * CUSTOM TO TEMPLATE
+     * ***************************************************************************
      */
-    public paginationRequestTransform = (request: ESRequest): ESRequest => {
-        return [this.addQueriesToESRequest].reduce((newRequest, fn) => fn(newRequest), request);
-    };
 
-    /**
-     * Sets the config for a filter
-     */
-    public setConfigs = (rangeConfigs: RangeConfigs<RangeFields>): void => {
-        runInAction(() => {
-            this.rangeConfigs = objKeys(rangeConfigs).reduce((parsedConfig, field) => {
-                const config = rangeConfigs[field];
-                const {rangeInterval} = config;
-                if (!rangeInterval) {
-                    throw new Error(`rangeInterval must be specified for ${field}`);
-                }
-                parsedConfig[field] = {
-                    ...DEFAULT_RANGE_CONFIG,
-                    ...config,
-                    rangeInterval
-                };
-                return parsedConfig;
-            }, {} as {[field in RangeFields]: Required<RangeConfig>});
-        });
-
-        runInAction(() => {
-            objKeys(this.rangeConfigs).forEach(field => {
-                const config = rangeConfigs[field];
-                if (config.defaultFilterKind) {
-                    this.setKind(field, config.defaultFilterKind);
-                }
-            });
-        });
-    };
-
-    public setFilter = (field: RangeFields, filter: Filter): void => {
-        runInAction(() => {
-            set(this.rangeFilters, {
-                [field]: filter
-            });
-        });
-    };
-
-    public clearFilter = (field: RangeFields): void => {
-        runInAction(() => {
-            delete this.rangeFilters[field];
-        });
-    };
-
-    public setKind = (field: RangeFields, kind: FilterKind): void => {
-        runInAction(() => {
-            this.rangeKinds[field] = kind;
-        });
-    };
-
-    public addQueriesToESRequest = (request: ESRequest): ESRequest => {
-        if (!this.rangeFilters) {
+    public _addQueriesToESRequest = (request: ESRequest): ESRequest => {
+        if (!this.fieldFilters) {
             return request;
         }
         // tslint:disable-next-line
-        return objKeys(this.rangeConfigs).reduce((acc, rangeFieldName) => {
-            if (!this.rangeFilters) {
+        return objKeys(this.fieldConfigs).reduce((acc, rangeFieldName) => {
+            if (!this.fieldFilters) {
                 return acc;
             }
-            const config = this.rangeConfigs[rangeFieldName];
+            const config = this.fieldConfigs[rangeFieldName];
             const name = config.field;
 
-            const filter = this.rangeFilters[rangeFieldName];
+            const filter = this.fieldFilters[rangeFieldName];
             if (!filter) {
                 return acc;
             }
 
-            const kind = this.rangeKinds[rangeFieldName];
+            const kind = this.kindForField(rangeFieldName);
             if (!kind) {
                 throw new Error(`kind is not set for range type ${rangeFieldName}`);
             }
@@ -348,10 +358,19 @@ class RangeFilterClass<RangeFields extends string> {
         }, request);
     };
 
-    public addBoundsAggsToEsRequest = (request: ESRequest): ESRequest => {
-        return objKeys(this.rangeConfigs || {}).reduce((acc, rangeFieldName) => {
-            const config = this.rangeConfigs[rangeFieldName];
+    public _addBoundsAggsToEsRequest = (
+        request: ESRequest,
+        fieldToFilterOn?: string
+    ): ESRequest => {
+        return objKeys(this.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
+            if (fieldToFilterOn && rangeFieldName !== fieldToFilterOn) {
+                return acc;
+            }
+            const config = this.fieldConfigs[rangeFieldName];
             const name = config.field;
+            if (!config.aggsEnabled) {
+                return acc;
+            }
             if (config.getRangeBounds) {
                 return {
                     ...acc,
@@ -375,11 +394,20 @@ class RangeFilterClass<RangeFields extends string> {
         }, request);
     };
 
-    public addDistributionsAggsToEsRequest = (request: ESRequest): ESRequest => {
-        return objKeys(this.rangeConfigs || {}).reduce((acc, rangeFieldName) => {
-            const config = this.rangeConfigs[rangeFieldName];
+    public _addDistributionsAggsToEsRequest = (
+        request: ESRequest,
+        fieldToFilterOn?: string
+    ): ESRequest => {
+        // tslint:disable-next-line
+        return objKeys(this.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
+            if (fieldToFilterOn && rangeFieldName !== fieldToFilterOn) {
+                return acc;
+            }
+            const config = this.fieldConfigs[rangeFieldName];
             const name = config.field;
-
+            if (!config.aggsEnabled) {
+                return acc;
+            }
             if (config.getDistribution) {
                 if (!config.rangeInterval) {
                     throw new Error(`rangeInterval must be specified for ${name}`);
@@ -402,46 +430,68 @@ class RangeFilterClass<RangeFields extends string> {
         }, request);
     };
 
-    public parseBoundsFromResponse = (isUnfilteredQuery: boolean, response: ESResponse): void => {
-        if (!this.rangeFilters) {
+    public _parseBoundsFromResponse = (isUnfilteredQuery: boolean, response: ESResponse): void => {
+        if (!this.fieldFilters) {
             return;
         }
-        // tslint:disable-next-line
-        const rangeBounds = objKeys(this.rangeConfigs).reduce((acc, rangeFieldName) => {
-            const config = this.rangeConfigs[rangeFieldName];
-            const name = config.field;
+        const existingBounds = isUnfilteredQuery
+            ? this.unfilteredRangeBounds
+            : this.filteredRangeBounds;
+        const rangeBounds = objKeys(this.fieldConfigs).reduce(
+            // tslint:disable-next-line
+            (acc, rangeFieldName) => {
+                const config = this.fieldConfigs[rangeFieldName];
+                const name = config.field;
 
-            if (config.getRangeBounds) {
-                const minResult = response.aggregations[`${name}__min`];
-                const maxResult = response.aggregations[`${name}__max`];
-                if (
-                    minResult &&
-                    maxResult &&
-                    isRangeResult(minResult) &&
-                    isRangeResult(maxResult)
-                ) {
-                    return {
-                        ...acc,
-                        [rangeFieldName]: {
-                            min: isRangeResultWithString(minResult)
-                                ? minResult.value_as_string
-                                : minResult.value,
-                            max: isRangeResultWithString(maxResult)
-                                ? maxResult.value_as_string
-                                : maxResult.value
-                        }
-                    };
-                } else if (minResult || maxResult) {
-                    throw new Error(
-                        `Only found one bound for field ${name}. Min: ${minResult}. Max: ${maxResult}`
-                    );
+                if (config.getRangeBounds && response.aggregations) {
+                    const minResult = response.aggregations[`${name}__min`];
+                    const maxResult = response.aggregations[`${name}__max`];
+                    if (
+                        minResult &&
+                        maxResult &&
+                        isRangeResult(minResult) &&
+                        isRangeResult(maxResult)
+                    ) {
+                        return {
+                            ...acc,
+                            [rangeFieldName]: {
+                                min: isRangeResultWithString(minResult)
+                                    ? minResult.value_as_string
+                                    : minResult.value,
+                                max: isRangeResultWithString(maxResult)
+                                    ? maxResult.value_as_string
+                                    : maxResult.value
+                            }
+                        };
+                    } else if (minResult && isRangeResult(minResult)) {
+                        return {
+                            ...acc,
+                            [rangeFieldName]: {
+                                ...existingBounds[rangeFieldName],
+                                min: isRangeResultWithString(minResult)
+                                    ? minResult.value_as_string
+                                    : minResult.value
+                            }
+                        };
+                    } else if (maxResult && isRangeResult(maxResult)) {
+                        return {
+                            ...acc,
+                            [rangeFieldName]: {
+                                ...existingBounds[rangeFieldName],
+                                max: isRangeResultWithString(maxResult)
+                                    ? maxResult.value_as_string
+                                    : maxResult.value
+                            }
+                        };
+                    } else {
+                        return acc;
+                    }
                 } else {
                     return acc;
                 }
-            } else {
-                return acc;
-            }
-        }, {} as RangeBoundResults<RangeFields>);
+            },
+            {...existingBounds} as RangeBoundResults<RangeFields>
+        );
 
         if (isUnfilteredQuery) {
             runInAction(() => {
@@ -454,32 +504,39 @@ class RangeFilterClass<RangeFields extends string> {
         }
     };
 
-    public parseDistributionFromResponse = (
+    public _parseDistributionFromResponse = (
         isUnfilteredQuery: boolean,
         response: ESResponse
     ): void => {
-        if (!this.rangeFilters) {
+        if (!this.fieldFilters) {
             return;
         }
-        // tslint:disable-next-line
-        const rangeHist = objKeys(this.rangeConfigs).reduce((acc, rangeFieldName) => {
-            const config = this.rangeConfigs[rangeFieldName];
-            const name = config.field;
 
-            if (config.getDistribution) {
-                const histResult = response.aggregations[`${name}__hist`];
-                if (histResult && isHistResult(histResult)) {
-                    return {
-                        ...acc,
-                        [rangeFieldName]: histResult.buckets
-                    };
+        const existingDistribution = isUnfilteredQuery
+            ? this.unfilteredDistribution
+            : this.filteredDistribution;
+        // tslint:disable-next-line
+        const rangeHist = objKeys(this.fieldConfigs).reduce(
+            (acc, rangeFieldName) => {
+                const config = this.fieldConfigs[rangeFieldName];
+                const name = config.field;
+
+                if (config.getDistribution && response.aggregations) {
+                    const histResult = response.aggregations[`${name}__hist`];
+                    if (histResult && isHistResult(histResult)) {
+                        return {
+                            ...acc,
+                            [rangeFieldName]: histResult.buckets
+                        };
+                    } else {
+                        return acc;
+                    }
                 } else {
                     return acc;
                 }
-            } else {
-                return acc;
-            }
-        }, {} as RangeDistributionResults<RangeFields>);
+            },
+            {...existingDistribution} as RangeDistributionResults<RangeFields>
+        );
 
         if (isUnfilteredQuery) {
             runInAction(() => {
@@ -494,14 +551,12 @@ class RangeFilterClass<RangeFields extends string> {
 }
 
 decorate(RangeFilterClass, {
-    filterAffectiveState: computed,
-    rangeConfigs: observable,
-    rangeFilters: observable,
-    rangeKinds: observable,
     filteredRangeBounds: observable,
     unfilteredRangeBounds: observable,
     filteredDistribution: observable,
     unfilteredDistribution: observable
 });
+
+decorateFilter(RangeFilterClass);
 
 export default RangeFilterClass;

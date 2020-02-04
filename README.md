@@ -5,6 +5,30 @@
 - [snpkg-client-elasticsearch](#snpkg-client-elasticsearch)
   - [Install](#install)
   - [Peer dependencies](#peer-dependencies)
+  - [About](#about)
+  - [Quick Examples](#quick-examples)
+      - [Instantiate a manager with a range filter](#instantiate-a-manager-with-a-range-filter)
+      - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
+      - [Setting a range filter](#setting-a-range-filter)
+      - [Access the results of a query](#access-the-results-of-a-query)
+      - [Paginating through the results set](#paginating-through-the-results-set)
+  - [API](#api)
+    - [Manager](#manager)
+      - [Initialization](#initialization)
+        - [Client](#client)
+        - [Filters](#filters)
+        - [Options](#options)
+      - [Methods](#methods)
+      - [Attributes](#attributes)
+    - [Range](#range)
+      - [Initialization](#initialization-1)
+        - [defaultConfig](#defaultconfig)
+        - [specificConfig](#specificconfig)
+      - [Methods](#methods-1)
+      - [Attributes](#attributes-1)
+  - [Verbose Examples](#verbose-examples)
+    - [Set the context](#set-the-context)
+    - [Use a filter in a pure component](#use-a-filter-in-a-pure-component)
 
 ## Install
 
@@ -18,10 +42,10 @@ This package requires that you also install:
 
 ```ts
 {
-    "await-timeout": "^1.1.1",
-    "axios": "^0.19.1",
-    "mobx": "^5.14.2",
-    "mobx-react": "^6.1.4"
+        "await-timeout": "^1.1.1",
+        "axios": "^0.19.1",
+        "lodash.chunk": "^4.2.0",
+        "mobx": "^5.14.2"
 }
 ```
 
@@ -37,6 +61,53 @@ There also exists a `manager` object which is how you access each filter, get th
 
 ## Quick Examples
 
+#### Instantiate a manager with a range filter
+
+```typescript
+// instantiate an elasticsearch axios client made for this lib
+const client = new Axios('my_url/my_index');
+
+// set the default config all filters will have if not explicitly set
+// by default we don't want aggs enabled unless we know the filter is being shown in the UI. So,
+// we use lifecycle methods in react to toggle this config attribute and set the default to `false`.
+const defaultRangeFilterConfig = {
+    aggsEnabled: false,
+    defaultFilterKind: 'should',
+    getDistribution: true,
+    getRangeBounds: true,
+    rangeInterval: 1
+};
+
+// explicitly set the config for certain fields
+const customRangeFilterConfig = {
+    age: {
+        field: 'user.age',
+        rangeInterval: 10,
+    },
+    invites: {
+        field: 'user.invites',
+        getDistribution: false
+    }
+}
+
+// instantiate a range filter
+const rangeFilter = new RangeFilter(defaultRangeFilterConfig, customRangeFilterConfig);
+
+// instantiate a manager
+const manager = new Manager<typeof rangeFilter>(
+    client,
+    {range: rangeFilter},
+    {pageSize: 100, queryThrottleInMS: 350, fieldBlackList: ['id']}
+);
+```
+#### Get the initial results for a manager
+
+All queries are treated as requests and added to an internal queue. Thus, you don't await this method but, react to the `manager.results` attribute.
+
+```typescript
+manager.runStartQuery()
+```
+
 #### Setting a range filter
 
 This triggers a query to rurun with all the existing filters plus the range filter for `age` will be updated
@@ -49,10 +120,11 @@ manager.filters.range.setFilter('age', { greaterThanEqual: 20, lessThan: 40, })
 #### Access the results of a query
 
 ```typescript
-manager.results
+manager.results  // Array<ESHit>
 ```
 
 Results are an array where each object in the array has the type:
+
 ```typescript
 export type ESHit<Source extends object = object> = {
     _index: string;
@@ -63,6 +135,7 @@ export type ESHit<Source extends object = object> = {
     sort: ESRequestSortField;
 };
 ```
+
 > `_source` will be the document result from the index.
 
 Thus, you would likely use the `results` like:
@@ -77,7 +150,7 @@ manager.results.map(r => r._source)
 manager.nextPage()
 manager.prevPage()
 
-manager.currentPage()
+manager.currentPage // number
 // # => 0 when no results exist
 // # => 1 for the first page of results
 ```
@@ -96,7 +169,9 @@ The manager constructor has the signature `(client, filters, options) => Manager
 
 ```typescript
 interface IClient<Source extends object = object> {
-    query: (request: ESRequest) => Promise<ESResponse<Source>>;
+    search: (request: ESRequest) => Promise<ESResponse<Source>>;
+    mapping: () => Promise<Record<string, ESMappingType>>;
+    // With ESMappingType equal to https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html
 }
 ```
 
@@ -104,7 +179,9 @@ At the moment there only exists an `Axios` client. This can be imported via a na
 ```ts
 import {Axios} from '@socil-native/snpkg-client-elasticsearch'
 
-const axiosESClient = new Axios();
+const axiosESClient = new Axios(endpoint);
+
+// endpoint is in the form: blah2lalkdjhgak.us-east-1.es.amazonaws.com/myindex1
 ```
 
 ##### Filters
@@ -122,9 +199,16 @@ const filters = {range: rangeFilterInstance}
 ```ts
 type ManagerOptions = {
     pageSize?: number;
-    queryDebounceInMS?: number;
+    queryThrottleInMS?: number;
+    fieldWhiteList?: string[];
+    fieldBlackList?: string[];
 };
 ```
+
+- `pageSize`: the number of results to expect when calling `manager.results`. The default size is 10.
+- `queryThrottleInMS`: the amount of time to wait before executing an Elasticsearch query. The default time is 1000.
+- `fieldWhiteList`: A list of elasticsearch fields that you only want to allow filtering on. This can't be used with `fieldBlackList`
+- `fieldBlackList`: A list of elasticsearch fields that you don't want to allow filtering on. This can't be used with `fieldWhiteList`  
 
 #### Methods 
 
@@ -132,18 +216,60 @@ type ManagerOptions = {
 | - | - | - |
 | nextPage | paginates forward | `(): void` |
 | prevPage | paginates backward | `(): void` |
+| getFieldNamesAndTypes | runs an introspection query on the index mapping and generates an object of elasticsearch fields and the filter type they correspond to | `(): void` |
+| runStartQuery | runs the initial elasticsearch query that fetches unfiltered data | `(): void` |
 
 #### Attributes
 
 | attribute | description | notes |
 | - | - | - |
-| isQueryRunning | a flag telling if a query is running | `boolean` |
+| isSideEffectRunning | a flag telling if a query is running | `boolean` |
 | currentPage | the page number | `0` if there are no results. `1` for the first page. etc... |
+| fieldWhiteList | the white list of fields that filters can exist for | |
+| fieldBlackList | the black list of fields that filters can not exist for | |
 | pageSize | the page size | The default size is 10. This can be changed by setting manager options during init. |
-| queryDebounceInMS | the debounce time for queries | The default is 2000 ms. This can be changed by setting manager options during init. |
+| queryThrottleInMS | the throttle time for queries | The default is 1000 ms. This can be changed by setting manager options during init. |
+| filters | the filter instances that the manager controls |
+| indexFieldNamesAndTypes | A list of fields that can be filtered over and the filter name that this field uses. This is populated by the method `getFieldNamesAndTypes`.
+
 
 
 ### Range
+
+#### Initialization
+
+The range constructor has the signature `(defaultConfig, specificConfig) => RangeInstance`
+
+##### defaultConfig
+
+The configuration that each field will acquire if an override is not specifically set in `specificConfig`
+
+```typescript
+type RangeConfig = {
+    defaultFilterKind: 'should' | 'must';
+    getDistribution: boolean;
+    getRangeBounds: boolean;
+    rangeInterval: number;
+    aggsEnabled: boolean;
+};
+```
+
+##### specificConfig
+
+The explicit configuration set on a per field level. If a config isn't specified or only partially specified for a field, the defaultConfig will be used to fill in the gaps.
+
+```typescript
+type SpecificConfig = Record<string, RangeConfig>;
+
+type RangeConfig = {
+    field: string,
+    defaultFilterKind?: 'should' | 'must';
+    getDistribution?: boolean;
+    getRangeBounds?: boolean;
+    rangeInterval?: number;
+    aggsEnabled?: boolean;
+};
+```
 
 #### Methods 
 
@@ -151,29 +277,36 @@ type ManagerOptions = {
 | - | - | - |
 | setFilter | sets the filter for a field | `(field: <name of range field>, filter: {lessThan?: number, greaterThan?: number, lessThanEqual?: number, greaterThanEqual?: number): void` |
 | clearFilter | clears the filter for a field | `(field: <name of range field>): void` |
-| setKind | sets the kind for a field | `should or must` |
+| setKind | sets the kind for a field | `(field: <name of range field>, kind: should or must): void` |
 
 #### Attributes
 
 | attribute | description | type |
 | - | - | - |
-| rangeConfigs | the config for a field, keyed by field name | `{ [<names of range fields>]: { field: string; defaultFilterKind?: 'should' or 'must'; getDistribution?: boolean; getRangeBounds?: boolean; rangeInterval?: number;} }` |
-| rangeFilters | the filters for a field, keyed by field name | `{ [<names of range fields>]: Filter }` |
-| rangeKinds | the kind (`should or must`) for a field, keyed by field name | `{ [<names of range fields>]: 'should' or 'must' }` |
+| fieldConfigs | the config for a field, keyed by field name | `{ [<names of range fields>]: { field: string; defaultFilterKind: 'should' or 'must'; getDistribution: boolean; getRangeBounds: boolean; rangeInterval: number; aggsEnabled: boolean;} }` |
+| fieldFilters | the filters for a field, keyed by field name | `{ [<names of range fields>]: Filter }` |
+| fieldKinds | the kind (`should or must`) for a field, keyed by field name | `{ [<names of range fields>]: 'should' or 'must' }` |
 | filteredRangeBounds | the bounds of all filtered ranges (ex: 20 - 75), keyed by field name  | `{ [<names of range fields>]: { min: { value: number; value_as_string?: string; }; max: { value: number; value_as_string?: string; };} }` |
 | unfilteredRangeBounds | the bounds of all unfiltered ranges (ex: 0 - 100), keyed by field name  | `{ [<names of range fields>]: { min: { value: number; value_as_string?: string; }; max: { value: number; value_as_string?: string; };} }` |
 | filteredDistribution | the distribution of all filtered ranges, keyed by field name | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}` |
 | unfilteredDistribution | the distribution of all filtered ranges, keyed by field name | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}` |
 
 
-## Example Usage
+## Verbose Examples
 
 ### Set the context
 
-
 ```typescript
+const defaultRangeConfig = {
+    aggsEnabled: false,
+    defaultFilterKind: 'should',
+    getDistribution: true,
+    getRangeBounds: true,
+    rangeInterval: 1
+};
+
 type RF = 'instagram_avg_like_rate' | 'invites_pending' | 'user_profile_age';
-const defaultRangeConfig: RangeConfigs<RF> = {
+const customRangeFieldConfig: RangeConfigs<RF> = {
     instagram_avg_like_rate: {
         field: 'instagram.avg_like_rate',
         defaultFilterKind: 'should',
@@ -197,7 +330,7 @@ const defaultRangeConfig: RangeConfigs<RF> = {
     }
 };
 
-const rangeFilter = new RangeFilterClass<RF>({rangeConfig: defaultRangeConfig});
+const rangeFilter = new RangeFilterClass<RF>(defaultRangeConfig,customRangeFieldConfig);
 const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
 const creatorCRM = new Manager<typeof rangeFilter>(client, {range: rangeFilter});
 

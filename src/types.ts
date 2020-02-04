@@ -13,7 +13,7 @@ export type ESRequest = {
             should: object[];
         };
     };
-    aggs: object;
+    aggs: Record<string, any>;
     from?: number;
     size?: number;
     track_scores?: boolean;
@@ -30,7 +30,7 @@ export type ESResponse<Source extends object = object> = {
     timed_out: boolean;
     _shards: {total: number; successful: number; skipped: number; failed: number};
     hits: {total: number; max_score: number; hits: Array<ESHit<Source>>};
-    aggregations: {
+    aggregations?: {
         [boundary: string]: AllRangeAggregationResults;
     };
 };
@@ -48,5 +48,40 @@ export type ESHit<Source extends object = object> = {
  * Client
  */
 export interface IClient<Source extends object = object> {
-    query: (request: ESRequest) => Promise<ESResponse<Source>>;
+    search: (request: ESRequest) => Promise<ESResponse<Source>>;
+    mapping: () => Promise<Record<string, ESMappingType>>;
 }
+
+/**
+ * ES Mapping
+ */
+
+export type ESMappingType = 'long' | 'double' | 'integer';
+
+/**
+ * Base Filter
+ */
+
+export type BaseConfig = {
+    field: string;
+    defaultFilterKind?: 'should' | 'must';
+    aggsEnabled?: boolean;
+};
+
+export type FieldConfigs<Fields extends string, Config extends BaseConfig> = {
+    [esFieldName in Fields]: Required<Config>;
+};
+
+export type PartialFieldConfigs<Fields extends string, Config extends BaseConfig> = {
+    [esFieldName in Fields]: Config;
+};
+
+export type FieldFilters<Fields extends string, Filter extends object> = {
+    [esFieldName in Fields]: Filter | undefined;
+};
+
+export type FilterKind = 'should' | 'must';
+
+export type FieldKinds<Fields extends string> = {
+    [esFieldName in Fields]: FilterKind | undefined;
+};
