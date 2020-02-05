@@ -268,25 +268,25 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
             (acc, booleanFieldName) => {
                 const config = this.fieldConfigs[booleanFieldName];
                 const name = config.field;
-
                 if (config.getCount && response.aggregations) {
                     const allCounts = response.aggregations[
                         `${name}__count`
                     ] as RawBooleanCountResult;
-                    if (allCounts && allCounts.buckets && allCounts.buckets.length > 1) {
-                        const trueBucket = allCounts.buckets.find(b => b.key === 1);
-                        const falseBucket = allCounts.buckets.find(b => b.key === 0);
-                        if (trueBucket && falseBucket) {
-                            return {
-                                ...acc,
-                                [booleanFieldName]: {
-                                    true: trueBucket.doc_count,
-                                    false: falseBucket.doc_count
-                                }
-                            };
-                        } else {
-                            return acc;
-                        }
+                    if (allCounts && allCounts.buckets && allCounts.buckets.length > 0) {
+                        const trueBucket = allCounts.buckets.find(b => b.key === 1) || {
+                            doc_count: 0
+                        };
+                        const falseBucket = allCounts.buckets.find(b => b.key === 0) || {
+                            doc_count: 0
+                        };
+
+                        return {
+                            ...acc,
+                            [booleanFieldName]: {
+                                true: trueBucket.doc_count,
+                                false: falseBucket.doc_count
+                            }
+                        };
                     } else if (allCounts && allCounts.buckets && allCounts.buckets.length > 3) {
                         throw new Error(
                             `There shouldnt be more than 3 states for boolean fields. Check data for ${booleanFieldName}`

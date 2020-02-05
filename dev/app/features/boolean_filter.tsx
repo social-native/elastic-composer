@@ -14,8 +14,6 @@ import {FilterKind} from '../../../src';
 const RangeContainer = styled.div`
     height: 300px;
     width: 250px;
-    // padding: 25px;
-    // border: 1px solid rgba(0, 0, 0, 0.75);
     margin: 5px;
     border-radius: 3px;
 `;
@@ -57,8 +55,6 @@ const FilterContainer = styled.div`
     flex-direction: column;
     justify-content: center;
 `;
-
-
 
 // tslint:disable-next-line
 export default observer(({filterName, maxRange}) => {
