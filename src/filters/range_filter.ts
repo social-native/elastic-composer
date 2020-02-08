@@ -1,11 +1,17 @@
 import {runInAction, decorate, observable} from 'mobx';
 import {objKeys} from '../utils';
-import {ESRequest, AllRangeAggregationResults, ESResponse, FilterKind} from '../types';
+import {
+    ESRequest,
+    AllRangeAggregationResults,
+    ESResponse,
+    FilterKind,
+    BaseFilterConfig
+} from '../types';
 import BaseFilter from './base';
 import {decorateFilter} from './utils';
 
 /**
- * Range config
+ * Config
  */
 const RANGE_CONFIG_DEFAULT = {
     defaultFilterKind: 'should',
@@ -15,21 +21,21 @@ const RANGE_CONFIG_DEFAULT = {
     aggsEnabled: true
 };
 
-export type RangeConfig = {
+export interface IRangeConfig extends BaseFilterConfig {
     field: string;
     defaultFilterKind?: 'should' | 'must';
     getDistribution?: boolean;
     getRangeBounds?: boolean;
     rangeInterval?: number;
     aggsEnabled?: boolean;
-};
+}
 
-export type RangeConfigs<RangeFields extends string> = {
-    [esFieldName in RangeFields]: RangeConfig;
+export type IRangeConfigs<RangeFields extends string> = {
+    [esFieldName in RangeFields]: IRangeConfig;
 };
 
 /**
- * Range Filter
+ * Filter
  */
 
 export type GreaterThanFilter = {
@@ -76,7 +82,7 @@ export type Filters<RangeFields extends string> = {
 };
 
 /**
- * Range Filter Utilities
+ * Filter Utilities
  */
 const convertGreaterRanges = (filter: RangeFilter) => {
     if (isGreaterThanFilter(filter)) {
@@ -112,7 +118,7 @@ const convertRanges = (fieldName: string, filter: RangeFilter | undefined) => {
 };
 
 /**
- * Range Kind
+ * Kind
  */
 
 export type RangeFilterKinds<RangeFields extends string> = {
@@ -120,7 +126,7 @@ export type RangeFilterKinds<RangeFields extends string> = {
 };
 
 /**
- * Range Distribution
+ * Results - Distribution
  */
 export type RawRangeDistributionResult = {
     buckets: Array<{
@@ -144,7 +150,7 @@ function isHistResult(
 }
 
 /**
- * Range Bounds
+ * Results - Bounds
  */
 export type RawRangeBoundResultBasic = {
     value: number;
@@ -184,7 +190,7 @@ export type RangeBoundResults<RangeFields extends string> = {
 
 class RangeFilterClass<RangeFields extends string> extends BaseFilter<
     RangeFields,
-    RangeConfig,
+    IRangeConfig,
     RangeFilter
 > {
     public filteredRangeBounds: RangeBoundResults<RangeFields>;
@@ -193,13 +199,13 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
     public unfilteredDistribution: RangeDistributionResults<RangeFields>;
 
     constructor(
-        defaultConfig?: Omit<Required<RangeConfig>, 'field'>,
-        specificConfigs?: RangeConfigs<RangeFields>
+        defaultConfig?: Omit<Required<IRangeConfig>, 'field'>,
+        specificConfigs?: IRangeConfigs<RangeFields>
     ) {
         super(
             'range',
-            defaultConfig || (RANGE_CONFIG_DEFAULT as Omit<Required<RangeConfig>, 'field'>),
-            specificConfigs as RangeConfigs<RangeFields>
+            defaultConfig || (RANGE_CONFIG_DEFAULT as Omit<Required<IRangeConfig>, 'field'>),
+            specificConfigs as IRangeConfigs<RangeFields>
         );
         runInAction(() => {
             this.filteredRangeBounds = {} as RangeBoundResults<RangeFields>;

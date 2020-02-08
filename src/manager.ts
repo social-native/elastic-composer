@@ -5,6 +5,7 @@ import {objKeys} from './utils';
 import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx';
 import Timeout from 'await-timeout';
 import chunk from 'lodash.chunk';
+import {TypeAheadSuggestionClass, BaseSuggestion} from 'suggestions';
 
 /**
  * How the naming works:
@@ -24,6 +25,10 @@ type Filters<
 > = {
     range: RangeFilter;
     boolean: BooleanFilter;
+};
+
+type Suggestions<TypeAheadSuggestion extends TypeAheadSuggestionClass<any>> = {
+    typeAhead: TypeAheadSuggestion;
 };
 
 const BLANK_ES_REQUEST = {
@@ -87,6 +92,7 @@ const createEffectRequest = <EffectKind extends string>(
 ): EffectRequest<EffectKind> => input;
 
 type EffectKinds =
+    | 'suggestion'
     | 'batchAggs'
     | 'unfilteredQuery'
     | 'unfilteredAggs'
@@ -100,11 +106,13 @@ type QueryFn = (...params: any[]) => void;
 class Manager<
     RangeFilter extends RangeFilterClass<any>,
     BooleanFilter extends BooleanFilterClass<any>,
+    TypeAheadSuggestion extends TypeAheadSuggestionClass<any>,
     ResultObject extends object = object
 > {
     public pageSize: number;
     public queryThrottleInMS: number;
     public filters: Filters<RangeFilter, BooleanFilter>;
+    public suggesters: Suggestions<TypeAheadSuggestion>;
     public results: Array<ESHit<ResultObject>>;
 
     public _sideEffectQueue: Array<EffectRequest<EffectKinds> | null>;
@@ -121,12 +129,14 @@ class Manager<
     constructor(
         client: IClient<ResultObject>,
         filters: Filters<RangeFilter, BooleanFilter>,
+        suggesters: Suggestions<TypeAheadSuggestion>,
         options?: ManagerOptions
     ) {
         // tslint:disable-next-line
         runInAction(() => {
             this.client = client;
             this.filters = filters;
+            this.suggesters = suggesters;
             this.isSideEffectRunning = false;
             this._sideEffectQueue = [];
 
@@ -158,6 +168,11 @@ class Manager<
             const filter = this.filters[filterName];
             filter._subscribeToShouldUpdateFilteredAggs(this._enqueueFilteredAggs);
             filter._subscribeToShouldUpdateUnfilteredAggs(this._enqueueUnfilteredAggs);
+        });
+
+        objKeys(this.suggesters).forEach(suggesterName => {
+            const suggester = this.suggesters[suggesterName];
+            suggester._subscribeToShouldRunSuggestionSearch(this._enqueueSuggestionSearch);
         });
 
         /**
@@ -331,6 +346,26 @@ class Manager<
      */
     public _enqueueUnfilteredQuery = () => {
         throw new Error('Not implemented');
+    };
+
+    /**
+     * Used for to get suggestions for ongoing searches - before a particular filter has been set
+     * as a user is figuring out terms for the filter. This is mainly used by the multiselect
+     * and keyword filters
+     *
+     * Predicate debouncing - b/c we dont want to interfere with other suggesters but a single
+     * field suggestion should be debounced
+     */
+    public _enqueueSuggestionSearch = (filter: string, field: string) => {
+        this._addToQueueLiFo(
+            createEffectRequest({
+                kind: 'suggestion',
+                effect: this._runSuggestionSearch,
+                debounce: undefined,
+                throttle: this.queryThrottleInMS,
+                params: [filter, field]
+            })
+        );
     };
 
     /**
@@ -526,6 +561,16 @@ class Manager<
         });
     };
 
+    public _extractSuggestionStateFromResponse = (response: ESResponse<ResultObject>): void => {
+        objKeys(this.suggesters).forEach(suggesterName => {
+            const suggester = this.suggesters[suggesterName];
+            if (!suggester) {
+                return;
+            }
+            suggester._extractSuggestionFromResponse(response);
+        });
+    };
+
     /**
      * ***************************************************************************
      * REQUEST MIDDLEWARE
@@ -591,6 +636,36 @@ class Manager<
      * ***************************************************************************
      */
 
+    public _createSearchSuggestionRequest = (
+        effectRequest: EffectRequest<EffectKinds>,
+        blankRequest: ESRequest,
+        suggesterName: string,
+        field: string
+    ): ESRequest => {
+        const suggester = (this.suggesters as any)[suggesterName as any] as BaseSuggestion<
+            any,
+            any
+        >;
+        if (!suggester) {
+            throw new Error('Tried to create an ESRequest for a suggester that doesnt exist');
+        }
+        const requestWithSuggestion = suggester._addSuggestionQueryAndAggsToRequest(
+            blankRequest,
+            field
+        );
+        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            if (!filter) {
+                return request;
+            }
+
+            return filter._addFilteredQueryToRequest(request);
+        }, requestWithSuggestion);
+        // We want:
+        // - no results
+        return this._addZeroPageSizeToQuery(this._requestMiddleware(effectRequest, fullRequest));
+    };
+
     public _createUnfilteredQueryAndAggsRequest = (
         effectRequest: EffectRequest<EffectKinds>,
         blankRequest: ESRequest
@@ -624,7 +699,6 @@ class Manager<
         const fullRequest = filter._addFilteredAggsToRequest(blankRequest, field);
         // We want:
         // - no results
-        // - the results to be sorted
         return this._addZeroPageSizeToQuery(this._requestMiddleware(effectRequest, fullRequest));
     };
 
@@ -693,6 +767,30 @@ class Manager<
      * ES QUERY MANAGERS
      * ***************************************************************************
      */
+
+    public _runSuggestionSearch = async (
+        effectRequest: EffectRequest<EffectKinds>,
+        filter: string,
+        field: string
+    ) => {
+        try {
+            const request = this._createSearchSuggestionRequest(
+                effectRequest,
+                BLANK_ES_REQUEST,
+                filter,
+                field
+            );
+            const response = await this.client.search(removeEmptyArrays(request));
+
+            // Pass the response to the filter instances so they can extract info relevant to them.
+            this._extractSuggestionStateFromResponse(response);
+
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryThrottleInMS);
+        } catch (e) {
+            throw e;
+        } // No cursor change b/c only dealing with filters
+    };
 
     public _runUnfilteredQueryAndAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
         try {
@@ -948,6 +1046,7 @@ decorate(Manager, {
     pageSize: observable,
     queryThrottleInMS: observable,
     filters: observable,
+    suggesters: observable,
     results: observable,
     _sideEffectQueue: observable,
     isSideEffectRunning: observable,
