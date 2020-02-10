@@ -1,8 +1,8 @@
 import {decorate, computed, observable} from 'mobx';
 
-export const decorateFilter = (suggestionClass: any) => {
+export const decorateSuggester = (suggestionClass: any) => {
     decorate(suggestionClass, {
-        fields: computed,
+        // fields: computed, // TODO figure out why this cant be decorated without causing memory issues
         fieldConfigDefault: observable,
         fieldConfigs: observable,
         fieldKinds: observable,

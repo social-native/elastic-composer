@@ -5,7 +5,7 @@ export {BaseFilter} from './filters';
 export * from './types';
 export * from './filters';
 export * from './clients';
-// export BaseFilter;
+export * from './suggestions';
 
 configure({
     computedRequiresReaction: true,

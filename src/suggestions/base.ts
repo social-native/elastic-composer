@@ -27,12 +27,15 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
         defaultConfig: Omit<Required<BaseSuggestionConfig>, 'field'>,
         specificConfigs?: PartialFieldSuggestionConfigs<Fields, Config>
     ) {
+        console.log('HEREE', suggestionKind, defaultConfig, specificConfigs);
+
         runInAction(() => {
             this.suggestionKind = suggestionKind;
             this.fieldConfigDefault = defaultConfig;
-            this.fieldSuggestions = {} as FieldSuggestions<Fields>;
-            this.fieldKinds = {} as FieldKinds<Fields>;
             this.fieldConfigs = {} as FieldSuggestionConfigs<Fields, Config>;
+            this.fieldKinds = {} as FieldKinds<Fields>;
+            this.fieldSuggestions = {} as FieldSuggestions<Fields>;
+            this.fieldSearches = {} as FieldSearches<Fields>;
 
             this._shouldRunSuggestionSearchSubscribers = [];
         });

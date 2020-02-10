@@ -2,25 +2,25 @@ import {runInAction} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, ESResponse, FilterKind, FieldSuggestions, BaseSuggestionConfig} from '../types';
 import BaseSuggestion from './base';
-import {decorateFilter} from '../filters/utils';
+import {decorateSuggester} from './utils';
 
 /**
  * Config
  */
 
-const TYPE_AHEAD_CONFIG_DEFAULT = {
-    defaultFilterKind: 'should',
+const CONFIG_DEFAULT = {
+    defaultSuggestionKind: 'should',
     enabled: true
 };
 
-export interface ITypeAheadConfig extends BaseSuggestionConfig {
+export interface IConfig extends BaseSuggestionConfig {
     field: string;
-    defaultFilterKind?: 'should' | 'must';
+    defaultSuggestionKind?: 'should' | 'must';
     enabled?: boolean;
 }
 
-export type TypeAheadConfigs<TypeAheadFields extends string> = {
-    [esFieldName in TypeAheadFields]: ITypeAheadConfig;
+export type Configs<Fields extends string> = {
+    [esFieldName in Fields]: IConfig;
 };
 
 /**
@@ -31,16 +31,16 @@ export type Filter = {
     search: string;
 };
 
-export type Filters<TypeAheadFields extends string> = {
-    [esFieldName in TypeAheadFields]: Filter | undefined;
+export type Filters<Fields extends string> = {
+    [esFieldName in Fields]: Filter | undefined;
 };
 
 /**
  * Kind
  */
 
-export type FilterKinds<TypeAheadFields extends string> = {
-    [esFieldName in TypeAheadFields]: FilterKind | undefined;
+export type FilterKinds<Fields extends string> = {
+    [esFieldName in Fields]: FilterKind | undefined;
 };
 
 /**
@@ -49,25 +49,20 @@ export type FilterKinds<TypeAheadFields extends string> = {
 
 export type RawSuggestions = {
     buckets: Array<{
-        key: 0 | 1;
-        key_as_string: 'true' | 'false';
+        key: string;
         doc_count: number;
     }>;
 };
 
-class TypeAheadSuggestionClass<TypeAheadFields extends string> extends BaseSuggestion<
-    TypeAheadFields,
-    ITypeAheadConfig
-> {
+class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, IConfig> {
     constructor(
-        defaultConfig?: Omit<Required<ITypeAheadConfig>, 'field'>,
-        specificConfigs?: TypeAheadConfigs<TypeAheadFields>
+        defaultConfig?: Omit<Required<IConfig>, 'field'>,
+        specificConfigs?: Configs<Fields>
     ) {
         super(
-            'type_ahead',
-            defaultConfig ||
-                (TYPE_AHEAD_CONFIG_DEFAULT as Omit<Required<ITypeAheadConfig>, 'field'>),
-            specificConfigs as TypeAheadConfigs<TypeAheadFields>
+            'prefix',
+            defaultConfig || (CONFIG_DEFAULT as Omit<Required<IConfig>, 'field'>),
+            specificConfigs as Configs<Fields>
         );
     }
 
@@ -78,7 +73,7 @@ class TypeAheadSuggestionClass<TypeAheadFields extends string> extends BaseSugge
      */
     public _addSuggestionQueryAndAggsToRequest = (
         request: ESRequest,
-        fieldName: TypeAheadFields
+        fieldName: Fields
     ): ESRequest => {
         return [this._addQueriesToESRequest, this._addAggsToESRequest].reduce(
             (newRequest, fn) => fn(newRequest, fieldName),
@@ -101,7 +96,7 @@ class TypeAheadSuggestionClass<TypeAheadFields extends string> extends BaseSugge
      * ***************************************************************************
      */
 
-    public _addQueriesToESRequest = (request: ESRequest, fieldName: TypeAheadFields): ESRequest => {
+    public _addQueriesToESRequest = (request: ESRequest, fieldName: Fields): ESRequest => {
         // tslint:disable-next-line
         if (!this.fieldSearches) {
             return request;
@@ -145,7 +140,7 @@ class TypeAheadSuggestionClass<TypeAheadFields extends string> extends BaseSugge
         }
     };
 
-    public _addAggsToESRequest = (request: ESRequest, fieldName: TypeAheadFields): ESRequest => {
+    public _addAggsToESRequest = (request: ESRequest, fieldName: Fields): ESRequest => {
         const config = this.fieldConfigs[fieldName];
         const esFieldName = config.field;
         if (!config || !config.enabled) {
@@ -189,6 +184,12 @@ class TypeAheadSuggestionClass<TypeAheadFields extends string> extends BaseSugge
                                 suggestion: raw.key,
                                 count: raw.doc_count
                             }))
+                            .filter(
+                                r =>
+                                    r &&
+                                    r.suggestion &&
+                                    r.suggestion.startsWith(this.fieldSearches[suggestionFieldName])
+                            )
                             .sort((first, second) => {
                                 return first.count < second.count ? -1 : 1;
                             });
@@ -204,7 +205,7 @@ class TypeAheadSuggestionClass<TypeAheadFields extends string> extends BaseSugge
                     return acc;
                 }
             },
-            {...existingSuggestions} as FieldSuggestions<TypeAheadFields>
+            {...existingSuggestions} as FieldSuggestions<Fields>
         );
 
         runInAction(() => {
@@ -213,6 +214,6 @@ class TypeAheadSuggestionClass<TypeAheadFields extends string> extends BaseSugge
     };
 }
 
-decorateFilter(TypeAheadSuggestionClass);
+decorateSuggester(PrefixSuggestion);
 
-export default TypeAheadSuggestionClass;
+export default PrefixSuggestion;

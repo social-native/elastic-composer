@@ -5,7 +5,7 @@ import {objKeys} from './utils';
 import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx';
 import Timeout from 'await-timeout';
 import chunk from 'lodash.chunk';
-import {TypeAheadSuggestionClass, BaseSuggestion} from 'suggestions';
+import {PrefixSuggestionClass, BaseSuggestion} from 'suggestions';
 
 /**
  * How the naming works:
@@ -27,8 +27,8 @@ type Filters<
     boolean: BooleanFilter;
 };
 
-type Suggestions<TypeAheadSuggestion extends TypeAheadSuggestionClass<any>> = {
-    typeAhead: TypeAheadSuggestion;
+type Suggestions<Suggestion extends PrefixSuggestionClass<any>> = {
+    prefix: Suggestion;
 };
 
 const BLANK_ES_REQUEST = {
@@ -106,13 +106,13 @@ type QueryFn = (...params: any[]) => void;
 class Manager<
     RangeFilter extends RangeFilterClass<any>,
     BooleanFilter extends BooleanFilterClass<any>,
-    TypeAheadSuggestion extends TypeAheadSuggestionClass<any>,
+    PrefixSuggestion extends PrefixSuggestionClass<any>,
     ResultObject extends object = object
 > {
     public pageSize: number;
     public queryThrottleInMS: number;
     public filters: Filters<RangeFilter, BooleanFilter>;
-    public suggesters: Suggestions<TypeAheadSuggestion>;
+    public suggesters: Suggestions<PrefixSuggestion>;
     public results: Array<ESHit<ResultObject>>;
 
     public _sideEffectQueue: Array<EffectRequest<EffectKinds> | null>;
@@ -129,7 +129,7 @@ class Manager<
     constructor(
         client: IClient<ResultObject>,
         filters: Filters<RangeFilter, BooleanFilter>,
-        suggesters: Suggestions<TypeAheadSuggestion>,
+        suggesters: Suggestions<PrefixSuggestion>,
         options?: ManagerOptions
     ) {
         // tslint:disable-next-line
@@ -139,6 +139,7 @@ class Manager<
             this.suggesters = suggesters;
             this.isSideEffectRunning = false;
             this._sideEffectQueue = [];
+            this.results = [] as Array<ESHit<ResultObject>>;
 
             this.pageSize = (options && options.pageSize) || DEFAULT_MANAGER_OPTIONS.pageSize;
             this.queryThrottleInMS =
@@ -196,12 +197,17 @@ class Manager<
         reaction(
             () => this.indexFieldNamesAndTypes,
             (indexFieldNamesAndTypes: Record<string, ESMappingType>) => {
+                // tslint:disable-next-line
                 Object.keys(indexFieldNamesAndTypes).forEach(fieldName => {
                     const type = indexFieldNamesAndTypes[fieldName];
                     if (type === 'long' || type === 'double' || type === 'integer') {
                         this.filters.range._addConfigForField(fieldName);
                     } else if (type === 'boolean') {
                         this.filters.boolean._addConfigForField(fieldName);
+                    }
+
+                    if (type === 'keyword' || type === 'text') {
+                        this.suggesters.prefix._addConfigForField(fieldName);
                     }
                 });
             }
@@ -233,7 +239,7 @@ class Manager<
         }
     };
 
-    public get fieldsToFilterType() {
+    public get fieldsToFilterType(): Record<string, string> {
         return objKeys(this.filters).reduce((map, filterName) => {
             const filter = this.filters[filterName];
             const typeMaps = filter.fields.reduce((filterMap, fieldName) => {
@@ -536,7 +542,9 @@ class Manager<
     public _saveQueryResults = (response: ESResponse<ResultObject>) => {
         if (response.timed_out === false && response.hits.total > 0) {
             runInAction(() => {
-                this.results = response.hits.hits;
+                if (response && response.hits && response.hits.hits) {
+                    this.results = response.hits.hits;
+                }
             });
         }
     };

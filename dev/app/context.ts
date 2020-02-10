@@ -6,7 +6,8 @@ const gqlClient = new GqlClient({enablePersistance: true, headers: {testme: 'eth
 import {
     RangeFilterClass,
     Manager,
-    RangeConfigs,
+    IRangeConfigs,
+    PrefixSuggestionClass,
     Axios,
     ESRequest,
     BooleanFilterClass
@@ -15,7 +16,7 @@ import {
 const exampleFormInstance = new ExampleForm();
 
 export type RF = 'instagram_avg_like_rate' | 'invites_pending' | 'user_profile_age';
-const rangeFieldsConfig: RangeConfigs<RF> = {
+const rangeFieldsConfig: IRangeConfigs<RF> = {
     instagram_avg_like_rate: {
         field: 'instagram.avg_like_rate',
         defaultFilterKind: 'should',
@@ -58,12 +59,17 @@ const booleanFilter = new BooleanFilterClass<string>({
 });
 
 const mapping = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
+
+export type PF = 'tags' | 'city' | 'country';
+
+const prefixSuggester = new PrefixSuggestionClass<PF>();
 // mapping.mapping().then(d => console.log(d));
 
 const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
-const creatorCRM = new Manager<typeof rangeFilter, typeof booleanFilter>(
+const creatorCRM = new Manager<typeof rangeFilter, typeof booleanFilter, typeof prefixSuggester>(
     client,
     {range: rangeFilter, boolean: booleanFilter},
+    {prefix: prefixSuggester},
     {pageSize: 10, queryThrottleInMS: 350}
 );
 
