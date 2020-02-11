@@ -11,7 +11,7 @@ import {
     isLessThanEqualFilter
 } from './range_filter';
 
-export const typeGuards = {
+export const filterTypeGuards = {
     isGreaterThanFilter,
     isGreaterThanEqualFilter,
     isLessThanFilter,

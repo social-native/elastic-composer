@@ -10,7 +10,7 @@ import utils from './utils';
 const BOOLEAN_CONFIG_DEFAULT = {
     defaultFilterKind: 'should',
     getCount: true,
-    aggsEnabled: true
+    aggsEnabled: false
 };
 
 export interface IBooleanConfig extends BaseFilterConfig {

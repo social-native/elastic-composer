@@ -9,19 +9,11 @@ import 'react-dropdown-now/style.css';
 import 'rc-slider/assets/index.css';
 
 import Context from '../context';
-import {
-    isLessThanEqualFilter,
-    isGreaterThanEqualFilter,
-    isGreaterThanFilter,
-    isLessThanFilter
-} from '../../../src';
-import {FilterKind} from '../../../src/';
+import {FilterKind, filterTypeGuards} from '../../../src/';
 
 const RangeContainer = styled.div`
     height: 300px;
     width: 250px;
-    // padding: 25px;
-    // border: 1px solid rgba(0, 0, 0, 0.75);
     margin: 5px;
     border-radius: 3px;
 `;
@@ -98,16 +90,16 @@ export default observer(({filterName, maxRange}) => {
     const filter = range.fieldFilters[filterName];
 
     const lowerValue =
-        filter && isGreaterThanEqualFilter(filter)
+        filter && filterTypeGuards.isGreaterThanEqualFilter(filter)
             ? filter.greaterThanEqual
-            : filter && isGreaterThanFilter(filter)
+            : filter && filterTypeGuards.isGreaterThanFilter(filter)
             ? filter.greaterThan
             : unfilteredBounds.min;
 
     const upperValue =
-        filter && isLessThanEqualFilter(filter)
+        filter && filterTypeGuards.isLessThanEqualFilter(filter)
             ? filter.lessThanEqual
-            : filter && isLessThanFilter(filter)
+            : filter && filterTypeGuards.isLessThanFilter(filter)
             ? filter.lessThan
             : unfilteredBounds.max;
 

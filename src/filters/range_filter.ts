@@ -12,7 +12,7 @@ const RANGE_CONFIG_DEFAULT = {
     getDistribution: true,
     getRangeBounds: true,
     rangeInterval: 1,
-    aggsEnabled: true
+    aggsEnabled: false
 };
 
 export interface IRangeConfig extends BaseFilterConfig {

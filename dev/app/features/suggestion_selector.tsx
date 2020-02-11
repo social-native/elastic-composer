@@ -37,9 +37,9 @@ const SuggestionSelector: React.FunctionComponent<IProps> = observer(
         const creatorCRM = useContext(Context.creatorCRM);
 
         const [suggestionFieldName, setSuggestionFieldName] = useState(defaultFieldName);
-        const suggestion = creatorCRM.suggesters[suggestionType];
+        const suggestion = creatorCRM.suggestions[suggestionType];
         const suggestionConfig =
-            creatorCRM.suggesters[suggestionType].fieldConfigs[suggestionFieldName as PF];
+            creatorCRM.suggestions[suggestionType].fieldConfigs[suggestionFieldName as PF];
 
         if (!suggestionConfig) {
             return null;
