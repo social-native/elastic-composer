@@ -85,15 +85,31 @@ type EffectInput<EffectKind extends string> = {
     kind: EffectKind;
     effect: QueryFn;
     debouncedByKind?: EffectKind[];
-    debounce?: 'leading' | 'trailing';
+    debounce?: 'leading' | 'trailing' | DebounceFn;
     throttle: number; // in milliseconds
     params: any[];
 };
+
+const debounceSuggestionsFn = <CurrentEffectKind extends string, LookingEffectKind extends string>(
+    currentEffectRequest: EffectRequest<CurrentEffectKind>,
+    lookingAtEffectRequest: EffectRequest<LookingEffectKind>
+) =>
+    currentEffectRequest.kind === 'suggestion' &&
+    lookingAtEffectRequest.kind === 'suggestion' &&
+    currentEffectRequest.params.length === 2 &&
+    currentEffectRequest.params[0] === lookingAtEffectRequest.params[0] &&
+    currentEffectRequest.params[1] === lookingAtEffectRequest.params[1];
+
+type DebounceFn = <CurrentEffectKind extends string, LookingEffectKind extends string>(
+    currentEffectRequest: EffectRequest<CurrentEffectKind>,
+    lookingAtEffectRequest: EffectRequest<LookingEffectKind>
+) => boolean;
+
 type EffectRequest<EffectKind extends string> = {
     kind: EffectKind;
     effect: QueryFn;
     debouncedByKind?: EffectKind[];
-    debounce?: 'leading' | 'trailing';
+    debounce?: 'leading' | 'trailing' | DebounceFn;
     throttle: number; // in milliseconds
     params: any[];
 };
@@ -129,7 +145,7 @@ class Manager<
     public suggestions: Options['suggestions'];
     public results: Array<ESHit<ResultObject>>;
 
-    public _sideEffectQueue: Array<EffectRequest<EffectKinds> | null>;
+    public _sideEffectQueue: Array<EffectRequest<EffectKinds>>;
     public isSideEffectRunning: boolean;
 
     public client: IClient<ResultObject>;
@@ -235,6 +251,16 @@ class Manager<
                 });
             }
         );
+        // FOR TESTING - DELETE  ME
+        reaction(
+            () => ({
+                queue: [...this._sideEffectQueue],
+                isSideEffectRunning: !!this.isSideEffectRunning
+            }),
+            data => {
+                console.log('CURRENT QUEUE', data.queue);
+            }
+        );
 
         reaction(
             () => ({
@@ -295,6 +321,10 @@ class Manager<
                 );
 
                 await newEffectRequest.effect(effectRequest, ...params);
+            } else if (typeof effectRequest.debounce === 'function') {
+                const newEffectRequest = this._debounceEffectsUsingDebounceFn(effectRequest);
+
+                await newEffectRequest.effect(effectRequest, ...params);
             } else {
                 await effectRequest.effect(effectRequest, ...params);
             }
@@ -305,6 +335,27 @@ class Manager<
                 this.isSideEffectRunning = false;
             });
         }
+    };
+
+    public _debounceEffectsUsingDebounceFn = (
+        effectRequest: EffectRequest<EffectKinds>
+    ): EffectRequest<EffectKinds> => {
+        if (
+            !effectRequest.debounce ||
+            typeof effectRequest.debounce !== 'function' ||
+            this._sideEffectQueue.length === 0
+        ) {
+            return effectRequest;
+        }
+
+        const newSideEffectQueue = this._sideEffectQueue.filter(lookingAtEffect => {
+            return !(effectRequest.debounce as DebounceFn)(effectRequest, lookingAtEffect);
+        });
+        runInAction(() => {
+            this._sideEffectQueue = [...newSideEffectQueue];
+        });
+
+        return effectRequest;
     };
 
     public _findLastEffectOfKindAndRemoveAllOthersFromQueue = (
@@ -390,7 +441,7 @@ class Manager<
             createEffectRequest({
                 kind: 'suggestion',
                 effect: this._runSuggestionSearch,
-                debounce: undefined,
+                debounce: debounceSuggestionsFn,
                 throttle: this.queryThrottleInMS,
                 params: [filter, field]
             })

@@ -66,17 +66,12 @@ const exampleFormInstance = new ExampleForm();
 // mapping.mapping().then(d => console.log(d));
 
 const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
-const creatorCRM = new Manager(
-    client,
-    // {range: rangeFilter, boolean: booleanFilter},
-    {pageSize: 10, queryThrottleInMS: 350}
-    // {prefix: prefixSuggester},
-);
+const creatorCRM = new Manager(client, {pageSize: 10, queryThrottleInMS: 350});
 
-creatorCRM.getFieldNamesAndTypes();
-setTimeout(() => {
+creatorCRM.getFieldNamesAndTypes().then(() => {
     creatorCRM.runStartQuery();
-}, 3000);
+});
+// setTimeout(() => {}, 3000);
 
 // setTimeout(() => {
 //     console.log('ma map', creatorCRM.fieldsToFilterType);
