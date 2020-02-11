@@ -77,6 +77,7 @@ export type ESMappingType = 'long' | 'double' | 'integer' | 'keyword' | 'text' |
  * Base Filter
  * ***********************************
  */
+
 export type FilterKind = 'should' | 'must';
 
 export type BaseFilterConfig = {
@@ -153,6 +154,12 @@ export type FieldSuggestionSubscribers<Fields extends string> = (
  * Generic to Filters and Suggestions
  * ***********************************
  */
+
+export type ShouldUseFieldFn = (fieldName: string, fieldType: ESMappingType) => boolean;
+
+export type IBaseOptions = {
+    shouldUseField?: ShouldUseFieldFn;
+};
 
 export type FieldKinds<Fields extends string> = {
     [esFieldName in Fields]: FilterKind | undefined;

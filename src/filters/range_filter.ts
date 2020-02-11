@@ -1,6 +1,14 @@
 import {runInAction, decorate, observable} from 'mobx';
 import {objKeys} from '../utils';
-import {ESRequest, ESResponse, FilterKind, BaseFilterConfig, AggregationResults} from '../types';
+import {
+    ESRequest,
+    ESResponse,
+    FilterKind,
+    BaseFilterConfig,
+    AggregationResults,
+    ESMappingType,
+    IBaseOptions
+} from '../types';
 import BaseFilter from './base';
 import utils from './utils';
 
@@ -178,6 +186,9 @@ export type RangeBoundResults<RangeFields extends string> = {
     [esFieldName in RangeFields]: RangeBoundResult;
 };
 
+export const rangeShouldUseFieldFn = (_fieldName: string, fieldType: ESMappingType) =>
+    fieldType === 'long' || fieldType === 'double' || fieldType === 'integer';
+
 class RangeFilterClass<RangeFields extends string> extends BaseFilter<
     RangeFields,
     IRangeConfig,
@@ -190,7 +201,8 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
 
     constructor(
         defaultConfig?: Omit<Required<IRangeConfig>, 'field'>,
-        specificConfigs?: IRangeConfigs<RangeFields>
+        specificConfigs?: IRangeConfigs<RangeFields>,
+        options?: IBaseOptions
     ) {
         super(
             'range',
@@ -198,6 +210,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
             specificConfigs as IRangeConfigs<RangeFields>
         );
         runInAction(() => {
+            this._shouldUseField = (options && options.shouldUseField) || rangeShouldUseFieldFn;
             this.filteredRangeBounds = {} as RangeBoundResults<RangeFields>;
             this.unfilteredRangeBounds = {} as RangeBoundResults<RangeFields>;
             this.filteredDistribution = {} as RangeDistributionResults<RangeFields>;

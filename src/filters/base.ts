@@ -9,7 +9,9 @@ import {
     ESRequest,
     ESResponse,
     PartialFieldFilterConfigs,
-    FieldFilterSubscribers
+    FieldFilterSubscribers,
+    ESMappingType,
+    ShouldUseFieldFn
 } from '../types';
 
 /**
@@ -26,6 +28,7 @@ class BaseFilter<Fields extends string, Config extends BaseFilterConfig, Filter 
     public _shouldUpdateUnfilteredAggsSubscribers: Array<FieldFilterSubscribers<Fields>>;
     public _shouldUpdateFilteredAggsSubscribers: Array<FieldFilterSubscribers<Fields>>;
     public filterKind: string;
+    public _shouldUseField: ShouldUseFieldFn;
 
     constructor(
         filterKind: string,
@@ -38,6 +41,11 @@ class BaseFilter<Fields extends string, Config extends BaseFilterConfig, Filter 
             this.fieldFilters = {} as FieldFilters<Fields, Filter>;
             this.fieldKinds = {} as FieldKinds<Fields>;
             this.fieldConfigs = {} as FieldFilterConfigs<Fields, Config>;
+            this._shouldUseField = (_fieldName: string, _fieldType: ESMappingType) => {
+                throw new Error(
+                    '_shouldUseField is not implemented. The extending class should set the _shouldUseField attribute'
+                );
+            };
 
             this._shouldUpdateUnfilteredAggsSubscribers = [];
             this._shouldUpdateFilteredAggsSubscribers = [];

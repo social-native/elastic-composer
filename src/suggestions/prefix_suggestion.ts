@@ -1,6 +1,14 @@
 import {runInAction} from 'mobx';
 import {objKeys} from '../utils';
-import {ESRequest, ESResponse, FilterKind, FieldSuggestions, BaseSuggestionConfig} from '../types';
+import {
+    ESRequest,
+    ESResponse,
+    FilterKind,
+    FieldSuggestions,
+    BaseSuggestionConfig,
+    ESMappingType,
+    IBaseOptions
+} from '../types';
 import BaseSuggestion from './base';
 import utils from './utils';
 
@@ -34,16 +42,24 @@ export type RawPrefixSuggestionResult = {
     }>;
 };
 
+export const prefixShouldUseFieldFn = (_fieldName: string, fieldType: ESMappingType) =>
+    fieldType === 'keyword' || fieldType === 'text';
+
 class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, IConfig> {
     constructor(
         defaultConfig?: Omit<Required<IConfig>, 'field'>,
-        specificConfigs?: Configs<Fields>
+        specificConfigs?: Configs<Fields>,
+        options?: IBaseOptions
     ) {
         super(
             'prefix',
             defaultConfig || (CONFIG_DEFAULT as Omit<Required<IConfig>, 'field'>),
             specificConfigs as Configs<Fields>
         );
+
+        runInAction(() => {
+            this._shouldUseField = (options && options.shouldUseField) || prefixShouldUseFieldFn;
+        });
     }
 
     /**

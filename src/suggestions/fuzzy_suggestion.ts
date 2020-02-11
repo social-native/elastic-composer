@@ -1,6 +1,14 @@
 import {runInAction} from 'mobx';
 import {objKeys} from '../utils';
-import {ESRequest, ESResponse, FilterKind, FieldSuggestions, BaseSuggestionConfig} from '../types';
+import {
+    ESRequest,
+    ESResponse,
+    FilterKind,
+    FieldSuggestions,
+    BaseSuggestionConfig,
+    IBaseOptions,
+    ESMappingType
+} from '../types';
 import BaseSuggestion from './base';
 import utils from './utils';
 
@@ -33,17 +41,24 @@ export type RawFuzzySuggestionResult = {
         doc_count: number;
     }>;
 };
+export const fuzzyShouldUseFieldFn = (_fieldName: string, fieldType: ESMappingType) =>
+    fieldType === 'keyword' || fieldType === 'text';
 
 class FuzzySuggestion<Fields extends string> extends BaseSuggestion<Fields, IConfig> {
     constructor(
         defaultConfig?: Omit<Required<IConfig>, 'field'>,
-        specificConfigs?: Configs<Fields>
+        specificConfigs?: Configs<Fields>,
+        options?: IBaseOptions
     ) {
         super(
             'fuzzy',
             defaultConfig || (CONFIG_DEFAULT as Omit<Required<IConfig>, 'field'>),
             specificConfigs as Configs<Fields>
         );
+
+        runInAction(() => {
+            this._shouldUseField = (options && options.shouldUseField) || fuzzyShouldUseFieldFn;
+        });
     }
 
     /**

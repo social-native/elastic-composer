@@ -2,7 +2,7 @@ import React, {useContext, useState, ReactElement} from 'react';
 import {observer} from 'mobx-react';
 import styled from 'styled-components';
 import Dropdown from 'react-dropdown-now';
-import Context, {RF} from '../context';
+import Context from '../context';
 const FilterSelectorContainer = styled.div`
     height: 400px;
     width: 250px;
@@ -35,7 +35,7 @@ const FilterSelector: React.FunctionComponent<IProps> = observer(
 
         const [filterName, setFilterName] = useState(defaultFilterName);
         const filter = creatorCRM.filters[filterType];
-        const filterConfig = creatorCRM.filters[filterType].fieldConfigs[filterName as RF]
+        const filterConfig = creatorCRM.filters[filterType].fieldConfigs[filterName]
         return (
             <FilterSelectorContainer>
                 <DropDownFilterSelect>
@@ -54,9 +54,9 @@ const FilterSelector: React.FunctionComponent<IProps> = observer(
                             options={['Aggs ON', 'Aggs OFF']}
                             onChange={({value}) => {
                                 if (value === 'Aggs ON') {
-                                    filter.setAggsEnabledToTrue(filterName as RF);
+                                    filter.setAggsEnabledToTrue(filterName);
                                 } else {
-                                    filter.setAggsEnabledToFalse(filterName as RF);
+                                    filter.setAggsEnabledToFalse(filterName);
                                 }
                             }}
                             value={

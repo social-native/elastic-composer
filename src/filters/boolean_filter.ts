@@ -1,6 +1,13 @@
 import {runInAction, decorate, observable} from 'mobx';
 import {objKeys} from '../utils';
-import {ESRequest, ESResponse, FilterKind, BaseFilterConfig} from '../types';
+import {
+    ESRequest,
+    ESResponse,
+    FilterKind,
+    BaseFilterConfig,
+    IBaseOptions,
+    ESMappingType
+} from '../types';
 import BaseFilter from './base';
 import utils from './utils';
 
@@ -64,6 +71,9 @@ export type BooleanCountResults<BooleanFields extends string> = {
     [esFieldName in BooleanFields]: BooleanCountResult;
 };
 
+export const booleanShouldUseField = (_fieldName: string, fieldType: ESMappingType) =>
+    fieldType === 'boolean';
+
 class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
     BooleanFields,
     IBooleanConfig,
@@ -74,7 +84,8 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
 
     constructor(
         defaultConfig?: Omit<Required<IBooleanConfig>, 'field'>,
-        specificConfigs?: IBooleanConfigs<BooleanFields>
+        specificConfigs?: IBooleanConfigs<BooleanFields>,
+        options?: IBaseOptions
     ) {
         super(
             'boolean',
@@ -82,6 +93,7 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
             specificConfigs as IBooleanConfigs<BooleanFields>
         );
         runInAction(() => {
+            this._shouldUseField = (options && options.shouldUseField) || booleanShouldUseField;
             this.filteredCount = {} as BooleanCountResults<BooleanFields>;
             this.unfilteredCount = {} as BooleanCountResults<BooleanFields>;
         });

@@ -1,7 +1,7 @@
 import React, {useContext} from 'react';
 import {observer} from 'mobx-react';
 import styled from 'styled-components';
-import Context, {PF} from '../context';
+import Context from '../context';
 
 const SuggestionContainer = styled.div`
     height: 300px;
@@ -40,7 +40,7 @@ export default observer(({fieldName}) => {
         return null;
     }
 
-    const search = suggester.fieldSearches[fieldName as PF];
+    const search = suggester.fieldSearches[fieldName];
 
     return (
         <SuggestionContainer>
@@ -50,7 +50,7 @@ export default observer(({fieldName}) => {
                 onChange={c => suggester.setSearch(fieldName, c.target.value)}
             />
             <SuggestionResults>
-                {(suggester.fieldSuggestions[fieldName as PF] || []).map((n, i) => (
+                {(suggester.fieldSuggestions[fieldName] || []).map((n, i) => (
                     <Result key={`${n}-${i}`}>{n.suggestion}</Result>
                 ))}
             </SuggestionResults>

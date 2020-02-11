@@ -10,7 +10,9 @@ import {
     ESRequest,
     ESResponse,
     PartialFieldSuggestionConfigs,
-    FieldSearches
+    FieldSearches,
+    ShouldUseFieldFn,
+    ESMappingType
 } from '../types';
 
 class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig> {
@@ -21,6 +23,7 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
     public fieldSearches: FieldSearches<Fields>;
     public _shouldRunSuggestionSearchSubscribers: Array<FieldSuggestionSubscribers<Fields>>;
     public suggestionKind: string;
+    public _shouldUseField: ShouldUseFieldFn;
 
     constructor(
         suggestionKind: string,
@@ -34,7 +37,11 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
             this.fieldKinds = {} as FieldKinds<Fields>;
             this.fieldSuggestions = {} as FieldSuggestions<Fields>;
             this.fieldSearches = {} as FieldSearches<Fields>;
-
+            this._shouldUseField = (_fieldName: string, _fieldType: ESMappingType) => {
+                throw new Error(
+                    '_shouldUseField is not implemented. The extending class should set the _shouldUseField attribute'
+                );
+            };
             this._shouldRunSuggestionSearchSubscribers = [];
         });
 

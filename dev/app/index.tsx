@@ -1,7 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import {ApiUri, ApiAccessToken, RangeFilter, ResultsTable, FilterSelector, BooleanFilter, SuggestionSelector, Suggestion} from './features';
+import {
+    ApiUri,
+    ApiAccessToken,
+    RangeFilter,
+    ResultsTable,
+    FilterSelector,
+    BooleanFilter,
+    SuggestionSelector,
+    Suggestion
+} from './features';
 
 const Main = styled.div`
     height: 100vh;
@@ -24,9 +33,8 @@ export default () => (
         <ApiUri />
         <ApiAccessToken />
         <HorizontalLayout>
-            <SuggestionSelector suggestionType={"prefix"} defaultFieldName={'tags'}>
+            <SuggestionSelector suggestionType={'prefix'} defaultFieldName={'tags'}>
                 {fieldName => <Suggestion fieldName={fieldName} />}
-
             </SuggestionSelector>
             <FilterSelector filterType={'range'} defaultFilterName={'instagram.total_posts'}>
                 {filterName => <RangeFilter filterName={filterName} maxRange={50} />}

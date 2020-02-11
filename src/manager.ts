@@ -217,17 +217,21 @@ class Manager<
             () => this.indexFieldNamesAndTypes,
             (indexFieldNamesAndTypes: Record<string, ESMappingType>) => {
                 // tslint:disable-next-line
-                Object.keys(indexFieldNamesAndTypes).forEach(fieldName => {
-                    const type = indexFieldNamesAndTypes[fieldName];
-                    if (type === 'long' || type === 'double' || type === 'integer') {
-                        this.filters.range._addConfigForField(fieldName);
-                    } else if (type === 'boolean') {
-                        this.filters.boolean._addConfigForField(fieldName);
-                    }
+                objKeys(indexFieldNamesAndTypes).forEach(fieldName => {
+                    const fieldType = indexFieldNamesAndTypes[fieldName];
+                    objKeys(this.filters).forEach(filterName => {
+                        const filter = this.filters[filterName];
+                        if (filter._shouldUseField(fieldName, fieldType)) {
+                            filter._addConfigForField(fieldName);
+                        }
+                    });
 
-                    if (type === 'keyword' || type === 'text') {
-                        this.suggestions.prefix._addConfigForField(fieldName);
-                    }
+                    objKeys(this.suggestions).forEach(suggestionName => {
+                        const suggestion = this.suggestions[suggestionName];
+                        if (suggestion._shouldUseField(fieldName, fieldType)) {
+                            suggestion._addConfigForField(fieldName);
+                        }
+                    });
                 });
             }
         );

@@ -3,7 +3,7 @@ import {observer} from 'mobx-react';
 import {toJS} from 'mobx';
 import styled from 'styled-components';
 import Dropdown from 'react-dropdown-now';
-import Context, {PF} from '../context';
+import Context from '../context';
 
 const SuggestionSelectorContainer = styled.div`
     height: 400px;
@@ -39,7 +39,7 @@ const SuggestionSelector: React.FunctionComponent<IProps> = observer(
         const [suggestionFieldName, setSuggestionFieldName] = useState(defaultFieldName);
         const suggestion = creatorCRM.suggestions[suggestionType];
         const suggestionConfig =
-            creatorCRM.suggestions[suggestionType].fieldConfigs[suggestionFieldName as PF];
+            creatorCRM.suggestions[suggestionType].fieldConfigs[suggestionFieldName];
 
         if (!suggestionConfig) {
             return null;
@@ -62,9 +62,9 @@ const SuggestionSelector: React.FunctionComponent<IProps> = observer(
                             options={['Enabled ON', 'Enabled OFF']}
                             onChange={({value}) => {
                                 if (value === 'Enabled ON') {
-                                    suggestion.setEnabledToTrue(suggestionFieldName as PF);
+                                    suggestion.setEnabledToTrue(suggestionFieldName);
                                 } else {
-                                    suggestion.setEnabledToFalse(suggestionFieldName as PF);
+                                    suggestion.setEnabledToFalse(suggestionFieldName);
                                 }
                             }}
                             value={suggestionConfig.enabled ? 'Enabled ON' : 'Enabled OFF'}
