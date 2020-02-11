@@ -182,7 +182,16 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
         if (!fieldConfig || !fieldConfig.enabled) {
             return;
         }
-        this._shouldRunSuggestionSearchSubscribers.forEach(s => s(this.suggestionKind, field));
+
+        if (searchTerm.length === 0) {
+            runInAction(() => {
+                set(this.fieldSuggestions, {
+                    [field]: []
+                });
+            });
+        } else {
+            this._shouldRunSuggestionSearchSubscribers.forEach(s => s(this.suggestionKind, field));
+        }
     };
 
     /**

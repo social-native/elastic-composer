@@ -33,7 +33,7 @@ export default () => (
         <ApiUri />
         <ApiAccessToken />
         <HorizontalLayout>
-            <SuggestionSelector suggestionType={'prefix'} defaultFieldName={'tags'}>
+            <SuggestionSelector suggestionType={'fuzzy'} defaultFieldName={'tags'}>
                 {fieldName => <Suggestion fieldName={fieldName} />}
             </SuggestionSelector>
             <FilterSelector filterType={'range'} defaultFilterName={'instagram.total_posts'}>

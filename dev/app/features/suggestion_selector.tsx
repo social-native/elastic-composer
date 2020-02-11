@@ -27,7 +27,7 @@ const DropDownFilterSelect = styled.div`
 
 interface IProps {
     defaultFieldName: string;
-    suggestionType: 'prefix';
+    suggestionType: 'fuzzy';
     children(suggestionFieldName: string): ReactElement;
 }
 // tslint:disable-next-line

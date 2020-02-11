@@ -183,12 +183,12 @@ class FuzzySuggestion<Fields extends string> extends BaseSuggestion<Fields, ICon
                                 suggestion: raw.key,
                                 count: raw.doc_count
                             }))
-                            .filter(
-                                r =>
-                                    r &&
-                                    r.suggestion &&
-                                    r.suggestion.startsWith(this.fieldSearches[suggestionFieldName])
-                            )
+                            // .filter(
+                            //     r =>
+                            //         r &&
+                            //         r.suggestion &&
+                            //         r.suggestion.startsWith(this.fieldSearches[suggestionFieldName])
+                            // )
                             .sort((first, second) => {
                                 return first.count < second.count ? -1 : 1;
                             });
@@ -196,6 +196,15 @@ class FuzzySuggestion<Fields extends string> extends BaseSuggestion<Fields, ICon
                         return {
                             ...acc,
                             [suggestionFieldName]: suggestions
+                        };
+                    } else if (
+                        rawSuggestions &&
+                        rawSuggestions.buckets &&
+                        rawSuggestions.buckets.length === 0
+                    ) {
+                        return {
+                            ...acc,
+                            [suggestionFieldName]: []
                         };
                     } else {
                         return acc;

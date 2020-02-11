@@ -198,6 +198,15 @@ class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, ICo
                             ...acc,
                             [suggestionFieldName]: suggestions
                         };
+                    } else if (
+                        rawSuggestions &&
+                        rawSuggestions.buckets &&
+                        rawSuggestions.buckets.length === 0
+                    ) {
+                        return {
+                            ...acc,
+                            [suggestionFieldName]: []
+                        };
                     } else {
                         return acc;
                     }

@@ -34,7 +34,7 @@ const Result = styled.div`
 `;
 export default observer(({fieldName}) => {
     const creatorCRM = useContext(Context.creatorCRM);
-    const suggester = creatorCRM.suggestions.prefix;
+    const suggester = creatorCRM.suggestions.fuzzy;
 
     if (!suggester) {
         return null;
