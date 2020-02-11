@@ -27,20 +27,20 @@ export type Configs<Fields extends string> = {
  *  Results
  */
 
-export type RawPrefixSuggestionResult = {
+export type RawFuzzySuggestionResult = {
     buckets: Array<{
         key: string;
         doc_count: number;
     }>;
 };
 
-class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, IConfig> {
+class FuzzySuggestion<Fields extends string> extends BaseSuggestion<Fields, IConfig> {
     constructor(
         defaultConfig?: Omit<Required<IConfig>, 'field'>,
         specificConfigs?: Configs<Fields>
     ) {
         super(
-            'prefix',
+            'fuzzy',
             defaultConfig || (CONFIG_DEFAULT as Omit<Required<IConfig>, 'field'>),
             specificConfigs as Configs<Fields>
         );
@@ -109,7 +109,7 @@ class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, ICo
                         [kind as FilterKind]: [
                             ...existingFiltersForKind,
                             {
-                                prefix: {
+                                fuzzy: {
                                     [esFieldName]: {
                                         value: searchTerm
                                     }
@@ -134,7 +134,7 @@ class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, ICo
             ...request,
             aggs: {
                 ...request.aggs,
-                [`${esFieldName}__prefix_suggestion`]: {
+                [`${esFieldName}__fuzzy_suggestion`]: {
                     terms: {
                         field: esFieldName,
                         size: 20
@@ -156,8 +156,8 @@ class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, ICo
                 const name = config.field;
                 if (response.aggregations) {
                     const rawSuggestions = response.aggregations[
-                        `${name}__prefix_suggestion`
-                    ] as RawPrefixSuggestionResult;
+                        `${name}__fuzzy_suggestion`
+                    ] as RawFuzzySuggestionResult;
                     if (
                         rawSuggestions &&
                         rawSuggestions.buckets &&
@@ -198,6 +198,6 @@ class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, ICo
     };
 }
 
-utils.decorateSuggester(PrefixSuggestion);
+utils.decorateSuggester(FuzzySuggestion);
 
-export default PrefixSuggestion;
+export default FuzzySuggestion;

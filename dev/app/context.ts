@@ -4,73 +4,73 @@ import {GqlClient} from '@social-native/snpkg-client-graphql-client';
 import {ExampleForm} from './state';
 const gqlClient = new GqlClient({enablePersistance: true, headers: {testme: 'ethan'}});
 import {
-    RangeFilterClass,
+    // RangeFilter,
     Manager,
-    IRangeConfigs,
-    PrefixSuggestionClass,
-    Axios,
-    ESRequest,
-    BooleanFilterClass
+    // IRangeConfigs,
+    // PrefixSuggestion,
+    AxiosESClient
+    // ESRequest,
+    // BooleanFilter
 } from '../../src';
 
 const exampleFormInstance = new ExampleForm();
 
-export type RF = 'instagram_avg_like_rate' | 'invites_pending' | 'user_profile_age';
-const rangeFieldsConfig: IRangeConfigs<RF> = {
-    instagram_avg_like_rate: {
-        field: 'instagram.avg_like_rate',
-        defaultFilterKind: 'should',
-        getDistribution: true,
-        getRangeBounds: true,
-        rangeInterval: 1
-    },
-    invites_pending: {
-        field: 'invites.pending',
-        defaultFilterKind: 'should',
-        getDistribution: true,
-        getRangeBounds: true,
-        rangeInterval: 1
-    },
-    user_profile_age: {
-        field: 'user_profile.age',
-        rangeInterval: 2
-    },
-    'best_city.population': {
-        field: 'best_city.population',
-        rangeInterval: 1000
-    }
-};
+// export type RF = 'instagram_avg_like_rate' | 'invites_pending' | 'user_profile_age';
+// const rangeFieldsConfig: IRangeConfigs<RF> = {
+//     instagram_avg_like_rate: {
+//         field: 'instagram.avg_like_rate',
+//         defaultFilterKind: 'should',
+//         getDistribution: true,
+//         getRangeBounds: true,
+//         rangeInterval: 1
+//     },
+//     invites_pending: {
+//         field: 'invites.pending',
+//         defaultFilterKind: 'should',
+//         getDistribution: true,
+//         getRangeBounds: true,
+//         rangeInterval: 1
+//     },
+//     user_profile_age: {
+//         field: 'user_profile.age',
+//         rangeInterval: 2
+//     },
+//     'best_city.population': {
+//         field: 'best_city.population',
+//         rangeInterval: 1000
+//     }
+// };
 
-const rangeFilter = new RangeFilterClass<RF>(
-    {
-        aggsEnabled: false,
-        defaultFilterKind: 'should',
-        getDistribution: true,
-        getRangeBounds: true,
-        rangeInterval: 1
-    },
-    rangeFieldsConfig
-);
+// const rangeFilter = new RangeFilter<RF>(
+//     {
+//         aggsEnabled: false,
+//         defaultFilterKind: 'should',
+//         getDistribution: true,
+//         getRangeBounds: true,
+//         rangeInterval: 1
+//     },
+//     rangeFieldsConfig
+// );
 
-const booleanFilter = new BooleanFilterClass<string>({
-    aggsEnabled: true,
-    defaultFilterKind: 'should',
-    getCount: true
-});
+// const booleanFilter = new BooleanFilter<string>({
+//     aggsEnabled: true,
+//     defaultFilterKind: 'should',
+//     getCount: true
+// });
 
-const mapping = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
+// const mapping = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
 
-export type PF = 'tags' | 'city' | 'country';
+// export type PF = 'tags' | 'city' | 'country';
 
-const prefixSuggester = new PrefixSuggestionClass<PF>();
+// const prefixSuggester = new PrefixSuggestion<PF>();
 // mapping.mapping().then(d => console.log(d));
 
-const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
-const creatorCRM = new Manager<typeof rangeFilter, typeof booleanFilter, typeof prefixSuggester>(
+const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
+const creatorCRM = new Manager(
     client,
-    {range: rangeFilter, boolean: booleanFilter},
-    {prefix: prefixSuggester},
+    // {range: rangeFilter, boolean: booleanFilter},
     {pageSize: 10, queryThrottleInMS: 350}
+    // {prefix: prefixSuggester},
 );
 
 creatorCRM.getFieldNamesAndTypes();

@@ -1,1 +1,1 @@
-export {default as Axios} from './axios';
+export {default as AxiosESClient} from './axios';

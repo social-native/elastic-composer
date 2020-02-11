@@ -1,11 +1,11 @@
 'use strict';
-import {RangeFilterClass, BooleanFilterClass} from 'filters';
-import {ESRequest, ESResponse, IClient, ESHit, ESRequestSortField, ESMappingType} from 'types';
+import {RangeFilter, BooleanFilter, BaseFilter} from './filters';
+import {ESRequest, ESResponse, IClient, ESHit, ESRequestSortField, ESMappingType} from './types';
 import {objKeys} from './utils';
 import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx';
 import Timeout from 'await-timeout';
 import chunk from 'lodash.chunk';
-import {PrefixSuggestionClass, BaseSuggestion} from 'suggestions';
+import {PrefixSuggestion, FuzzySuggestion, BaseSuggestion} from './suggestions';
 
 /**
  * How the naming works:
@@ -18,18 +18,6 @@ import {PrefixSuggestionClass, BaseSuggestion} from 'suggestions';
  * filteredQueryAggs - would have a query filter applied, hits returned,  and aggs on the result set
  * filteredAggs - would have a query filter applied,  no hits returned, and aggs on the result set
  */
-
-type Filters<
-    RangeFilter extends RangeFilterClass<any>,
-    BooleanFilter extends BooleanFilterClass<any>
-> = {
-    range: RangeFilter;
-    boolean: BooleanFilter;
-};
-
-type Suggestions<Suggestion extends PrefixSuggestionClass<any>> = {
-    prefix: Suggestion;
-};
 
 const BLANK_ES_REQUEST = {
     query: {
@@ -61,13 +49,36 @@ const DEFAULT_MANAGER_OPTIONS: Omit<
     'fieldWhiteList' | 'fieldBlackList'
 > = {
     pageSize: 10,
-    queryThrottleInMS: 1000
+    queryThrottleInMS: 1000,
+    filters: {
+        boolean: new BooleanFilter(),
+        range: new RangeFilter()
+    },
+    suggestions: {
+        fuzzy: new FuzzySuggestion(),
+        prefix: new PrefixSuggestion()
+    }
 };
+
+interface IFilters {
+    range: RangeFilter<any>;
+    boolean: BooleanFilter<any>;
+    [customFilter: string]: BaseFilter<any, any, any>;
+}
+
+interface ISuggestions {
+    fuzzy: FuzzySuggestion<any>;
+    prefix: PrefixSuggestion<any>;
+    [customSuggestion: string]: BaseSuggestion<any, any>;
+}
+
 type ManagerOptions = {
     pageSize?: number;
     queryThrottleInMS?: number;
     fieldWhiteList?: string[];
     fieldBlackList?: string[];
+    filters?: IFilters;
+    suggestions?: ISuggestions;
 };
 
 type EffectInput<EffectKind extends string> = {
@@ -75,7 +86,7 @@ type EffectInput<EffectKind extends string> = {
     effect: QueryFn;
     debouncedByKind?: EffectKind[];
     debounce?: 'leading' | 'trailing';
-    throttle: number; // in miliseconds
+    throttle: number; // in milliseconds
     params: any[];
 };
 type EffectRequest<EffectKind extends string> = {
@@ -83,7 +94,7 @@ type EffectRequest<EffectKind extends string> = {
     effect: QueryFn;
     debouncedByKind?: EffectKind[];
     debounce?: 'leading' | 'trailing';
-    throttle: number; // in miliseconds
+    throttle: number; // in milliseconds
     params: any[];
 };
 
@@ -103,16 +114,19 @@ type EffectKinds =
 
 type QueryFn = (...params: any[]) => void;
 
+type DefaultOptions = {
+    filters: IFilters;
+    suggestions: ISuggestions;
+};
+
 class Manager<
-    RangeFilter extends RangeFilterClass<any>,
-    BooleanFilter extends BooleanFilterClass<any>,
-    PrefixSuggestion extends PrefixSuggestionClass<any>,
+    Options extends DefaultOptions = DefaultOptions,
     ResultObject extends object = object
 > {
     public pageSize: number;
     public queryThrottleInMS: number;
-    public filters: Filters<RangeFilter, BooleanFilter>;
-    public suggesters: Suggestions<PrefixSuggestion>;
+    public filters: Options['filters'];
+    public suggestions: Options['suggestions'];
     public results: Array<ESHit<ResultObject>>;
 
     public _sideEffectQueue: Array<EffectRequest<EffectKinds> | null>;
@@ -126,17 +140,20 @@ class Manager<
     public fieldWhiteList: string[];
     public fieldBlackList: string[];
 
-    constructor(
-        client: IClient<ResultObject>,
-        filters: Filters<RangeFilter, BooleanFilter>,
-        suggesters: Suggestions<PrefixSuggestion>,
-        options?: ManagerOptions
-    ) {
+    constructor(client: IClient<ResultObject>, options?: ManagerOptions) {
+        const filters =
+            options && options.filters
+                ? {...DEFAULT_MANAGER_OPTIONS.filters, ...options.filters}
+                : DEFAULT_MANAGER_OPTIONS.filters;
+        const suggestions =
+            options && options.suggestions
+                ? {...DEFAULT_MANAGER_OPTIONS.suggestions, ...options.suggestions}
+                : DEFAULT_MANAGER_OPTIONS.suggestions;
         // tslint:disable-next-line
         runInAction(() => {
             this.client = client;
             this.filters = filters;
-            this.suggesters = suggesters;
+            this.suggestions = suggestions;
             this.isSideEffectRunning = false;
             this._sideEffectQueue = [];
             this.results = [] as Array<ESHit<ResultObject>>;
@@ -166,13 +183,15 @@ class Manager<
         });
 
         objKeys(this.filters).forEach(filterName => {
-            const filter = this.filters[filterName];
+            const filter = this.filters[filterName] as Options['filters'][keyof Options['filters']];
             filter._subscribeToShouldUpdateFilteredAggs(this._enqueueFilteredAggs);
             filter._subscribeToShouldUpdateUnfilteredAggs(this._enqueueUnfilteredAggs);
         });
 
-        objKeys(this.suggesters).forEach(suggesterName => {
-            const suggester = this.suggesters[suggesterName];
+        objKeys(this.suggestions).forEach(suggesterName => {
+            const suggester = this.suggestions[
+                suggesterName
+            ] as Options['suggestions'][keyof Options['suggestions']];
             suggester._subscribeToShouldRunSuggestionSearch(this._enqueueSuggestionSearch);
         });
 
@@ -207,7 +226,7 @@ class Manager<
                     }
 
                     if (type === 'keyword' || type === 'text') {
-                        this.suggesters.prefix._addConfigForField(fieldName);
+                        this.suggestions.prefix._addConfigForField(fieldName);
                     }
                 });
             }
@@ -343,7 +362,7 @@ class Manager<
 
     /**
      * ***************************************************************************
-     * SIDE EFFECT ENQEUEING
+     * SIDE EFFECT ENQUEUEING
      * ***************************************************************************
      */
 
@@ -359,7 +378,7 @@ class Manager<
      * as a user is figuring out terms for the filter. This is mainly used by the multiselect
      * and keyword filters
      *
-     * Predicate debouncing - b/c we dont want to interfere with other suggesters but a single
+     * Predicate debouncing - b/c we don't want to interfere with other suggesters but a single
      * field suggestion should be debounced
      */
     public _enqueueSuggestionSearch = (filter: string, field: string) => {
@@ -570,8 +589,8 @@ class Manager<
     };
 
     public _extractSuggestionStateFromResponse = (response: ESResponse<ResultObject>): void => {
-        objKeys(this.suggesters).forEach(suggesterName => {
-            const suggester = this.suggesters[suggesterName];
+        objKeys(this.suggestions).forEach(suggesterName => {
+            const suggester = this.suggestions[suggesterName];
             if (!suggester) {
                 return;
             }
@@ -650,7 +669,7 @@ class Manager<
         suggesterName: string,
         field: string
     ): ESRequest => {
-        const suggester = (this.suggesters as any)[suggesterName as any] as BaseSuggestion<
+        const suggester = (this.suggestions as any)[suggesterName as any] as BaseSuggestion<
             any,
             any
         >;
@@ -1054,7 +1073,7 @@ decorate(Manager, {
     pageSize: observable,
     queryThrottleInMS: observable,
     filters: observable,
-    suggesters: observable,
+    suggestions: observable,
     results: observable,
     _sideEffectQueue: observable,
     isSideEffectRunning: observable,

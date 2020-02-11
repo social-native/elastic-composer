@@ -27,8 +27,6 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
         defaultConfig: Omit<Required<BaseSuggestionConfig>, 'field'>,
         specificConfigs?: PartialFieldSuggestionConfigs<Fields, Config>
     ) {
-        console.log('HEREE', suggestionKind, defaultConfig, specificConfigs);
-
         runInAction(() => {
             this.suggestionKind = suggestionKind;
             this.fieldConfigDefault = defaultConfig;
@@ -56,6 +54,7 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
         this.clearSearch = this.clearSearch.bind(this);
         this.setKind = this.setKind.bind(this);
         this.kindForField = this.kindForField.bind(this);
+        this._shouldRunQuery = this._shouldRunQuery.bind(this);
     }
 
     public _subscribeToShouldRunSuggestionSearch(subscriber: FieldSuggestionSubscribers<Fields>) {
@@ -66,6 +65,15 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
 
     public get fields() {
         return Object.keys(this.fieldConfigs);
+    }
+
+    public _shouldRunQuery(fieldName: Fields) {
+        const fieldConfig = this._findConfigForField(fieldName);
+        if (!fieldConfig || !fieldConfig.enabled) {
+            return false;
+        } else {
+            return true;
+        }
     }
 
     /**
@@ -163,6 +171,10 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
                 [field]: searchTerm
             });
         });
+        const fieldConfig = this._findConfigForField(field);
+        if (!fieldConfig || !fieldConfig.enabled) {
+            return;
+        }
         this._shouldRunSuggestionSearchSubscribers.forEach(s => s(this.suggestionKind, field));
     };
 

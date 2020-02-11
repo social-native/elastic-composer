@@ -2,7 +2,7 @@ import {runInAction, decorate, observable} from 'mobx';
 import {objKeys} from '../utils';
 import {ESRequest, ESResponse, FilterKind, BaseFilterConfig} from '../types';
 import BaseFilter from './base';
-import {decorateFilter} from './utils';
+import utils from './utils';
 
 /**
  * Config
@@ -289,7 +289,7 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
                         };
                     } else if (allCounts && allCounts.buckets && allCounts.buckets.length > 3) {
                         throw new Error(
-                            `There shouldnt be more than 3 states for boolean fields. Check data for ${booleanFieldName}`
+                            `There shouldn't be more than 3 states for boolean fields. Check data for ${booleanFieldName}`
                         );
                     } else {
                         return acc;
@@ -318,6 +318,6 @@ decorate(BooleanFilterClass, {
     unfilteredCount: observable
 });
 
-decorateFilter(BooleanFilterClass);
+utils.decorateFilter(BooleanFilterClass);
 
 export default BooleanFilterClass;

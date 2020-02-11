@@ -3,7 +3,7 @@ import {decorate, observable, runInAction} from 'mobx';
 import axios from 'axios';
 import MappingParser from '../mapping_parser';
 
-class AxiosClient<Source extends object = object> implements IClient {
+class AxiosESClient<Source extends object = object> implements IClient {
     public endpoint: string;
 
     constructor(endpoint: string) {
@@ -31,8 +31,8 @@ class AxiosClient<Source extends object = object> implements IClient {
     };
 }
 
-decorate(AxiosClient, {
+decorate(AxiosESClient, {
     endpoint: observable
 });
 
-export default AxiosClient;
+export default AxiosESClient;

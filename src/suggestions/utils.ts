@@ -1,6 +1,6 @@
-import {decorate, computed, observable} from 'mobx';
+import {decorate, observable} from 'mobx';
 
-export const decorateSuggester = (suggestionClass: any) => {
+const decorateSuggester = (suggestionClass: any) => {
     decorate(suggestionClass, {
         // fields: computed, // TODO figure out why this cant be decorated without causing memory issues
         fieldConfigDefault: observable,
@@ -12,3 +12,9 @@ export const decorateSuggester = (suggestionClass: any) => {
         _shouldRunSuggestionSearchSubscribers: observable
     });
 };
+
+const utils = {
+    decorateSuggester
+};
+
+export default utils;

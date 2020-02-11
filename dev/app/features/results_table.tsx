@@ -44,10 +44,14 @@ const Paginate = styled.div`
 
 const flattenSourceResult = (source: object, parentFieldName: string | undefined = undefined) => {
     const sourceFields = Object.keys(source);
+    // tslint:disable-next-line
     return sourceFields.reduce((acc, sourceField) => {
         const sourceFieldResult = source[sourceField];
 
         const name = parentFieldName ? `${parentFieldName}.${sourceField}` : sourceField;
+        if (!sourceFieldResult) {
+            return acc;
+        }
         if (!Array.isArray(sourceFieldResult) && typeof sourceFieldResult === 'object') {
             const flattened = flattenSourceResult(sourceFieldResult, name);
             return {...acc, ...flattened};

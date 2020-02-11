@@ -1,5 +1,6 @@
-import {RawRangeBoundResult, RawRangeDistributionResult} from 'filters/range_filter';
-
+import {RawRangeBoundResult, RawRangeDistributionResult} from './filters/range_filter';
+import {RawBooleanCountResult} from './filters/boolean_filter';
+import {RawPrefixSuggestionResult} from './suggestions/prefix_suggestion';
 /**
  * ***********************************
  * ES Request
@@ -28,14 +29,19 @@ export type ESRequest = {
  * ***********************************
  */
 
-export type AllRangeAggregationResults = RawRangeBoundResult | RawRangeDistributionResult;
+export type AggregationResults =
+    | RawRangeBoundResult
+    | RawRangeDistributionResult
+    | RawBooleanCountResult
+    | RawPrefixSuggestionResult;
+
 export type ESResponse<Source extends object = object> = {
     took: number;
     timed_out: boolean;
     _shards: {total: number; successful: number; skipped: number; failed: number};
     hits: {total: number; max_score: number; hits: Array<ESHit<Source>>};
     aggregations?: {
-        [boundary: string]: AllRangeAggregationResults;
+        [boundary: string]: AggregationResults;
     };
 };
 
@@ -64,7 +70,7 @@ export interface IClient<Source extends object = object> {
  * ***********************************
  */
 
-export type ESMappingType = 'long' | 'double' | 'integer' | 'keyword' | 'text';
+export type ESMappingType = 'long' | 'double' | 'integer' | 'keyword' | 'text' | 'boolean';
 
 /**
  * ***********************************

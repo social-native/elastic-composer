@@ -1,14 +1,8 @@
 import {runInAction, decorate, observable} from 'mobx';
 import {objKeys} from '../utils';
-import {
-    ESRequest,
-    AllRangeAggregationResults,
-    ESResponse,
-    FilterKind,
-    BaseFilterConfig
-} from '../types';
+import {ESRequest, ESResponse, FilterKind, BaseFilterConfig, AggregationResults} from '../types';
 import BaseFilter from './base';
-import {decorateFilter} from './utils';
+import utils from './utils';
 
 /**
  * Config
@@ -143,9 +137,7 @@ export type RangeDistributionResults<RangeFields extends string> = {
     [esFieldName in RangeFields]: RangeDistributionResult;
 };
 
-function isHistResult(
-    result: AllRangeAggregationResults | RawRangeDistributionResult
-): result is RawRangeDistributionResult {
+function isHistResult(result: AggregationResults): result is RawRangeDistributionResult {
     return (result as RawRangeDistributionResult).buckets !== undefined;
 }
 
@@ -161,14 +153,12 @@ export type RawRangeBoundResultWithString = {
 };
 export type RawRangeBoundResult = RawRangeBoundResultBasic | RawRangeBoundResultWithString;
 
-function isRangeResult(
-    result: AllRangeAggregationResults | RawRangeBoundResult
-): result is RawRangeBoundResult {
+function isRangeResult(result: AggregationResults): result is RawRangeBoundResult {
     return (result as RawRangeBoundResult).value !== undefined;
 }
 
 function isRangeResultWithString(
-    result: AllRangeAggregationResults | RawRangeBoundResultWithString
+    result: AggregationResults
 ): result is RawRangeBoundResultWithString {
     return (result as RawRangeBoundResultWithString).value_as_string !== undefined;
 }
@@ -563,6 +553,6 @@ decorate(RangeFilterClass, {
     unfilteredDistribution: observable
 });
 
-decorateFilter(RangeFilterClass);
+utils.decorateFilter(RangeFilterClass);
 
 export default RangeFilterClass;
