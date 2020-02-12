@@ -1184,7 +1184,7 @@ class Manager<
         // tslint:disable-next-line
         lists: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList'> | undefined = undefined
     ): ESRequest => {
-        if (lists && lists.fieldWhiteList) {
+        if (lists && lists.fieldWhiteList && lists.fieldWhiteList.length > 0) {
             const body = {includes: lists.fieldWhiteList};
             return {
                 ...request,
@@ -1192,7 +1192,7 @@ class Manager<
                     ...body
                 }
             };
-        } else if (lists && lists.fieldBlackList) {
+        } else if (lists && lists.fieldBlackList && lists.fieldBlackList.length > 0) {
             const body = {excludes: lists.fieldBlackList};
             return {
                 ...request,

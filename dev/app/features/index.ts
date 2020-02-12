@@ -6,3 +6,4 @@ export {default as FilterSelector} from './filter_selector';
 export {default as SuggestionSelector} from './suggestion_selector';
 export {default as BooleanFilter} from './boolean_filter';
 export {default as Suggestion} from './suggestion';
+export {default as CustomQuery} from './custom_query';

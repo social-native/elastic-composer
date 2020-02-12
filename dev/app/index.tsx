@@ -8,6 +8,7 @@ import {
     ResultsTable,
     FilterSelector,
     BooleanFilter,
+    CustomQuery,
     SuggestionSelector,
     Suggestion
 } from './features';
@@ -32,6 +33,7 @@ export default () => (
     <Main>
         <ApiUri />
         <ApiAccessToken />
+        <CustomQuery />
         <HorizontalLayout>
             <SuggestionSelector suggestionType={'fuzzy'} defaultFieldName={'tags'}>
                 {fieldName => <Suggestion fieldName={fieldName} />}
