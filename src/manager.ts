@@ -680,16 +680,7 @@ class Manager<
         _effectRequest: EffectRequest<EffectKinds>,
         request: ESRequest
     ): ESRequest => {
-        const body =
-            this.fieldWhiteList.length > 0
-                ? {includes: this.fieldWhiteList}
-                : {excludes: this.fieldBlackList || []};
-        return {
-            ...request,
-            _source: {
-                ...body
-            }
-        };
+        return this._applyBlackAndWhiteListsToQuery(request);
     };
 
     public _rerunSuggestionsOnFilterChange = (
@@ -926,6 +917,28 @@ class Manager<
         );
     };
 
+    public _createCustomFilteredQueryRequest = (
+        startingRequest: ESRequest,
+        options: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>
+    ): ESRequest => {
+        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            if (!filter) {
+                return request;
+            }
+
+            return filter._addFilteredQueryToRequest(request);
+        }, startingRequest);
+
+        // We want:
+        // - a page of results
+        // - the results to be sorted
+        // no middleware used b/c this is a custom request that is used outside the side effect queue
+        return this._applyBlackAndWhiteListsToQuery(
+            this._addSortToQuery(this._addPageSizeToQuery(fullRequest, options.pageSize)),
+            options
+        );
+    };
     public _createFilteredQueryRequest = (
         effectRequest: EffectRequest<EffectKinds>,
         startingRequest: ESRequest
@@ -952,6 +965,19 @@ class Manager<
      * ES QUERY MANAGERS
      * ***************************************************************************
      */
+
+    public runCustomFilterQuery = async (
+        options: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>
+    ): Promise<ESResponse> => {
+        try {
+            const request = this._createCustomFilteredQueryRequest(BLANK_ES_REQUEST, options);
+            const response = await this.client.search(removeEmptyArrays(request));
+
+            return response;
+        } catch (e) {
+            throw e;
+        }
+    };
 
     public _runAllEnabledSuggestionSearch = async (effectRequest: EffectRequest<EffectKinds>) => {
         try {
@@ -1153,8 +1179,47 @@ class Manager<
      * ***************************************************************************
      */
 
-    public _addPageSizeToQuery = (request: ESRequest): ESRequest => {
-        return {...request, size: this.pageSize, track_scores: true};
+    public _applyBlackAndWhiteListsToQuery = (
+        request: ESRequest,
+        // tslint:disable-next-line
+        lists: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList'> | undefined = undefined
+    ): ESRequest => {
+        if (lists && lists.fieldWhiteList) {
+            const body = {includes: lists.fieldWhiteList};
+            return {
+                ...request,
+                _source: {
+                    ...body
+                }
+            };
+        } else if (lists && lists.fieldBlackList) {
+            const body = {excludes: lists.fieldBlackList};
+            return {
+                ...request,
+                _source: {
+                    ...body
+                }
+            };
+        } else {
+            const body =
+                this.fieldWhiteList.length > 0
+                    ? {includes: this.fieldWhiteList}
+                    : {excludes: this.fieldBlackList || []};
+            return {
+                ...request,
+                _source: {
+                    ...body
+                }
+            };
+        }
+    };
+
+    public _addPageSizeToQuery = (
+        request: ESRequest,
+        // pageSize param can be used to override the default page size
+        pageSize: number | undefined = undefined
+    ): ESRequest => {
+        return {...request, size: pageSize || this.pageSize, track_scores: true};
     };
 
     public _addSortToQuery = (request: ESRequest): ESRequest => {
