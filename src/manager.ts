@@ -142,7 +142,7 @@ type Middleware = (effectRequest: EffectRequest<EffectKinds>, request: ESRequest
 
 class Manager<
     Options extends DefaultOptions = DefaultOptions,
-    ResultObject extends object = object
+    ESDocSource extends object = object
 > {
     public middleware: Middleware[];
     public defaultMiddleware: Middleware[];
@@ -150,12 +150,12 @@ class Manager<
     public queryThrottleInMS: number;
     public filters: Options['filters'];
     public suggestions: Options['suggestions'];
-    public results: Array<ESHit<ResultObject>>;
+    public results: Array<ESHit<ESDocSource>>;
 
     public _sideEffectQueue: Array<EffectRequest<EffectKinds>>;
     public isSideEffectRunning: boolean;
 
-    public client: IClient<ResultObject>;
+    public client: IClient<ESDocSource>;
     public currentPage: number;
     public _pageCursorInfo: Record<number, ESRequestSortField>;
     public indexFieldNamesAndTypes: Record<string, ESMappingType>;
@@ -163,7 +163,7 @@ class Manager<
     public fieldWhiteList: string[];
     public fieldBlackList: string[];
 
-    constructor(client: IClient<ResultObject>, options?: ManagerOptions) {
+    constructor(client: IClient<ESDocSource>, options?: ManagerOptions) {
         const filters =
             options && options.filters
                 ? {...DEFAULT_MANAGER_OPTIONS.filters, ...options.filters}
@@ -179,7 +179,7 @@ class Manager<
             this.suggestions = suggestions;
             this.isSideEffectRunning = false;
             this._sideEffectQueue = [];
-            this.results = [] as Array<ESHit<ResultObject>>;
+            this.results = [] as Array<ESHit<ESDocSource>>;
 
             this.pageSize = (options && options.pageSize) || DEFAULT_MANAGER_OPTIONS.pageSize;
             this.queryThrottleInMS =
@@ -614,8 +614,8 @@ class Manager<
      */
 
     public _formatResponse = (
-        response: ESResponse<ResultObject>
-    ): Required<ESResponse<ResultObject>> => {
+        response: ESResponse<ESDocSource>
+    ): Required<ESResponse<ESDocSource>> => {
         return {aggregations: {}, ...response};
     };
 
@@ -629,7 +629,7 @@ class Manager<
      * Save the results
      * The results contain the documents found in the query that match the filters
      */
-    public _saveQueryResults = (response: ESResponse<ResultObject>) => {
+    public _saveQueryResults = (response: ESResponse<ESDocSource>) => {
         if (response.timed_out === false && response.hits.total > 0) {
             runInAction(() => {
                 if (response && response.hits && response.hits.hits) {
@@ -639,7 +639,7 @@ class Manager<
         }
     };
 
-    public _extractUnfilteredAggsStateFromResponse = (response: ESResponse<ResultObject>): void => {
+    public _extractUnfilteredAggsStateFromResponse = (response: ESResponse<ESDocSource>): void => {
         objKeys(this.filters).forEach(filterName => {
             const filter = this.filters[filterName];
             if (!filter) {
@@ -649,7 +649,7 @@ class Manager<
         });
     };
 
-    public _extractFilteredAggsStateFromResponse = (response: ESResponse<ResultObject>): void => {
+    public _extractFilteredAggsStateFromResponse = (response: ESResponse<ESDocSource>): void => {
         objKeys(this.filters).forEach(filterName => {
             const filter = this.filters[filterName];
             if (!filter) {
@@ -659,7 +659,7 @@ class Manager<
         });
     };
 
-    public _extractSuggestionStateFromResponse = (response: ESResponse<ResultObject>): void => {
+    public _extractSuggestionStateFromResponse = (response: ESResponse<ESDocSource>): void => {
         objKeys(this.suggestions).forEach(suggesterName => {
             const suggester = this.suggestions[suggesterName];
             if (!suggester) {
