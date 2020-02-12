@@ -172,14 +172,16 @@ function isRangeResultWithString(
 }
 
 export type RangeBoundResult = {
-    min: {
-        value: number;
-        value_as_string?: string;
-    };
-    max: {
-        value: number;
-        value_as_string?: string;
-    };
+    min: number;
+    // {
+    //     value: number;
+    //     value_as_string?: string;
+    // };
+    max: number;
+    //  {
+    //     value: number;
+    //     value_as_string?: string;
+    // };
 };
 
 export type RangeBoundResults<RangeFields extends string> = {

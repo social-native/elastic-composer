@@ -251,16 +251,6 @@ class Manager<
                 });
             }
         );
-        // FOR TESTING - DELETE  ME
-        reaction(
-            () => ({
-                queue: [...this._sideEffectQueue],
-                isSideEffectRunning: !!this.isSideEffectRunning
-            }),
-            data => {
-                console.log('CURRENT QUEUE', data.queue);
-            }
-        );
 
         reaction(
             () => ({
