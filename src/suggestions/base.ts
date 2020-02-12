@@ -70,8 +70,23 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
         });
     }
 
-    public get fields() {
-        return Object.keys(this.fieldConfigs);
+    /**
+     * Transforms the request obj.
+     *
+     * Adds query and aggs to the request to obtain suggestions.
+     * Is mainly called when filters change and there is an ongoing search suggestion.
+     */
+    public _addSuggestionQueryAndAggsToRequestForAllFields(request: ESRequest): ESRequest {
+        return this.fields.reduce(
+            (acc, fieldName) => {
+                return this._addSuggestionQueryAndAggsToRequest(acc, fieldName);
+            },
+            {...request}
+        );
+    }
+
+    public get fields(): Fields[] {
+        return Object.keys(this.fieldConfigs) as Fields[];
     }
 
     public _shouldRunQuery(fieldName: Fields) {

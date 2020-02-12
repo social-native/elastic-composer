@@ -18,7 +18,7 @@ import utils from './utils';
 
 const CONFIG_DEFAULT = {
     defaultSuggestionKind: 'should',
-    enabled: true
+    enabled: false
 };
 
 export interface IConfig extends BaseSuggestionConfig {

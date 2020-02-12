@@ -57,7 +57,8 @@ const DEFAULT_MANAGER_OPTIONS: Omit<
     suggestions: {
         fuzzy: new FuzzySuggestion(),
         prefix: new PrefixSuggestion()
-    }
+    },
+    middleware: []
 };
 
 interface IFilters {
@@ -79,6 +80,7 @@ type ManagerOptions = {
     fieldBlackList?: string[];
     filters?: IFilters;
     suggestions?: ISuggestions;
+    middleware?: Middleware[];
 };
 
 type EffectInput<EffectKind extends string> = {
@@ -119,6 +121,7 @@ const createEffectRequest = <EffectKind extends string>(
 ): EffectRequest<EffectKind> => input;
 
 type EffectKinds =
+    | 'allEnabledSuggestions'
     | 'suggestion'
     | 'batchAggs'
     | 'unfilteredQuery'
@@ -135,10 +138,14 @@ type DefaultOptions = {
     suggestions: ISuggestions;
 };
 
+type Middleware = (effectRequest: EffectRequest<EffectKinds>, request: ESRequest) => ESRequest;
+
 class Manager<
     Options extends DefaultOptions = DefaultOptions,
     ResultObject extends object = object
 > {
+    public middleware: Middleware[];
+    public defaultMiddleware: Middleware[];
     public pageSize: number;
     public queryThrottleInMS: number;
     public filters: Options['filters'];
@@ -196,6 +203,13 @@ class Manager<
             } else {
                 this.fieldBlackList = [];
             }
+
+            this.defaultMiddleware = [
+                this._batchAggsMiddleware,
+                this._rerunSuggestionsOnFilterChange
+            ];
+
+            this.middleware = (options && options.middleware) || DEFAULT_MANAGER_OPTIONS.middleware;
         });
 
         objKeys(this.filters).forEach(filterName => {
@@ -251,6 +265,17 @@ class Manager<
                 });
             }
         );
+
+        // // FOR TESTING - HIDE ME
+        // reaction(
+        //     () => ({
+        //         queue: [...this._sideEffectQueue],
+        //         isSideEffectRunning: !!this.isSideEffectRunning
+        //     }),
+        //     data => {
+        //         console.log(this._sideEffectQueue.map(k => k.kind));
+        //     }
+        // );
 
         reaction(
             () => ({
@@ -649,6 +674,45 @@ class Manager<
      * ***************************************************************************
      */
 
+    public _rerunSuggestionsOnFilterChange = (
+        // tslint:disable-next-line
+        effectRequest: EffectRequest<EffectKinds>,
+        request: ESRequest
+    ): ESRequest => {
+        if (
+            effectRequest.kind === 'filteredAggs' ||
+            effectRequest.kind === 'filteredQuery' ||
+            effectRequest.kind === 'filteredQueryAndAggs'
+        ) {
+            this._addToQueueLiFo(
+                createEffectRequest({
+                    kind: 'allEnabledSuggestions',
+                    debouncedByKind: [effectRequest.kind],
+                    debounce: undefined,
+                    effect: this._runAllEnabledSuggestionSearch,
+                    throttle: 0,
+                    params: []
+                })
+            );
+        }
+
+        return request;
+    };
+    /**
+     * When aggs are updated and there is an ongoing search suggestion,
+     * we want to update the suggestion when the filters change
+     */
+    public _addSuggestionsToRequest = (request: ESRequest) => {
+        return objKeys(this.suggestions).reduce(
+            (acc, suggestionName) => {
+                return this.suggestions[
+                    suggestionName
+                ]._addSuggestionQueryAndAggsToRequestForAllFields(acc);
+            },
+            {...request}
+        );
+    };
+
     public _batchAggsMiddleware = (
         effectRequest: EffectRequest<EffectKinds>,
         request: ESRequest
@@ -697,9 +761,15 @@ class Manager<
         effectRequest: EffectRequest<EffectKinds>,
         request: ESRequest
     ): ESRequest => {
-        return [this._batchAggsMiddleware].reduce((newRequest, m) => {
+        return [...this.defaultMiddleware, ...this.middleware].reduce((newRequest, m) => {
             return m(effectRequest, newRequest);
         }, request as ESRequest);
+    };
+
+    public setMiddleware = (middlewares: Middleware[]) => {
+        runInAction(() => {
+            this.middleware = [...middlewares];
+        });
     };
 
     /**
@@ -707,6 +777,24 @@ class Manager<
      * REQUEST BUILDERS
      * ***************************************************************************
      */
+
+    public _createAllEnabledSuggestionsRequest = (
+        effectRequest: EffectRequest<EffectKinds>,
+        blankRequest: ESRequest
+    ): ESRequest => {
+        const requestWithSuggestion = this._addSuggestionsToRequest(blankRequest);
+        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            if (!filter) {
+                return request;
+            }
+
+            return filter._addFilteredQueryToRequest(request);
+        }, requestWithSuggestion);
+        // We want:
+        // - no results
+        return this._addZeroPageSizeToQuery(this._requestMiddleware(effectRequest, fullRequest));
+    };
 
     public _createSearchSuggestionRequest = (
         effectRequest: EffectRequest<EffectKinds>,
@@ -769,6 +857,9 @@ class Manager<
             throw new Error('Tried to create an ESRequest for a filter that doesnt exist');
         }
         const fullRequest = filter._addFilteredAggsToRequest(blankRequest, field);
+        // // update any suggestions if they changed
+        // // b/c an agg could have changed and the results are being filtered
+        // const fullRequestWithSuggestions = this._addSuggestionsToRequest(fullRequest);
         // We want:
         // - no results
         return this._addZeroPageSizeToQuery(this._requestMiddleware(effectRequest, fullRequest));
@@ -805,6 +896,10 @@ class Manager<
             return filter._addFilteredQueryAndAggsToRequest(request);
         }, blankRequest);
 
+        // // update any suggestions if they changed
+        // // b/c an agg could have changed and the results are being filtered
+        // const fullRequestWithSuggestions = this._addSuggestionsToRequest(fullRequest);
+
         // We want:
         // - a page of results
         // - the results to be sorted
@@ -839,6 +934,25 @@ class Manager<
      * ES QUERY MANAGERS
      * ***************************************************************************
      */
+
+    public _runAllEnabledSuggestionSearch = async (effectRequest: EffectRequest<EffectKinds>) => {
+        try {
+            const request = this._createAllEnabledSuggestionsRequest(
+                effectRequest,
+                BLANK_ES_REQUEST
+            );
+
+            const response = await this.client.search(removeEmptyArrays(request));
+
+            // Pass the response to the filter instances so they can extract info relevant to them.
+            this._extractSuggestionStateFromResponse(response);
+
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryThrottleInMS);
+        } catch (e) {
+            throw e;
+        } // No cursor change b/c only dealing with filters
+    };
 
     public _runSuggestionSearch = async (
         effectRequest: EffectRequest<EffectKinds>,
@@ -1115,6 +1229,8 @@ class Manager<
 }
 
 decorate(Manager, {
+    middleware: observable,
+    defaultMiddleware: observable,
     pageSize: observable,
     queryThrottleInMS: observable,
     filters: observable,
