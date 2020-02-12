@@ -206,7 +206,8 @@ class Manager<
 
             this.defaultMiddleware = [
                 this._batchAggsMiddleware,
-                this._rerunSuggestionsOnFilterChange
+                this._rerunSuggestionsOnFilterChange,
+                this._applyBlackAndWhiteListsToSourceParam
             ];
 
             this.middleware = (options && options.middleware) || DEFAULT_MANAGER_OPTIONS.middleware;
@@ -673,6 +674,23 @@ class Manager<
      * REQUEST MIDDLEWARE
      * ***************************************************************************
      */
+
+    public _applyBlackAndWhiteListsToSourceParam = (
+        // tslint:disable-next-line
+        _effectRequest: EffectRequest<EffectKinds>,
+        request: ESRequest
+    ): ESRequest => {
+        const body =
+            this.fieldWhiteList.length > 0
+                ? {includes: this.fieldWhiteList}
+                : {excludes: this.fieldBlackList || []};
+        return {
+            ...request,
+            _source: {
+                ...body
+            }
+        };
+    };
 
     public _rerunSuggestionsOnFilterChange = (
         // tslint:disable-next-line

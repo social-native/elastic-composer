@@ -15,6 +15,10 @@ export type ESRequest = {
             should: object[];
         };
     };
+    _source?: {
+        includes?: string[];
+        excludes?: string[];
+    };
     aggs: Record<string, any>;
     from?: number;
     size?: number;

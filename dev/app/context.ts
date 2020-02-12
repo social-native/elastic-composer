@@ -66,7 +66,11 @@ const exampleFormInstance = new ExampleForm();
 // mapping.mapping().then(d => console.log(d));
 
 const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
-const creatorCRM = new Manager(client, {pageSize: 10, queryThrottleInMS: 350});
+const creatorCRM = new Manager(client, {
+    pageSize: 10,
+    queryThrottleInMS: 350,
+    fieldBlackList: ['instagram.bio']
+});
 
 creatorCRM.getFieldNamesAndTypes().then(() => {
     creatorCRM.runStartQuery();
