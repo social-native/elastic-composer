@@ -11,7 +11,7 @@
     - [Add a custom suggestion during manager instantiation](#add-a-custom-suggestion-during-manager-instantiation)
     - [Set middleware](#set-middleware)
     - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
-    - [Run a custom elasticsearch query using the current filters](#run-a-custom elasticsearch-query-using-the-current-filters)
+    - [Run a custom elasticsearch query using the current filters](#run-a-custom-elasticsearch-query-using-the-current-filters)
     - [Setting a range filter](#setting-a-range-filter)
     - [Setting a boolean filter](#setting-a-boolean-filter)
     - [Setting a prefix suggestion](#setting-a-prefix-suggestion)
