@@ -1,7 +1,17 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import {ApiUri, ApiAccessToken, RangeFilter, ResultsTable, FilterSelector, BooleanFilter} from './features';
+import {
+    ApiUri,
+    ApiAccessToken,
+    RangeFilter,
+    ResultsTable,
+    FilterSelector,
+    BooleanFilter,
+    CustomQuery,
+    SuggestionSelector,
+    Suggestion
+} from './features';
 
 const Main = styled.div`
     height: 100vh;
@@ -23,16 +33,20 @@ export default () => (
     <Main>
         <ApiUri />
         <ApiAccessToken />
+        <CustomQuery />
         <HorizontalLayout>
-            <FilterSelector filterType={'range'} defaultFilterName={'instagram_avg_like_rate'}>
+            <SuggestionSelector suggestionType={'fuzzy'} defaultFieldName={'tags'}>
+                {fieldName => <Suggestion fieldName={fieldName} />}
+            </SuggestionSelector>
+            <FilterSelector filterType={'range'} defaultFilterName={'instagram.total_posts'}>
                 {filterName => <RangeFilter filterName={filterName} maxRange={50} />}
             </FilterSelector>
-            <FilterSelector filterType={'range'} defaultFilterName={'user_profile_age'}>
+            <FilterSelector filterType={'range'} defaultFilterName={'user_profile.age'}>
                 {filterName => <RangeFilter filterName={filterName} maxRange={100} />}
             </FilterSelector>
-            <FilterSelector filterType={'boolean'} defaultFilterName={'instagram.is_business'}>
+            {/* <FilterSelector filterType={'boolean'} defaultFilterName={'instagram.is_business'}>
                 {filterName => <BooleanFilter filterName={filterName}/>}
-            </FilterSelector>
+            </FilterSelector> */}
         </HorizontalLayout>
         <ResultsTable />
     </Main>

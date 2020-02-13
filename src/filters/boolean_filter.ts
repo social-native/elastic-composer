@@ -1,31 +1,38 @@
 import {runInAction, decorate, observable} from 'mobx';
 import {objKeys} from '../utils';
-import {ESRequest, ESResponse, FilterKind} from '../types';
+import {
+    ESRequest,
+    ESResponse,
+    FilterKind,
+    BaseFilterConfig,
+    IBaseOptions,
+    ESMappingType
+} from '../types';
 import BaseFilter from './base';
-import {decorateFilter} from './utils';
+import utils from './utils';
 
 /**
- * Range config
+ * Config
  */
 const BOOLEAN_CONFIG_DEFAULT = {
     defaultFilterKind: 'should',
     getCount: true,
-    aggsEnabled: true
+    aggsEnabled: false
 };
 
-export type BooleanConfig = {
+export interface IBooleanConfig extends BaseFilterConfig {
     field: string;
     defaultFilterKind?: 'should' | 'must';
     getCount?: boolean;
     aggsEnabled?: boolean;
-};
+}
 
-export type BooleanConfigs<BooleanFields extends string> = {
-    [esFieldName in BooleanFields]: BooleanConfig;
+export type IBooleanConfigs<BooleanFields extends string> = {
+    [esFieldName in BooleanFields]: IBooleanConfig;
 };
 
 /**
- * Boolean Filter
+ * Filter
  */
 
 export type Filter = {
@@ -37,7 +44,7 @@ export type Filters<BooleanFields extends string> = {
 };
 
 /**
- * Boolean Kind
+ * Kind
  */
 
 export type BooleanFilterKinds<BooleanFields extends string> = {
@@ -45,7 +52,7 @@ export type BooleanFilterKinds<BooleanFields extends string> = {
 };
 
 /**
- * Range Distribution
+ *  Results
  */
 export type RawBooleanCountResult = {
     buckets: Array<{
@@ -64,24 +71,29 @@ export type BooleanCountResults<BooleanFields extends string> = {
     [esFieldName in BooleanFields]: BooleanCountResult;
 };
 
+export const booleanShouldUseField = (_fieldName: string, fieldType: ESMappingType) =>
+    fieldType === 'boolean';
+
 class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
     BooleanFields,
-    BooleanConfig,
+    IBooleanConfig,
     Filter
 > {
     public filteredCount: BooleanCountResults<BooleanFields>;
     public unfilteredCount: BooleanCountResults<BooleanFields>;
 
     constructor(
-        defaultConfig?: Omit<Required<BooleanConfig>, 'field'>,
-        specificConfigs?: BooleanConfigs<BooleanFields>
+        defaultConfig?: Omit<Required<IBooleanConfig>, 'field'>,
+        specificConfigs?: IBooleanConfigs<BooleanFields>,
+        options?: IBaseOptions
     ) {
         super(
             'boolean',
-            defaultConfig || (BOOLEAN_CONFIG_DEFAULT as Omit<Required<BooleanConfig>, 'field'>),
-            specificConfigs as BooleanConfigs<BooleanFields>
+            defaultConfig || (BOOLEAN_CONFIG_DEFAULT as Omit<Required<IBooleanConfig>, 'field'>),
+            specificConfigs as IBooleanConfigs<BooleanFields>
         );
         runInAction(() => {
+            this._shouldUseField = (options && options.shouldUseField) || booleanShouldUseField;
             this.filteredCount = {} as BooleanCountResults<BooleanFields>;
             this.unfilteredCount = {} as BooleanCountResults<BooleanFields>;
         });
@@ -289,7 +301,7 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
                         };
                     } else if (allCounts && allCounts.buckets && allCounts.buckets.length > 3) {
                         throw new Error(
-                            `There shouldnt be more than 3 states for boolean fields. Check data for ${booleanFieldName}`
+                            `There shouldn't be more than 3 states for boolean fields. Check data for ${booleanFieldName}`
                         );
                     } else {
                         return acc;
@@ -318,6 +330,6 @@ decorate(BooleanFilterClass, {
     unfilteredCount: observable
 });
 
-decorateFilter(BooleanFilterClass);
+utils.decorateFilter(BooleanFilterClass);
 
 export default BooleanFilterClass;

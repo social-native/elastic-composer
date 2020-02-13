@@ -1,10 +1,26 @@
 'use strict';
-import {RangeFilterClass, BooleanFilterClass} from 'filters';
-import {ESRequest, ESResponse, IClient, ESHit, ESRequestSortField, ESMappingType} from 'types';
+import {RangeFilter, BooleanFilter} from './filters';
+import {
+    ESRequest,
+    ESResponse,
+    IClient,
+    ESHit,
+    ESRequestSortField,
+    ESMappingType,
+    Middleware,
+    DebounceFn,
+    EffectInput,
+    EffectRequest,
+    IFilters,
+    ISuggestions,
+    ManagerOptions,
+    EffectKinds
+} from './types';
 import {objKeys} from './utils';
 import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx';
 import Timeout from 'await-timeout';
 import chunk from 'lodash.chunk';
+import {PrefixSuggestion, FuzzySuggestion, BaseSuggestion} from './suggestions';
 
 /**
  * How the naming works:
@@ -17,14 +33,6 @@ import chunk from 'lodash.chunk';
  * filteredQueryAggs - would have a query filter applied, hits returned,  and aggs on the result set
  * filteredAggs - would have a query filter applied,  no hits returned, and aggs on the result set
  */
-
-type Filters<
-    RangeFilter extends RangeFilterClass<any>,
-    BooleanFilter extends BooleanFilterClass<any>
-> = {
-    range: RangeFilter;
-    boolean: BooleanFilter;
-};
 
 const BLANK_ES_REQUEST = {
     query: {
@@ -56,61 +64,53 @@ const DEFAULT_MANAGER_OPTIONS: Omit<
     'fieldWhiteList' | 'fieldBlackList'
 > = {
     pageSize: 10,
-    queryThrottleInMS: 1000
-};
-type ManagerOptions = {
-    pageSize?: number;
-    queryThrottleInMS?: number;
-    fieldWhiteList?: string[];
-    fieldBlackList?: string[];
+    queryThrottleInMS: 1000,
+    filters: {
+        boolean: new BooleanFilter(),
+        range: new RangeFilter()
+    },
+    suggestions: {
+        fuzzy: new FuzzySuggestion(),
+        prefix: new PrefixSuggestion()
+    },
+    middleware: []
 };
 
-type EffectInput<EffectKind extends string> = {
-    kind: EffectKind;
-    effect: QueryFn;
-    debouncedByKind?: EffectKind[];
-    debounce?: 'leading' | 'trailing';
-    throttle: number; // in miliseconds
-    params: any[];
-};
-type EffectRequest<EffectKind extends string> = {
-    kind: EffectKind;
-    effect: QueryFn;
-    debouncedByKind?: EffectKind[];
-    debounce?: 'leading' | 'trailing';
-    throttle: number; // in miliseconds
-    params: any[];
-};
+const debounceSuggestionsFn = <CurrentEffectKind extends string, LookingEffectKind extends string>(
+    currentEffectRequest: EffectRequest<CurrentEffectKind>,
+    lookingAtEffectRequest: EffectRequest<LookingEffectKind>
+) =>
+    currentEffectRequest.kind === 'suggestion' &&
+    lookingAtEffectRequest.kind === 'suggestion' &&
+    currentEffectRequest.params.length === 2 &&
+    currentEffectRequest.params[0] === lookingAtEffectRequest.params[0] &&
+    currentEffectRequest.params[1] === lookingAtEffectRequest.params[1];
 
 const createEffectRequest = <EffectKind extends string>(
     input: EffectInput<EffectKind>
 ): EffectRequest<EffectKind> => input;
 
-type EffectKinds =
-    | 'batchAggs'
-    | 'unfilteredQuery'
-    | 'unfilteredAggs'
-    | 'unfilteredQueryAndAggs'
-    | 'filteredQuery'
-    | 'filteredAggs'
-    | 'filteredQueryAndAggs';
-
-type QueryFn = (...params: any[]) => void;
+type DefaultOptions = {
+    filters: IFilters;
+    suggestions: ISuggestions;
+};
 
 class Manager<
-    RangeFilter extends RangeFilterClass<any>,
-    BooleanFilter extends BooleanFilterClass<any>,
-    ResultObject extends object = object
+    Options extends DefaultOptions = DefaultOptions,
+    ESDocSource extends object = object
 > {
+    public middleware: Middleware[];
+    public defaultMiddleware: Middleware[];
     public pageSize: number;
     public queryThrottleInMS: number;
-    public filters: Filters<RangeFilter, BooleanFilter>;
-    public results: Array<ESHit<ResultObject>>;
+    public filters: Options['filters'];
+    public suggestions: Options['suggestions'];
+    public results: Array<ESHit<ESDocSource>>;
 
-    public _sideEffectQueue: Array<EffectRequest<EffectKinds> | null>;
+    public _sideEffectQueue: Array<EffectRequest<EffectKinds>>;
     public isSideEffectRunning: boolean;
 
-    public client: IClient<ResultObject>;
+    public client: IClient<ESDocSource>;
     public currentPage: number;
     public _pageCursorInfo: Record<number, ESRequestSortField>;
     public indexFieldNamesAndTypes: Record<string, ESMappingType>;
@@ -118,17 +118,23 @@ class Manager<
     public fieldWhiteList: string[];
     public fieldBlackList: string[];
 
-    constructor(
-        client: IClient<ResultObject>,
-        filters: Filters<RangeFilter, BooleanFilter>,
-        options?: ManagerOptions
-    ) {
+    constructor(client: IClient<ESDocSource>, options?: ManagerOptions) {
+        const filters =
+            options && options.filters
+                ? {...DEFAULT_MANAGER_OPTIONS.filters, ...options.filters}
+                : DEFAULT_MANAGER_OPTIONS.filters;
+        const suggestions =
+            options && options.suggestions
+                ? {...DEFAULT_MANAGER_OPTIONS.suggestions, ...options.suggestions}
+                : DEFAULT_MANAGER_OPTIONS.suggestions;
         // tslint:disable-next-line
         runInAction(() => {
             this.client = client;
             this.filters = filters;
+            this.suggestions = suggestions;
             this.isSideEffectRunning = false;
             this._sideEffectQueue = [];
+            this.results = [] as Array<ESHit<ESDocSource>>;
 
             this.pageSize = (options && options.pageSize) || DEFAULT_MANAGER_OPTIONS.pageSize;
             this.queryThrottleInMS =
@@ -152,12 +158,27 @@ class Manager<
             } else {
                 this.fieldBlackList = [];
             }
+
+            this.defaultMiddleware = [
+                this._batchAggsMiddleware,
+                this._rerunSuggestionsOnFilterChange,
+                this._applyBlackAndWhiteListsToSourceParam
+            ];
+
+            this.middleware = (options && options.middleware) || DEFAULT_MANAGER_OPTIONS.middleware;
         });
 
         objKeys(this.filters).forEach(filterName => {
-            const filter = this.filters[filterName];
+            const filter = this.filters[filterName] as Options['filters'][keyof Options['filters']];
             filter._subscribeToShouldUpdateFilteredAggs(this._enqueueFilteredAggs);
             filter._subscribeToShouldUpdateUnfilteredAggs(this._enqueueUnfilteredAggs);
+        });
+
+        objKeys(this.suggestions).forEach(suggesterName => {
+            const suggester = this.suggestions[
+                suggesterName
+            ] as Options['suggestions'][keyof Options['suggestions']];
+            suggester._subscribeToShouldRunSuggestionSearch(this._enqueueSuggestionSearch);
         });
 
         /**
@@ -181,16 +202,36 @@ class Manager<
         reaction(
             () => this.indexFieldNamesAndTypes,
             (indexFieldNamesAndTypes: Record<string, ESMappingType>) => {
-                Object.keys(indexFieldNamesAndTypes).forEach(fieldName => {
-                    const type = indexFieldNamesAndTypes[fieldName];
-                    if (type === 'long' || type === 'double' || type === 'integer') {
-                        this.filters.range._addConfigForField(fieldName);
-                    } else if (type === 'boolean') {
-                        this.filters.boolean._addConfigForField(fieldName);
-                    }
+                // tslint:disable-next-line
+                objKeys(indexFieldNamesAndTypes).forEach(fieldName => {
+                    const fieldType = indexFieldNamesAndTypes[fieldName];
+                    objKeys(this.filters).forEach(filterName => {
+                        const filter = this.filters[filterName];
+                        if (filter._shouldUseField(fieldName, fieldType)) {
+                            filter._addConfigForField(fieldName);
+                        }
+                    });
+
+                    objKeys(this.suggestions).forEach(suggestionName => {
+                        const suggestion = this.suggestions[suggestionName];
+                        if (suggestion._shouldUseField(fieldName, fieldType)) {
+                            suggestion._addConfigForField(fieldName);
+                        }
+                    });
                 });
             }
         );
+
+        // // FOR TESTING - Dont delete this code
+        // reaction(
+        //     () => ({
+        //         queue: [...this._sideEffectQueue],
+        //         isSideEffectRunning: !!this.isSideEffectRunning
+        //     }),
+        //     data => {
+        //         console.log(this._sideEffectQueue.map(k => k.kind));
+        //     }
+        // );
 
         reaction(
             () => ({
@@ -218,7 +259,7 @@ class Manager<
         }
     };
 
-    public get fieldsToFilterType() {
+    public get fieldsToFilterType(): Record<string, string> {
         return objKeys(this.filters).reduce((map, filterName) => {
             const filter = this.filters[filterName];
             const typeMaps = filter.fields.reduce((filterMap, fieldName) => {
@@ -251,6 +292,10 @@ class Manager<
                 );
 
                 await newEffectRequest.effect(effectRequest, ...params);
+            } else if (typeof effectRequest.debounce === 'function') {
+                const newEffectRequest = this._debounceEffectsUsingDebounceFn(effectRequest);
+
+                await newEffectRequest.effect(effectRequest, ...params);
             } else {
                 await effectRequest.effect(effectRequest, ...params);
             }
@@ -261,6 +306,27 @@ class Manager<
                 this.isSideEffectRunning = false;
             });
         }
+    };
+
+    public _debounceEffectsUsingDebounceFn = (
+        effectRequest: EffectRequest<EffectKinds>
+    ): EffectRequest<EffectKinds> => {
+        if (
+            !effectRequest.debounce ||
+            typeof effectRequest.debounce !== 'function' ||
+            this._sideEffectQueue.length === 0
+        ) {
+            return effectRequest;
+        }
+
+        const newSideEffectQueue = this._sideEffectQueue.filter(lookingAtEffect => {
+            return !(effectRequest.debounce as DebounceFn)(effectRequest, lookingAtEffect);
+        });
+        runInAction(() => {
+            this._sideEffectQueue = [...newSideEffectQueue];
+        });
+
+        return effectRequest;
     };
 
     public _findLastEffectOfKindAndRemoveAllOthersFromQueue = (
@@ -322,7 +388,7 @@ class Manager<
 
     /**
      * ***************************************************************************
-     * SIDE EFFECT ENQEUEING
+     * SIDE EFFECT ENQUEUEING
      * ***************************************************************************
      */
 
@@ -331,6 +397,26 @@ class Manager<
      */
     public _enqueueUnfilteredQuery = () => {
         throw new Error('Not implemented');
+    };
+
+    /**
+     * Used for to get suggestions for ongoing searches - before a particular filter has been set
+     * as a user is figuring out terms for the filter. This is mainly used by the multiselect
+     * and keyword filters
+     *
+     * Predicate debouncing - b/c we don't want to interfere with other suggesters but a single
+     * field suggestion should be debounced
+     */
+    public _enqueueSuggestionSearch = (filter: string, field: string) => {
+        this._addToQueueLiFo(
+            createEffectRequest({
+                kind: 'suggestion',
+                effect: this._runSuggestionSearch,
+                debounce: debounceSuggestionsFn,
+                throttle: this.queryThrottleInMS,
+                params: [filter, field]
+            })
+        );
     };
 
     /**
@@ -483,8 +569,8 @@ class Manager<
      */
 
     public _formatResponse = (
-        response: ESResponse<ResultObject>
-    ): Required<ESResponse<ResultObject>> => {
+        response: ESResponse<ESDocSource>
+    ): Required<ESResponse<ESDocSource>> => {
         return {aggregations: {}, ...response};
     };
 
@@ -498,15 +584,17 @@ class Manager<
      * Save the results
      * The results contain the documents found in the query that match the filters
      */
-    public _saveQueryResults = (response: ESResponse<ResultObject>) => {
+    public _saveQueryResults = (response: ESResponse<ESDocSource>) => {
         if (response.timed_out === false && response.hits.total > 0) {
             runInAction(() => {
-                this.results = response.hits.hits;
+                if (response && response.hits && response.hits.hits) {
+                    this.results = response.hits.hits;
+                }
             });
         }
     };
 
-    public _extractUnfilteredAggsStateFromResponse = (response: ESResponse<ResultObject>): void => {
+    public _extractUnfilteredAggsStateFromResponse = (response: ESResponse<ESDocSource>): void => {
         objKeys(this.filters).forEach(filterName => {
             const filter = this.filters[filterName];
             if (!filter) {
@@ -516,7 +604,7 @@ class Manager<
         });
     };
 
-    public _extractFilteredAggsStateFromResponse = (response: ESResponse<ResultObject>): void => {
+    public _extractFilteredAggsStateFromResponse = (response: ESResponse<ESDocSource>): void => {
         objKeys(this.filters).forEach(filterName => {
             const filter = this.filters[filterName];
             if (!filter) {
@@ -526,11 +614,68 @@ class Manager<
         });
     };
 
+    public _extractSuggestionStateFromResponse = (response: ESResponse<ESDocSource>): void => {
+        objKeys(this.suggestions).forEach(suggesterName => {
+            const suggester = this.suggestions[suggesterName];
+            if (!suggester) {
+                return;
+            }
+            suggester._extractSuggestionFromResponse(response);
+        });
+    };
+
     /**
      * ***************************************************************************
      * REQUEST MIDDLEWARE
      * ***************************************************************************
      */
+
+    public _applyBlackAndWhiteListsToSourceParam = (
+        // tslint:disable-next-line
+        _effectRequest: EffectRequest<EffectKinds>,
+        request: ESRequest
+    ): ESRequest => {
+        return this._applyBlackAndWhiteListsToQuery(request);
+    };
+
+    public _rerunSuggestionsOnFilterChange = (
+        // tslint:disable-next-line
+        effectRequest: EffectRequest<EffectKinds>,
+        request: ESRequest
+    ): ESRequest => {
+        if (
+            effectRequest.kind === 'filteredAggs' ||
+            effectRequest.kind === 'filteredQuery' ||
+            effectRequest.kind === 'filteredQueryAndAggs'
+        ) {
+            this._addToQueueLiFo(
+                createEffectRequest({
+                    kind: 'allEnabledSuggestions',
+                    debouncedByKind: [effectRequest.kind],
+                    debounce: undefined,
+                    effect: this._runAllEnabledSuggestionSearch,
+                    throttle: 0,
+                    params: []
+                })
+            );
+        }
+
+        return request;
+    };
+    /**
+     * When aggs are updated and there is an ongoing search suggestion,
+     * we want to update the suggestion when the filters change
+     */
+    public _addSuggestionsToRequest = (request: ESRequest) => {
+        return objKeys(this.suggestions).reduce(
+            (acc, suggestionName) => {
+                return this.suggestions[
+                    suggestionName
+                ]._addSuggestionQueryAndAggsToRequestForAllFields(acc);
+            },
+            {...request}
+        );
+    };
 
     public _batchAggsMiddleware = (
         effectRequest: EffectRequest<EffectKinds>,
@@ -580,9 +725,15 @@ class Manager<
         effectRequest: EffectRequest<EffectKinds>,
         request: ESRequest
     ): ESRequest => {
-        return [this._batchAggsMiddleware].reduce((newRequest, m) => {
+        return [...this.defaultMiddleware, ...this.middleware].reduce((newRequest, m) => {
             return m(effectRequest, newRequest);
         }, request as ESRequest);
+    };
+
+    public setMiddleware = (middlewares: Middleware[]) => {
+        runInAction(() => {
+            this.middleware = [...middlewares];
+        });
     };
 
     /**
@@ -590,6 +741,54 @@ class Manager<
      * REQUEST BUILDERS
      * ***************************************************************************
      */
+
+    public _createAllEnabledSuggestionsRequest = (
+        effectRequest: EffectRequest<EffectKinds>,
+        blankRequest: ESRequest
+    ): ESRequest => {
+        const requestWithSuggestion = this._addSuggestionsToRequest(blankRequest);
+        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            if (!filter) {
+                return request;
+            }
+
+            return filter._addFilteredQueryToRequest(request);
+        }, requestWithSuggestion);
+        // We want:
+        // - no results
+        return this._addZeroPageSizeToQuery(this._requestMiddleware(effectRequest, fullRequest));
+    };
+
+    public _createSearchSuggestionRequest = (
+        effectRequest: EffectRequest<EffectKinds>,
+        blankRequest: ESRequest,
+        suggesterName: string,
+        field: string
+    ): ESRequest => {
+        const suggester = (this.suggestions as any)[suggesterName as any] as BaseSuggestion<
+            any,
+            any
+        >;
+        if (!suggester) {
+            throw new Error('Tried to create an ESRequest for a suggester that doesnt exist');
+        }
+        const requestWithSuggestion = suggester._addSuggestionQueryAndAggsToRequest(
+            blankRequest,
+            field
+        );
+        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            if (!filter) {
+                return request;
+            }
+
+            return filter._addFilteredQueryToRequest(request);
+        }, requestWithSuggestion);
+        // We want:
+        // - no results
+        return this._addZeroPageSizeToQuery(this._requestMiddleware(effectRequest, fullRequest));
+    };
 
     public _createUnfilteredQueryAndAggsRequest = (
         effectRequest: EffectRequest<EffectKinds>,
@@ -622,9 +821,11 @@ class Manager<
             throw new Error('Tried to create an ESRequest for a filter that doesnt exist');
         }
         const fullRequest = filter._addFilteredAggsToRequest(blankRequest, field);
+        // // update any suggestions if they changed
+        // // b/c an agg could have changed and the results are being filtered
+        // const fullRequestWithSuggestions = this._addSuggestionsToRequest(fullRequest);
         // We want:
         // - no results
-        // - the results to be sorted
         return this._addZeroPageSizeToQuery(this._requestMiddleware(effectRequest, fullRequest));
     };
 
@@ -659,6 +860,10 @@ class Manager<
             return filter._addFilteredQueryAndAggsToRequest(request);
         }, blankRequest);
 
+        // // update any suggestions if they changed
+        // // b/c an agg could have changed and the results are being filtered
+        // const fullRequestWithSuggestions = this._addSuggestionsToRequest(fullRequest);
+
         // We want:
         // - a page of results
         // - the results to be sorted
@@ -667,6 +872,28 @@ class Manager<
         );
     };
 
+    public _createCustomFilteredQueryRequest = (
+        startingRequest: ESRequest,
+        options: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>
+    ): ESRequest => {
+        const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
+            const filter = this.filters[filterName];
+            if (!filter) {
+                return request;
+            }
+
+            return filter._addFilteredQueryToRequest(request);
+        }, startingRequest);
+
+        // We want:
+        // - a page of results
+        // - the results to be sorted
+        // no middleware used b/c this is a custom request that is used outside the side effect queue
+        return this._applyBlackAndWhiteListsToQuery(
+            this._addSortToQuery(this._addPageSizeToQuery(fullRequest, options.pageSize)),
+            options
+        );
+    };
     public _createFilteredQueryRequest = (
         effectRequest: EffectRequest<EffectKinds>,
         startingRequest: ESRequest
@@ -693,6 +920,62 @@ class Manager<
      * ES QUERY MANAGERS
      * ***************************************************************************
      */
+
+    public runCustomFilterQuery = async (
+        options: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>
+    ): Promise<ESResponse> => {
+        try {
+            const request = this._createCustomFilteredQueryRequest(BLANK_ES_REQUEST, options);
+            const response = await this.client.search(removeEmptyArrays(request));
+
+            return response;
+        } catch (e) {
+            throw e;
+        }
+    };
+
+    public _runAllEnabledSuggestionSearch = async (effectRequest: EffectRequest<EffectKinds>) => {
+        try {
+            const request = this._createAllEnabledSuggestionsRequest(
+                effectRequest,
+                BLANK_ES_REQUEST
+            );
+
+            const response = await this.client.search(removeEmptyArrays(request));
+
+            // Pass the response to the filter instances so they can extract info relevant to them.
+            this._extractSuggestionStateFromResponse(response);
+
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryThrottleInMS);
+        } catch (e) {
+            throw e;
+        } // No cursor change b/c only dealing with filters
+    };
+
+    public _runSuggestionSearch = async (
+        effectRequest: EffectRequest<EffectKinds>,
+        filter: string,
+        field: string
+    ) => {
+        try {
+            const request = this._createSearchSuggestionRequest(
+                effectRequest,
+                BLANK_ES_REQUEST,
+                filter,
+                field
+            );
+            const response = await this.client.search(removeEmptyArrays(request));
+
+            // Pass the response to the filter instances so they can extract info relevant to them.
+            this._extractSuggestionStateFromResponse(response);
+
+            // Timeout used as the debounce time.
+            await Timeout.set(this.queryThrottleInMS);
+        } catch (e) {
+            throw e;
+        } // No cursor change b/c only dealing with filters
+    };
 
     public _runUnfilteredQueryAndAggs = async (effectRequest: EffectRequest<EffectKinds>) => {
         try {
@@ -851,8 +1134,47 @@ class Manager<
      * ***************************************************************************
      */
 
-    public _addPageSizeToQuery = (request: ESRequest): ESRequest => {
-        return {...request, size: this.pageSize, track_scores: true};
+    public _applyBlackAndWhiteListsToQuery = (
+        request: ESRequest,
+        // tslint:disable-next-line
+        lists: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList'> | undefined = undefined
+    ): ESRequest => {
+        if (lists && lists.fieldWhiteList && lists.fieldWhiteList.length > 0) {
+            const body = {includes: lists.fieldWhiteList};
+            return {
+                ...request,
+                _source: {
+                    ...body
+                }
+            };
+        } else if (lists && lists.fieldBlackList && lists.fieldBlackList.length > 0) {
+            const body = {excludes: lists.fieldBlackList};
+            return {
+                ...request,
+                _source: {
+                    ...body
+                }
+            };
+        } else {
+            const body =
+                this.fieldWhiteList.length > 0
+                    ? {includes: this.fieldWhiteList}
+                    : {excludes: this.fieldBlackList || []};
+            return {
+                ...request,
+                _source: {
+                    ...body
+                }
+            };
+        }
+    };
+
+    public _addPageSizeToQuery = (
+        request: ESRequest,
+        // pageSize param can be used to override the default page size
+        pageSize: number | undefined = undefined
+    ): ESRequest => {
+        return {...request, size: pageSize || this.pageSize, track_scores: true};
     };
 
     public _addSortToQuery = (request: ESRequest): ESRequest => {
@@ -945,9 +1267,12 @@ class Manager<
 }
 
 decorate(Manager, {
+    middleware: observable,
+    defaultMiddleware: observable,
     pageSize: observable,
     queryThrottleInMS: observable,
     filters: observable,
+    suggestions: observable,
     results: observable,
     _sideEffectQueue: observable,
     isSideEffectRunning: observable,

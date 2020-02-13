@@ -9,19 +9,12 @@ import 'react-dropdown-now/style.css';
 import 'rc-slider/assets/index.css';
 
 import Context from '../context';
-import {
-    isLessThanEqualFilter,
-    isGreaterThanEqualFilter,
-    isGreaterThanFilter,
-    isLessThanFilter
-} from '../../../src';
-import {FilterKind} from '../../../src/';
+import {FilterKind, filterTypeGuards} from '../../../src/';
+import {toJS} from 'mobx';
 
 const RangeContainer = styled.div`
     height: 300px;
     width: 250px;
-    // padding: 25px;
-    // border: 1px solid rgba(0, 0, 0, 0.75);
     margin: 5px;
     border-radius: 3px;
 `;
@@ -92,68 +85,87 @@ export default observer(({filterName, maxRange}) => {
     const unfilteredData = unfilteredDistribution
         ? unfilteredDistribution.map(d => ({x: d.key, y: d.doc_count})).filter(d => d.x && d.y)
         : [];
-    const unfilteredBounds = range.unfilteredRangeBounds[filterName] || {min: 0, max: 100};
+    const unfilteredBounds = range.unfilteredRangeBounds[filterName] || {
+        min: 0,
+        max: 100,
+    };
     const filteredBounds = range.filteredRangeBounds[filterName] || unfilteredBounds;
 
     const filter = range.fieldFilters[filterName];
 
     const lowerValue =
-        filter && isGreaterThanEqualFilter(filter)
+        filter && filterTypeGuards.isGreaterThanEqualFilter(filter)
             ? filter.greaterThanEqual
-            : filter && isGreaterThanFilter(filter)
+            : filter && filterTypeGuards.isGreaterThanFilter(filter)
             ? filter.greaterThan
-            : unfilteredBounds.min;
+            : unfilteredBounds.min || 0;
 
     const upperValue =
-        filter && isLessThanEqualFilter(filter)
+        filter && filterTypeGuards.isLessThanEqualFilter(filter)
             ? filter.lessThanEqual
-            : filter && isLessThanFilter(filter)
+            : filter && filterTypeGuards.isLessThanFilter(filter)
             ? filter.lessThan
-            : unfilteredBounds.max;
+            : unfilteredBounds.max || 100;
 
     const filterConfig = range.fieldConfigs[filterName];
 
- 
+    const unfilteredBoundsMinValue = unfilteredBounds.min;
+    const unfilteredBoundsMaxValue = unfilteredBounds.max;
+    const filteredBoundsMinValue = filteredBounds.min;
+    const filteredBoundsMaxValue = filteredBounds.max;
+
     const maxSliderRange = maxRange
         ? maxRange
-        : unfilteredBounds.max > upperValue
-        ? unfilteredBounds.max
+        : unfilteredBoundsMaxValue > upperValue
+        ? unfilteredBoundsMaxValue
         : upperValue;
 
-    const minSliderRange = unfilteredBounds.min < lowerValue ? unfilteredBounds.min : lowerValue;
+    const minSliderRange =
+        unfilteredBounds.min < lowerValue ? unfilteredBounds.min : lowerValue;
+
+    const unfilteredRangeDomain = [
+        unfilteredBoundsMinValue,
+        unfilteredBoundsMaxValue > maxRange ? maxRange : unfilteredBoundsMaxValue
+    ];
+    const filteredRangeDomain = [
+        filteredBoundsMinValue,
+        filteredBoundsMaxValue > maxRange ? maxRange : filteredBoundsMaxValue
+    ];
+
     return (
         <RangeContainer>
             <TopMenu>
                 <ClearFilterButton onClick={() => range.clearFilter(filterName)}>
                     clear filter
                 </ClearFilterButton>
-                {filterConfig && <DropdownKindContainer>
-                    <Dropdown
-                        options={['should', 'must']}
-                        onChange={option => {
-                            range.setKind(
-                                filterName,
-                                ((option as any).value as unknown) as FilterKind
-                            );
-                        }}
-                        value={filterConfig.defaultFilterKind}
-                        placeholder={'Select a filter kind'}
-                    />
-                </DropdownKindContainer>}
+                {filterConfig && (
+                    <DropdownKindContainer>
+                        <Dropdown
+                            options={['should', 'must']}
+                            onChange={option => {
+                                range.setKind(
+                                    filterName,
+                                    ((option as any).value as unknown) as FilterKind
+                                );
+                            }}
+                            value={filterConfig.defaultFilterKind}
+                            placeholder={'Select a filter kind'}
+                        />
+                    </DropdownKindContainer>
+                )}
             </TopMenu>
             <AllBoundsContainer>
                 <BoundsContainer>
                     Filtered: {lowerValue} ↔️ {upperValue}
                 </BoundsContainer>
                 <BoundsContainer>
-                    Unfiltered: {Math.round(unfilteredBounds.min)} ↔️{' '}
-                    {Math.round(unfilteredBounds.max)}
+                    Unfiltered: {Math.round(unfilteredBoundsMinValue)} ↔️{' '}
+                    {Math.round(unfilteredBoundsMaxValue)}
                 </BoundsContainer>
             </AllBoundsContainer>
 
             <SliderContainer>
                 <Range
-                 
                     defaultValue={[minSliderRange, maxSliderRange]}
                     value={[lowerValue, upperValue]}
                     onChange={(v: number[]) => {
@@ -170,15 +182,14 @@ export default observer(({filterName, maxRange}) => {
             <VictoryChart>
                 <VictoryLine
                     data={unfilteredData}
-                    domain={{x: [unfilteredBounds.min, maxRange ? maxRange : unfilteredBounds.max]}}
+                    domain={{
+                        x: unfilteredRangeDomain
+                    }}
                 />
                 <VictoryLine
                     data={filteredData}
                     domain={{
-                        x: [
-                            filteredBounds.min,
-                            filteredBounds.max > maxRange ? maxRange : filteredBounds.max
-                        ]
+                        x: filteredRangeDomain
                     }}
                     style={{data: {stroke: '#0000ff', strokeWidth: 4, strokeLinecap: 'round'}}}
                 />

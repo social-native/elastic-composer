@@ -1,23 +1,27 @@
 # snpkg-client-elasticsearch
 
-
-
 - [snpkg-client-elasticsearch](#snpkg-client-elasticsearch)
   - [Install](#install)
   - [Peer dependencies](#peer-dependencies)
   - [About](#about)
   - [Quick Examples](#quick-examples)
-      - [Instantiate a manager with a range filter](#instantiate-a-manager-with-a-range-filter)
-      - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
-      - [Setting a range filter](#setting-a-range-filter)
-      - [Setting a boolean filter](#setting-a-boolean-filter)
-      - [Access the results of a query](#access-the-results-of-a-query)
-      - [Paginating through the results set](#paginating-through-the-results-set)
+    - [Instantiate a manager](#instantiate-a-manager)
+    - [Instantiate a manager with specific config options for a range filter](#instantiate-a-manager-with-specific-config-options-for-a-range-filter)
+    - [Add a custom filter during manager instantiation](#add-a-custom-filter-during-manager-instantiation)
+    - [Add a custom suggestion during manager instantiation](#add-a-custom-suggestion-during-manager-instantiation)
+    - [Set middleware](#set-middleware)
+    - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
+    - [Run a custom elastic search query using the current filters](#run-a-custom-elastic-search-query-using-the-current-filters)
+    - [Setting a range filter](#setting-a-range-filter)
+    - [Setting a boolean filter](#setting-a-boolean-filter)
+    - [Setting a prefix suggestion](#setting-a-prefix-suggestion)
+    - [Setting a fuzzy suggestion](#setting-a-fuzzy-suggestion)
+    - [Access the results of a query](#access-the-results-of-a-query)
+    - [Paginating through the results set](#paginating-through-the-results-set)
   - [API](#api)
     - [Manager](#manager)
       - [Initialization](#initialization)
         - [Client](#client)
-        - [Filters](#filters)
         - [Options](#options)
       - [Methods](#methods)
       - [Attributes](#attributes)
@@ -37,9 +41,13 @@
         - [specificConfig](#specificconfig-1)
       - [Methods](#methods-3)
       - [Attributes](#attributes-3)
+    - [Common Among All Suggestions](#common-among-all-suggestions)
+      - [Initialization](#initialization-4)
+      - [Methods](#methods-4)
+      - [Attributes](#attributes-4)
   - [Verbose Examples](#verbose-examples)
-    - [Set the context](#set-the-context)
-    - [Use a filter in a pure component](#use-a-filter-in-a-pure-component)
+    - [Usage with React](#usage-with-react)
+  - [Extending Filters and Suggestions](#extending-filters-and-suggestions)
 
 ## Install
 
@@ -51,10 +59,10 @@ npm install --save @social-native/snpkg-client-elasticsearch
 
 This package requires that you also install:
 
-```ts
+```typescript
 {
         "await-timeout": "^1.1.1",
-        "axios": "^0.19.1",
+        "axios": "^0.19.1", <------- only used if using the AxiosESClient
         "lodash.chunk": "^4.2.0",
         "mobx": "^5.14.2"
 }
@@ -62,22 +70,46 @@ This package requires that you also install:
 
 ## About
 
-This package aids in querying an Elasticsearch index. You define `filters` for each field in the index that you want to query, and the specific filter API allows you to generate a valid query across many fields.
+This package aids in querying an Elasticsearch index. You define `filter`s for each field in the index that you want to query, and the specific filter API allows you to generate a valid query across many fields. Additionally, you can define `suggestions` for `text` and `keyword` fields to aid in suggesting possible `filters` to apply for that field.
 
 The currently available filters are:
 
-- `range`: Filter records by specifying a LT (<), LTE(<=), GT(>), GTE(>=) range
-- `boolean`: Filter records that have a value of either `true` or `false`
+-   `range`: Filter records by specifying a LT (<), LTE(<=), GT(>), GTE(>=) range
+-   `boolean`: Filter records that have a value of either `true` or `false`
+
+The currently available suggestions are:
+
+-   `prefix`: Get suggestions for fields based on matches with the same prefix
+-   `fuzzy`: Get suggestions for fields based on [fuzzy matching](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-fuzzy-query.html)
 
 There also exists a `manager` object which is how you access each filter, get the results of a query, and paginate through the result set.
 
+Extending and overriding the set of usable filters or suggestions is also possible. See [Extending Filters and Suggestions](#extending-filters-and-suggestions)
+
 ## Quick Examples
 
-#### Instantiate a manager with a range filter
+Various use cases are described below. Be sure to check out the API for the full range of attributes and methods available on the manager, filters, and suggestions.
+
+### Instantiate a manager
 
 ```typescript
+import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
+
 // instantiate an elasticsearch axios client made for this lib
-const client = new Axios('my_url/my_index');
+const client = new AxiosESClient('my_url/my_index');
+
+// instantiate a manager
+const manager = new Manager(client, {
+    pageSize: 100,
+    queryThrottleInMS: 350,
+    fieldBlackList: ['id']
+});
+```
+
+### Instantiate a manager with specific config options for a range filter
+
+```typescript
+import {AxiosESClient, Manager, RangeFilter} from '@social-native/snpkg-client-elasticsearch';
 
 // set the default config all filters will have if not explicitly set
 // by default we don't want aggs enabled unless we know the filter is being shown in the UI. So,
@@ -94,56 +126,130 @@ const defaultRangeFilterConfig = {
 const customRangeFilterConfig = {
     age: {
         field: 'user.age',
-        rangeInterval: 10,
+        rangeInterval: 10
     },
     invites: {
         field: 'user.invites',
         getDistribution: false
     }
-}
+};
 
 // instantiate a range filter
 const rangeFilter = new RangeFilter(defaultRangeFilterConfig, customRangeFilterConfig);
 
-// instantiate a manager
-const manager = new Manager<typeof rangeFilter>(
-    client,
-    {range: rangeFilter},
-    {pageSize: 100, queryThrottleInMS: 350, fieldBlackList: ['id']}
-);
+const options = {
+    pageSize: 100,
+    queryThrottleInMS: 350,
+    fieldBlackList: ['id'],
+    filters: {range: rangeFilter}
+};
+
+const manager = new Manager(client, options);
 ```
-#### Get the initial results for a manager
+
+### Add a custom filter during manager instantiation
+
+```typescript
+import MyCustomFilter from 'my_custom_filter';
+import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
+
+const client = new AxiosESClient('my_url/my_index');
+const newCustomFilter = new MyCustomFilter();
+
+const manager = new Manager<{filters: MyCustomFilter}>(client, {
+    pageSize: 100,
+    queryThrottleInMS: 350,
+    fieldBlackList: ['id'],
+    filters: {myNewFilterName: newCustomFilter}
+});
+```
+
+### Add a custom suggestion during manager instantiation
+
+```typescript
+import MyCustomSuggestion from 'my_custom_suggestion';
+import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
+
+const client = new AxiosESClient('my_url/my_index');
+const newCustomSuggestion = new MyCustomSuggestion();
+
+const manager = new Manager<{suggestions: MyCustomSuggestion}>(client, {
+    pageSize: 100,
+    queryThrottleInMS: 350,
+    fieldBlackList: ['id'],
+    suggestions: {myNewSuggestionName: newCustomSuggestion}
+});
+```
+
+### Set middleware
+
+```typescript
+import {Middleware} from '@social-native/snpkg-client-elasticsearch';
+
+const logRequestObj: Middleware = (
+    _effectRequest: EffectRequest<EffectKinds>,
+    request: ESRequest
+) => {
+    console.log(request);
+    return request;
+};
+
+manager.setMiddleware([logRequestObj]);
+```
+
+### Get the initial results for a manager
 
 All queries are treated as requests and added to an internal queue. Thus, you don't await this method but, react to the `manager.results` attribute.
 
 ```typescript
-manager.runStartQuery()
+manager.runStartQuery();
 ```
 
-#### Setting a range filter
+### Run a custom elastic search query using the current filters
+
+If you wanted to bulk export a subset of the filtered results without having to paginate programmatically, you could request the results for a much larger page size this way over a reduced field list:
 
 ```typescript
-manager.filters.range.setFilter('age', { greaterThanEqual: 20, lessThan: 40, })
-```
-> Note: This triggers a query to rurun with all the existing filters plus the range filter for `age` will be updated
-to only include people between the ages of 20-40 (inclusive to exclusive).
-
-#### Setting a boolean filter
-
-```typescript
-manager.filters.boolean.setFilter('isActive', { state: true })
+const results = await manager.runCustomFilterQuery({whiteList: ['id'], pageSize: 10000});
 ```
 
-#### Access the results of a query
+### Setting a range filter
 
 ```typescript
-manager.results  // Array<ESHit>
+manager.filters.range.setFilter('age', {greaterThanEqual: 20, lessThan: 40});
+```
+
+> Note: This triggers a query to rerun with all the existing filters plus the range filter for `age` will be updated
+> to only include people between the ages of 20-40 (inclusive to exclusive).
+
+### Setting a boolean filter
+
+```typescript
+manager.filters.boolean.setFilter('isActive', {state: true});
+```
+
+### Setting a prefix suggestion
+
+```typescript
+manager.suggestions.prefix.setSearch('tags', 'blu'});
+```
+
+### Setting a fuzzy suggestion
+
+```typescript
+manager.suggestions.fuzzy.setSearch('tags', 'ca'});
+```
+
+### Access the results of a query
+
+```typescript
+manager.results; // Array<ESHit>
 ```
 
 Results are an array where each object in the array has the type:
 
 ```typescript
-export type ESHit<Source extends object = object> = {
+type ESHit<Source extends object = object> = {
     _index: string;
     _type: string;
     _id: string;
@@ -158,16 +264,16 @@ export type ESHit<Source extends object = object> = {
 Thus, you would likely use the `results` like:
 
 ```typescript
-manager.results.map(r => r._source)
+manager.results.map(r => r._source);
 ```
 
-#### Paginating through the results set
+### Paginating through the results set
 
 ```typescript
-manager.nextPage()
-manager.prevPage()
+manager.nextPage();
+manager.prevPage();
 
-manager.currentPage // number
+manager.currentPage; // number
 // # => 0 when no results exist
 // # => 1 for the first page of results
 ```
@@ -178,7 +284,7 @@ manager.currentPage // number
 
 #### Initialization
 
-The manager constructor has the signature `(client, filters, options) => ManagerInstance`
+The manager constructor has the signature `(client, options) => ManagerInstance`
 
 ##### Client
 
@@ -192,21 +298,14 @@ interface IClient<Source extends object = object> {
 }
 ```
 
-At the moment there only exists an `Axios` client. This can be imported via a named import:
-```ts
-import {Axios} from '@socil-native/snpkg-client-elasticsearch'
+At the moment there only exists an `AxiosESClient` client. This can be imported via a named import:
 
-const axiosESClient = new Axios(endpoint);
+```ts
+import {AxiosESClient} from '@socil-native/snpkg-client-elasticsearch';
+
+const axiosESClient = new AxiosESClient(endpoint);
 
 // endpoint is in the form: blah2lalkdjhgak.us-east-1.es.amazonaws.com/myindex1
-```
-
-##### Filters
-
-`filters` is an object of filter instances. Ahead of time, you should have instantiated every filter you want to use. You then pass these filter instances to the manager in this object, like so:
-
-```ts
-const filters = {range: rangeFilterInstance}
 ```
 
 ##### Options
@@ -219,36 +318,62 @@ type ManagerOptions = {
     queryThrottleInMS?: number;
     fieldWhiteList?: string[];
     fieldBlackList?: string[];
+    middleware?: Middleware[];
+    filters?: IFilters;
+    suggestions?: ISuggestions;
 };
 ```
 
-- `pageSize`: the number of results to expect when calling `manager.results`. The default size is 10.
-- `queryThrottleInMS`: the amount of time to wait before executing an Elasticsearch query. The default time is 1000.
-- `fieldWhiteList`: A list of elasticsearch fields that you only want to allow filtering on. This can't be used with `fieldBlackList`
-- `fieldBlackList`: A list of elasticsearch fields that you don't want to allow filtering on. This can't be used with `fieldWhiteList`  
+-   `pageSize`: the number of results to expect when calling `manager.results`. The default size is 10.
+-   `queryThrottleInMS`: the amount of time to wait before executing an Elasticsearch query. The default time is 1000.
+-   `fieldWhiteList`: A list of elasticsearch fields that you only want to allow filtering on. This can't be used with `fieldBlackList`. Only white list fields will be returned in an elasticsearch query response.
+-   `fieldBlackList`: A list of elasticsearch fields that you don't want to allow filtering on. This can't be used with `fieldWhiteList`. Black list fields will be excluded from an elasticsearch query response.
+-  `middleware`: An array of custom middleware to run during elasticsearch request object construction. See below for the type.
+- `filters`: An object of filter instances. Default filters will be instantiate if none are specified in this options field. This options field however can be used to override existing filters or specify a custom one.
+- `suggestions`: An object of suggestion instances. Default suggestions will be instantiated if none are specified in this options field. This options field however can be used to override existing suggestions or specify a custom one.
 
-#### Methods 
+The middleware function type signature is:
 
-| method | description | type |
-| - | - | - |
-| nextPage | paginates forward | `(): void` |
-| prevPage | paginates backward | `(): void` |
-| getFieldNamesAndTypes | runs an introspection query on the index mapping and generates an object of elasticsearch fields and the filter type they correspond to | `(): void` |
-| runStartQuery | runs the initial elasticsearch query that fetches unfiltered data | `(): void` |
+```typescript
+Middleware = (
+    effectRequest: EffectRequest<EffectKinds>,
+    request: ESRequest
+) => ESRequest;
+```
+
+Example of overriding the range filter:
+```ts
+const options = {filters: {range: rangeFilterInstance}};
+```
+
+Example of overriding the fuzzy suggestion:
+```ts
+const options = {suggestions: {fuzzy: fuzzyFilterInstance}};
+```
+
+#### Methods
+
+| method                | description                                                                                                                             | type       |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| nextPage              | paginates forward                                                                                                                       | `(): void` |
+| prevPage              | paginates backward                                                                                                                      | `(): void` |
+| getFieldNamesAndTypes | runs an introspection query on the index mapping and generates an object of elasticsearch fields and the filter type they correspond to | `async (): void` |
+| runStartQuery         | runs the initial elasticsearch query that fetches unfiltered data                                                                       | `(): void` |
+| runCustomFilterQuery | runs a custom query using the existing applied filters outside the side effect queue flow. white lists and black lists control which data is returned in the elasticsearch response source object | `async (options?: {fieldBlackList?: string[], fieldWhiteList?: string[], pageSize?: number }): Promise<ESResponse>` |
+| setMiddleware | adds middleware to run during construction of the elasticsearch query request object | `(middlewares: Middleware): void`. Middleware has the type `(effectRequest: EffectRequest<EffectKinds>, request: ESRequest) => ESRequest` |
 
 #### Attributes
 
-| attribute | description | notes |
-| - | - | - |
-| isSideEffectRunning | a flag telling if a query is running | `boolean` |
-| currentPage | the page number | `0` if there are no results. `1` for the first page. etc... |
-| fieldWhiteList | the white list of fields that filters can exist for | |
-| fieldBlackList | the black list of fields that filters can not exist for | |
-| pageSize | the page size | The default size is 10. This can be changed by setting manager options during init. |
-| queryThrottleInMS | the throttle time for queries | The default is 1000 ms. This can be changed by setting manager options during init. |
-| filters | the filter instances that the manager controls |
-| indexFieldNamesAndTypes | A list of fields that can be filtered over and the filter name that this field uses. This is populated by the method `getFieldNamesAndTypes`.
-
+| attribute               | description                                                                                                                                   | notes                                                                               |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| isSideEffectRunning     | a flag telling if a query is running                                                                                                          | `boolean`                                                                           |
+| currentPage             | the page number                                                                                                                               | `0` if there are no results. `1` for the first page. etc...                         |
+| fieldWhiteList          | the white list of fields that filters can exist for                                                                                           |                                                                                     |
+| fieldBlackList          | the black list of fields that filters can not exist for                                                                                       |                                                                                     |
+| pageSize                | the page size                                                                                                                                 | The default size is 10. This can be changed by setting manager options during init. |
+| queryThrottleInMS       | the throttle time for queries                                                                                                                 | The default is 1000 ms. This can be changed by setting manager options during init. |
+| filters                 | the filter instances that the manager controls                                                                                                |
+| indexFieldNamesAndTypes | A list of fields that can be filtered over and the filter name that this field uses. This is populated by the method `getFieldNamesAndTypes`. |
 
 ### Common Among All Filters
 
@@ -258,22 +383,23 @@ All filter constructors have the signature `(defaultConfig, specificConfig) => F
 
 `defaultConfig` and `specificConfig` are specific to each filter class type.
 
-#### Methods 
+#### Methods
 
-| method | description | type |
-| - | - | - |
-| setFilter | sets the filter for a field | `(field: <name of field>, filter: <filter specific to filter class type>): void` |
-| clearFilter | clears the filter for a field | `(field: <name of field>): void` |
-| setKind | sets the kind for a field | `(field: <name of field>, kind: should or must): void` |
+| method      | description                   | type                                                                             |
+| ----------- | ----------------------------- | -------------------------------------------------------------------------------- |
+| setFilter   | sets the filter for a field   | `(field: <name of field>, filter: <filter specific to filter class type>): void` |
+| clearFilter | clears the filter for a field | `(field: <name of field>): void`                                                 |
+| setKind     | sets the kind for a field     | `(field: <name of field>, kind: should or must): void`                           |
+| setAggsEnabledToTrue | enables fetching of aggs for this filter field | `(field: <name of field>): void` |
+| setAggsEnabledToFalse | disables fetching of aggs for this filter field | `(field: <name of field>): void` |
 
 #### Attributes
 
-| attribute | description | type |
-| - | - | - |
-| fieldConfigs | the config for a field, keyed by field name | `{ [<names of fields>]: <config specific to filter class type> }` |
-| fieldFilters | the filters for a field, keyed by field name | `{ [<names of fields>]: Filter }` |
-| fieldKinds | the kind (`should or must`) for a field, keyed by field name | `{ [<names of fields>]: 'should' or 'must' }` |
-
+| attribute    | description                                                  | type                                                              |
+| ------------ | ------------------------------------------------------------ | ----------------------------------------------------------------- |
+| fieldConfigs | the config for a field, keyed by field name                  | `{ [<names of fields>]: <config specific to filter class type> }` |
+| fieldFilters | the filters for a field, keyed by field name                 | `{ [<names of fields>]: Filter }`                                 |
+| fieldKinds   | the kind (`should or must`) for a field, keyed by field name | `{ [<names of fields>]: 'should' or 'must' }`                     |
 
 ### Boolean Specific
 
@@ -287,9 +413,9 @@ The configuration that each field will acquire if an override is not specificall
 
 ```typescript
 type DefaultConfig = {
-    defaultFilterKind: 'should' | 'must',
-    getCount: boolean,
-    aggsEnabled: boolean
+    defaultFilterKind: 'should' or 'must';
+    getCount: boolean;
+    aggsEnabled: boolean;
 };
 ```
 
@@ -301,25 +427,25 @@ The explicit configuration set on a per field level. If a config isn't specified
 type SpecificConfig = Record<string, BooleanConfig>;
 
 type BooleanConfig = {
-    field: string,
-    defaultFilterKind?: 'should' | 'must',
-    getCount?: boolean,
-    aggsEnabled?: boolean
+    field: string;
+    defaultFilterKind?: 'should' or 'must';
+    getCount?: boolean;
+    aggsEnabled?: boolean;
 };
 ```
 
-#### Methods 
+#### Methods
 
-| method | description | type |
-| - | - | - |
-| setFilter | sets the filter for a field | `(field: <name of boolean field>, filter: {state: true | false}): void` |
+| method    | description                 | type                                                                    |
+| --------- | --------------------------- | ----------------------------------------------------------------------- |
+| setFilter | sets the filter for a field | `(field: <name of boolean field>, filter: {state: true or false}): void` |
 
 #### Attributes
 
-| attribute | description | type |
-| - | - | - |
-| filteredCount | the count of boolean values of all unfiltered documents, keyed by field name   | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
-| unfilteredCount | the count of boolean values of all unfiltered documents, keyed by field name  | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
+| attribute       | description                                                                  | type                                                               |
+| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| filteredCount   | the count of boolean values of all unfiltered documents, keyed by field name | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
+| unfilteredCount | the count of boolean values of all unfiltered documents, keyed by field name | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
 
 ### Range Specific
 
@@ -333,7 +459,7 @@ The configuration that each field will acquire if an override is not specificall
 
 ```typescript
 type RangeConfig = {
-    defaultFilterKind: 'should' | 'must';
+    defaultFilterKind: 'should' or 'must';
     getDistribution: boolean;
     getRangeBounds: boolean;
     rangeInterval: number;
@@ -349,8 +475,8 @@ The explicit configuration set on a per field level. If a config isn't specified
 type SpecificConfig = Record<string, RangeConfig>;
 
 type RangeConfig = {
-    field: string,
-    defaultFilterKind?: 'should' | 'must';
+    field: string;
+    defaultFilterKind?: 'should' or 'must';
     getDistribution?: boolean;
     getRangeBounds?: boolean;
     rangeInterval?: number;
@@ -358,135 +484,70 @@ type RangeConfig = {
 };
 ```
 
-#### Methods 
+#### Methods
 
-| method | description | type |
-| - | - | - |
+| method    | description                 | type                                                                                                                                        |
+| --------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | setFilter | sets the filter for a field | `(field: <name of range field>, filter: {lessThan?: number, greaterThan?: number, lessThanEqual?: number, greaterThanEqual?: number): void` |
 
 #### Attributes
 
-| attribute | description | type |
-| - | - | - |
-| filteredRangeBounds | the bounds of all filtered ranges (ex: 20 - 75), keyed by field name  | `{ [<names of range fields>]: { min: { value: number; value_as_string?: string; }; max: { value: number; value_as_string?: string; };} }` |
-| unfilteredRangeBounds | the bounds of all unfiltered ranges (ex: 0 - 100), keyed by field name  | `{ [<names of range fields>]: { min: { value: number; value_as_string?: string; }; max: { value: number; value_as_string?: string; };} }` |
-| filteredDistribution | the distribution of all filtered ranges, keyed by field name | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}` |
-| unfilteredDistribution | the distribution of all filtered ranges, keyed by field name | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}` |
+| attribute              | description                                                            | type                                                                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| filteredRangeBounds    | the bounds of all filtered ranges (ex: 20 - 75), keyed by field name   | `{ [<names of range fields>]: { min: { value: number; value_as_string?: string; }; max: { value: number; value_as_string?: string; };} }` |
+| unfilteredRangeBounds  | the bounds of all unfiltered ranges (ex: 0 - 100), keyed by field name | `{ [<names of range fields>]: { min: { value: number; value_as_string?: string; }; max: { value: number; value_as_string?: string; };} }` |
+| filteredDistribution   | the distribution of all filtered ranges, keyed by field name           | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}`                                                                 |
+| unfilteredDistribution | the distribution of all filtered ranges, keyed by field name           | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}`                                                                 |
 
+### Common Among All Suggestions
+
+The suggestions that ship with this package all have the same public interface (for the moment). Thus, you can rely on this section for API documentation on each suggestion type.
+
+#### Initialization
+
+All filter constructors have the signature `(defaultConfig, specificConfig) => SuggestionTypeInstance`
+
+`defaultConfig` and `specificConfig` are specific to each suggestion class type.
+
+#### Methods
+
+| method      | description                   | type                                                                             |
+| ----------- | ----------------------------- | -------------------------------------------------------------------------------- |
+| setSearch   | sets the search term for a field to get suggestions for | `(field: <name of field>, searchTerm: string): void` |
+| clearSearch | clears the search for a field | `(field: <name of field>): void`                                                 |
+| setKind     | sets the kind for a field     | `(field: <name of field>, kind: should or must): void`                           |
+| setEnabledToTrue | enables fetching of suggestions for this suggestion field | `(field: <name of field>): void` |
+| setEnabledToFalse | disables fetching of suggestions for this suggestion field | `(field: <name of field>): void` |
+
+#### Attributes
+
+| attribute    | description                                                  | type                                                              |
+| ------------ | ------------------------------------------------------------ | ----------------------------------------------------------------- |
+| fieldConfigs | the config for a field, keyed by field name                  | `{ [<names of fields>]: <config specific to filter class type> }` |
+| fieldSuggestions | the suggestions for a field, keyed by field name                 | `{ [<names of fields>]: Array<{suggestion: string; count: number}> }`                                 |
+| fieldSearches | the searches for a field, keyed by field name | `{ [<names of fields>]: string }` |
+| fieldKinds   | the kind (`should or must`) for a field, keyed by field name | `{ [<names of fields>]: 'should' or 'must' }`                     |
 
 ## Verbose Examples
 
-### Set the context
+See [./dev/app/](./dev/app/) for examples used in the development environment.
+
+### Usage with React
 
 ```typescript
-const defaultRangeConfig = {
-    aggsEnabled: false,
-    defaultFilterKind: 'should',
-    getDistribution: true,
-    getRangeBounds: true,
-    rangeInterval: 1
-};
+import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
 
-type RF = 'instagram_avg_like_rate' | 'invites_pending' | 'user_profile_age';
-const customRangeFieldConfig: RangeConfigs<RF> = {
-    instagram_avg_like_rate: {
-        field: 'instagram.avg_like_rate',
-        defaultFilterKind: 'should',
-        getDistribution: true,
-        getRangeBounds: true,
-        rangeInterval: 1
-    },
-    invites_pending: {
-        field: 'invites.pending',
-        defaultFilterKind: 'should',
-        getDistribution: true,
-        getRangeBounds: true,
-        rangeInterval: 1
-    },
-    user_profile_age: {
-        field: 'user_profile.age',
-        defaultFilterKind: 'should',
-        getDistribution: true,
-        getRangeBounds: true,
-        rangeInterval: 1
-    }
-};
-
-const rangeFilter = new RangeFilterClass<RF>(defaultRangeConfig,customRangeFieldConfig);
-const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
-const creatorCRM = new Manager<typeof rangeFilter>(client, {range: rangeFilter});
+const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
+const creatorCRM = new Manager(client);
 
 creatorCRM.runStartQuery();
 
 export default {
-    gqlClient: React.createContext(gqlClient),
     exampleForm: React.createContext(exampleFormInstance),
     creatorCRM: React.createContext(creatorCRM)
 };
 ```
 
-### Use a filter in a pure component
+## Extending Filters and Suggestions
 
-Example with incomplete code. See `dev/app/features/range_filter.tsx` for working feature.
-
-```typescript
-export default observer(({filterName, maxRange}) => {
-    const {
-        filters: {range}
-    } = useContext(Context.creatorCRM);
-    return (
-        <RangeContainer>
-            <ClearFilterButton onClick={() => range.clearFilter(filterName)}>
-                clear filter
-            </ClearFilterButton>
-            <Dropdown
-                options={['should', 'must']}
-                onChange={option => {
-                    range.setKind(
-                        filterName,
-                        ((option as any).value as unknown) as FilterKind
-                    );
-                }}
-                value={filterConfig.defaultFilterKind}
-                placeholder={'Select a filter kind'}
-            />
-
-            <SliderContainer>
-                <Range
-                    max={
-                        maxRange
-                            ? maxRange
-                            : unfilteredBounds.max > upperValue
-                            ? unfilteredBounds.max
-                            : upperValue
-                    }
-                    min={unfilteredBounds.min < lowerValue ? unfilteredBounds.min : lowerValue}
-                    value={[lowerValue, upperValue]}
-                    onChange={(v: number[]) => {
-                        range.setFilter(filterName, {
-                            lessThen: Math.round(v[1]),
-                            greaterThen: Math.round(v[0])
-                        });
-                    }}
-                />
-            </SliderContainer>
-            <VictoryChart>
-                <VictoryLine
-                    data={unfilteredData}
-                    domain={{x: [unfilteredBounds.min, maxRange ? maxRange : unfilteredBounds.max]}}
-                />
-                <VictoryLine
-                    data={filteredData}
-                    domain={{
-                        x: [
-                            filteredBounds.min,
-                            filteredBounds.max > maxRange ? maxRange : filteredBounds.max
-                        ]
-                    }}
-                    style={{data: {stroke: '#0000ff', strokeWidth: 4, strokeLinecap: 'round'}}}
-                />
-            </VictoryChart>
-        </RangeContainer>
-    );
-});
-```
+TODO

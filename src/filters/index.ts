@@ -1,11 +1,18 @@
-export {default as RangeFilterClass} from './range_filter';
-export {default as BooleanFilterClass} from './boolean_filter';
-
+export {default as RangeFilter} from './range_filter';
+export {default as BooleanFilter} from './boolean_filter';
 export {default as BaseFilter} from './base';
-export {
-    RangeConfigs,
+export {default as filterUtils} from './utils';
+
+import {
     isGreaterThanFilter,
     isGreaterThanEqualFilter,
     isLessThanFilter,
     isLessThanEqualFilter
 } from './range_filter';
+
+export const filterTypeGuards = {
+    isGreaterThanFilter,
+    isGreaterThanEqualFilter,
+    isLessThanFilter,
+    isLessThanEqualFilter
+};

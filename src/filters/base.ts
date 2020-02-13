@@ -1,47 +1,51 @@
 import {runInAction, set} from 'mobx';
 import {objKeys} from '../utils';
 import {
-    BaseConfig,
-    FieldConfigs,
+    BaseFilterConfig,
+    FieldFilterConfigs,
     FieldKinds,
     FieldFilters,
     FilterKind,
     ESRequest,
     ESResponse,
-    PartialFieldConfigs
+    PartialFieldFilterConfigs,
+    FieldFilterSubscribers,
+    ESMappingType,
+    ShouldUseFieldFn
 } from '../types';
-
-/**
- * A filter subscriber that will get notified when a field changes
- */
-type FieldSubscribers<Fields extends string> = (filterKind: string, fieldName: Fields) => void;
 
 /**
  * A record tracking whether the unfiltered state (baseline state) for a fields filter has been fetched from the DB
  */
 type FieldUnfilteredStateFetched<Fields extends string> = Record<Fields, boolean>;
 
-class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extends object> {
-    public fieldConfigDefault: Omit<Required<BaseConfig>, 'field'>;
-    public fieldConfigs: FieldConfigs<Fields, Config>;
+class BaseFilter<Fields extends string, Config extends BaseFilterConfig, Filter extends object> {
+    public fieldConfigDefault: Omit<Required<BaseFilterConfig>, 'field'>;
+    public fieldConfigs: FieldFilterConfigs<Fields, Config>;
     public fieldKinds: FieldKinds<Fields>;
     public fieldFilters: FieldFilters<Fields, Filter>;
     public _fieldsThatHaveUnfilteredStateFetched: FieldUnfilteredStateFetched<Fields>;
-    public _shouldUpdateUnfilteredAggsSubscribers: Array<FieldSubscribers<Fields>>;
-    public _shouldUpdateFilteredAggsSubscribers: Array<FieldSubscribers<Fields>>;
+    public _shouldUpdateUnfilteredAggsSubscribers: Array<FieldFilterSubscribers<Fields>>;
+    public _shouldUpdateFilteredAggsSubscribers: Array<FieldFilterSubscribers<Fields>>;
     public filterKind: string;
+    public _shouldUseField: ShouldUseFieldFn;
 
     constructor(
         filterKind: string,
-        defaultConfig: Omit<Required<BaseConfig>, 'field'>,
-        specificConfigs?: PartialFieldConfigs<Fields, Config>
+        defaultConfig: Omit<Required<BaseFilterConfig>, 'field'>,
+        specificConfigs?: PartialFieldFilterConfigs<Fields, Config>
     ) {
         runInAction(() => {
             this.filterKind = filterKind;
             this.fieldConfigDefault = defaultConfig;
             this.fieldFilters = {} as FieldFilters<Fields, Filter>;
             this.fieldKinds = {} as FieldKinds<Fields>;
-            this.fieldConfigs = {} as FieldConfigs<Fields, Config>;
+            this.fieldConfigs = {} as FieldFilterConfigs<Fields, Config>;
+            this._shouldUseField = (_fieldName: string, _fieldType: ESMappingType) => {
+                throw new Error(
+                    '_shouldUseField is not implemented. The extending class should set the _shouldUseField attribute'
+                );
+            };
 
             this._shouldUpdateUnfilteredAggsSubscribers = [];
             this._shouldUpdateFilteredAggsSubscribers = [];
@@ -72,7 +76,7 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
     /**
      * Subscribe to actions that should update a single fields unfiltered aggs state
      */
-    public _subscribeToShouldUpdateUnfilteredAggs(subscriber: FieldSubscribers<Fields>) {
+    public _subscribeToShouldUpdateUnfilteredAggs(subscriber: FieldFilterSubscribers<Fields>) {
         runInAction(() => {
             this._shouldUpdateUnfilteredAggsSubscribers.push(subscriber);
         });
@@ -81,7 +85,7 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
     /**
      * Subscribe to actions that should update a single fields filtered aggs state
      */
-    public _subscribeToShouldUpdateFilteredAggs(subscriber: FieldSubscribers<Fields>) {
+    public _subscribeToShouldUpdateFilteredAggs(subscriber: FieldFilterSubscribers<Fields>) {
         runInAction(() => {
             this._shouldUpdateFilteredAggsSubscribers.push(subscriber);
         });
@@ -220,7 +224,7 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
     /**
      * Sets the config for a filter.
      */
-    public _setConfigs(fieldConfigs: PartialFieldConfigs<Fields, Config>): void {
+    public _setConfigs(fieldConfigs: PartialFieldFilterConfigs<Fields, Config>): void {
         runInAction(() => {
             this.fieldConfigs = objKeys(fieldConfigs).reduce((parsedConfig, field: Fields) => {
                 const config = fieldConfigs[field] as Config;
@@ -230,7 +234,7 @@ class BaseFilter<Fields extends string, Config extends BaseConfig, Filter extend
                     ...config
                 } as Required<Config>;
                 return parsedConfig;
-            }, {} as FieldConfigs<Fields, Config>);
+            }, {} as FieldFilterConfigs<Fields, Config>);
         });
     }
 

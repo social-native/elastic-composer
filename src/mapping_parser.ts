@@ -1,5 +1,5 @@
 import {objKeys} from './utils';
-import {ESMappingType} from 'types';
+import {ESMappingType} from './types';
 
 type ESMappingPropertyType = {
     type: ESMappingType;
