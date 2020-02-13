@@ -156,7 +156,7 @@ import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch'
 const client = new AxiosESClient('my_url/my_index');
 const newCustomFilter = new MyCustomFilter();
 
-const manager = new Manager<{filters: MyCustomFilter}>(client, {
+const manager = new Manager<{filters: { myNewFilterName: MyCustomFilter }}>(client, {
     pageSize: 100,
     queryThrottleInMS: 350,
     fieldBlackList: ['id'],
@@ -173,7 +173,7 @@ import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch'
 const client = new AxiosESClient('my_url/my_index');
 const newCustomSuggestion = new MyCustomSuggestion();
 
-const manager = new Manager<{suggestions: MyCustomSuggestion}>(client, {
+const manager = new Manager<{suggestions: { myNewSuggestionName: MyCustomSuggestion } }>(client, {
     pageSize: 100,
     queryThrottleInMS: 350,
     fieldBlackList: ['id'],
