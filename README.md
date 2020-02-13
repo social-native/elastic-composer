@@ -11,7 +11,7 @@
     - [Add a custom suggestion during manager instantiation](#add-a-custom-suggestion-during-manager-instantiation)
     - [Set middleware](#set-middleware)
     - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
-    - [Run a custom elastic search query using the current filters](#run-a-custom-elastic-search-query-using-the-current-filters)
+    - [Run a custom elasticsearch query using the current filters](#run-a-custom elasticsearch-query-using-the-current-filters)
     - [Setting a range filter](#setting-a-range-filter)
     - [Setting a boolean filter](#setting-a-boolean-filter)
     - [Setting a prefix suggestion](#setting-a-prefix-suggestion)
@@ -205,7 +205,7 @@ All queries are treated as requests and added to an internal queue. Thus, you do
 manager.runStartQuery();
 ```
 
-### Run a custom elastic search query using the current filters
+### Run a custom elasticsearch query using the current filters
 
 If you wanted to bulk export a subset of the filtered results without having to paginate programmatically, you could request the results for a much larger page size this way over a reduced field list:
 
