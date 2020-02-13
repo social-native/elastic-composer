@@ -540,7 +540,9 @@ import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch'
 const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
 const creatorCRM = new Manager(client);
 
-creatorCRM.runStartQuery();
+creatorCRM.getFieldNamesAndTypes().then(() => {
+    creatorCRM.runStartQuery();
+});
 
 export default {
     exampleForm: React.createContext(exampleFormInstance),
