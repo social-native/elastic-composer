@@ -69,7 +69,7 @@ This package requires that you also install:
 
 ## About
 
-This package aids in querying an Elasticsearch index. You define `filter` for each field in the index that you want to query, and the specific filter API allows you to generate a valid query across many fields. Additionally, you can define `suggestions` for `text` and `keyword` fields to aid in suggesting possible `filters` to apply for that field.
+This package aids in querying an Elasticsearch index. You define `filter`s for each field in the index that you want to query, and the specific filter API allows you to generate a valid query across many fields. Additionally, you can define `suggestions` for `text` and `keyword` fields to aid in suggesting possible `filters` to apply for that field.
 
 The currently available filters are:
 
@@ -83,7 +83,7 @@ The currently available suggestions are:
 
 There also exists a `manager` object which is how you access each filter, get the results of a query, and paginate through the result set.
 
-Extending and overriding the set of usable filters or suggestions and overriding is also possible. See [Extending Filters and Suggestions](#extending-filters-and-suggestions)
+Extending and overriding the set of usable filters or suggestions is also possible. See [Extending Filters and Suggestions](#extending-filters-and-suggestions)
 
 ## Quick Examples
 
