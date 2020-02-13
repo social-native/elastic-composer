@@ -4,7 +4,6 @@ export {default as BaseFilter} from './base';
 export {default as filterUtils} from './utils';
 
 import {
-    // IRangeConfigs,
     isGreaterThanFilter,
     isGreaterThanEqualFilter,
     isLessThanFilter,
@@ -17,5 +16,3 @@ export const filterTypeGuards = {
     isLessThanFilter,
     isLessThanEqualFilter
 };
-
-// export IRangeConfigs

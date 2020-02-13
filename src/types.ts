@@ -1,6 +1,8 @@
 import {RawRangeBoundResult, RawRangeDistributionResult} from './filters/range_filter';
 import {RawBooleanCountResult} from './filters/boolean_filter';
-import {RawPrefixSuggestionResult} from './suggestions/prefix_suggestion';
+import PrefixSuggestion, {RawPrefixSuggestionResult} from './suggestions/prefix_suggestion';
+import {RangeFilter, BooleanFilter, BaseFilter} from './filters';
+import {FuzzySuggestion, BaseSuggestion} from './suggestions';
 /**
  * ***********************************
  * ES Request
@@ -168,3 +170,83 @@ export type IBaseOptions = {
 export type FieldKinds<Fields extends string> = {
     [esFieldName in Fields]: FilterKind | undefined;
 };
+
+/**
+ * ***********************************
+ * Effects
+ * ***********************************
+ */
+export type EffectInput<EffectKind extends string> = {
+    kind: EffectKind;
+    effect: QueryFn;
+    debouncedByKind?: EffectKind[];
+    debounce?: 'leading' | 'trailing' | DebounceFn;
+    throttle: number; // in milliseconds
+    params: any[];
+};
+
+export type EffectRequest<EffectKind extends string> = {
+    kind: EffectKind;
+    effect: QueryFn;
+    debouncedByKind?: EffectKind[];
+    debounce?: 'leading' | 'trailing' | DebounceFn;
+    throttle: number; // in milliseconds
+    params: any[];
+};
+
+export type QueryFn = (...params: any[]) => void;
+
+export type DebounceFn = <CurrentEffectKind extends string, LookingEffectKind extends string>(
+    currentEffectRequest: EffectRequest<CurrentEffectKind>,
+    lookingAtEffectRequest: EffectRequest<LookingEffectKind>
+) => boolean;
+
+export type EffectKinds =
+    | 'allEnabledSuggestions'
+    | 'suggestion'
+    | 'batchAggs'
+    | 'unfilteredQuery'
+    | 'unfilteredAggs'
+    | 'unfilteredQueryAndAggs'
+    | 'filteredQuery'
+    | 'filteredAggs'
+    | 'filteredQueryAndAggs';
+
+/**
+ * ***********************************
+ * Middleware
+ * ***********************************
+ */
+
+export type Middleware = (
+    effectRequest: EffectRequest<EffectKinds>,
+    request: ESRequest
+) => ESRequest;
+
+/**
+ * ***********************************
+ * Manager
+ * ***********************************
+ */
+
+export type ManagerOptions = {
+    pageSize?: number;
+    queryThrottleInMS?: number;
+    fieldWhiteList?: string[];
+    fieldBlackList?: string[];
+    filters?: IFilters;
+    suggestions?: ISuggestions;
+    middleware?: Middleware[];
+};
+
+export interface IFilters {
+    range: RangeFilter<any>;
+    boolean: BooleanFilter<any>;
+    [customFilter: string]: BaseFilter<any, any, any>;
+}
+
+export interface ISuggestions {
+    fuzzy: FuzzySuggestion<any>;
+    prefix: PrefixSuggestion<any>;
+    [customSuggestion: string]: BaseSuggestion<any, any>;
+}

@@ -5,11 +5,17 @@
     -   [Peer dependencies](#peer-dependencies)
     -   [About](#about)
     -   [Quick Examples](#quick-examples)
-        -   [Instantiate a manager with a range filter](#instantiate-a-manager-with-a-range-filter)
-        -   [Specify config options for a range filter](#specify-config-options-for-a-range-filter)
+        -   [Instantiate a manager](#instantiate-a-manager)
+        -   [Instantiate a manager with specific config options for a range filter](#instantiate-a-manager-with-specific-config-options-for-a-range-filter)
+        -   [Add a custom filter during manager instantiation](#add-a-custom-filter-during-manager-instantiation)
+        -   [Add a custom suggestion during manager instantiation](#add-a-custom-suggestion-during-manager-instantiation)
+        -   [Set middleware](#set-middleware)
         -   [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
+        -   [Run a custom elastic search query using the current filters](#run-a-custom-elastic-search-query-using-the-current-filters)
         -   [Setting a range filter](#setting-a-range-filter)
         -   [Setting a boolean filter](#setting-a-boolean-filter)
+        -   [Setting a prefix suggestion](#setting-a-prefix-suggestion)
+        -   [Setting a fuzzy suggestion](#setting-a-fuzzy-suggestion)
         -   [Access the results of a query](#access-the-results-of-a-query)
         -   [Paginating through the results set](#paginating-through-the-results-set)
     -   [API](#api)
@@ -38,7 +44,6 @@
             -   [Attributes](#attributes-3)
     -   [Verbose Examples](#verbose-examples)
         -   [Set the context](#set-the-context)
-        -   [Use a filter in a pure component](#use-a-filter-in-a-pure-component)
 
 ## Install
 
@@ -79,24 +84,29 @@ Extending and overriding the set of usable filters or suggestions and overriding
 
 ## Quick Examples
 
-#### Instantiate a manager
+Various use cases are described below. Be sure to check out the API for the full range of attributes and methods available on the manager, filters, and suggestions.
+
+### Instantiate a manager
 
 ```typescript
-import {}
+import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
+
 // instantiate an elasticsearch axios client made for this lib
 const client = new AxiosESClient('my_url/my_index');
 
-
 // instantiate a manager
-const manager = new Manager(
-    client,
-    {pageSize: 100, queryThrottleInMS: 350, fieldBlackList: ['id']}
-);
+const manager = new Manager(client, {
+    pageSize: 100,
+    queryThrottleInMS: 350,
+    fieldBlackList: ['id']
+});
 ```
 
-#### Specify config options for a range filter
+### Instantiate a manager with specific config options for a range filter
 
 ```typescript
+import {AxiosESClient, Manager, RangeFilter} from '@social-native/snpkg-client-elasticsearch';
+
 // set the default config all filters will have if not explicitly set
 // by default we don't want aggs enabled unless we know the filter is being shown in the UI. So,
 // we use lifecycle methods in react to toggle this config attribute and set the default to `false`.
@@ -130,13 +140,60 @@ const options = {
     filters: {range: rangeFilter}
 };
 
-const manager = new Manager<typeof rangeFilter>(
-    client,
-    options
-);
+const manager = new Manager(client, options);
 ```
 
-#### Get the initial results for a manager
+### Add a custom filter during manager instantiation
+
+```typescript
+import MyCustomFilter from 'my_custom_filter';
+import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
+
+const client = new AxiosESClient('my_url/my_index');
+const newCustomFilter = new MyCustomFilter();
+
+const manager = new Manager<{filters: MyCustomFilter}>(client, {
+    pageSize: 100,
+    queryThrottleInMS: 350,
+    fieldBlackList: ['id'],
+    filters: {myNewFilterName: newCustomFilter}
+});
+```
+
+### Add a custom suggestion during manager instantiation
+
+```typescript
+import MyCustomSuggestion from 'my_custom_suggestion';
+import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
+
+const client = new AxiosESClient('my_url/my_index');
+const newCustomSuggestion = new MyCustomSuggestion();
+
+const manager = new Manager<{suggestions: MyCustomSuggestion}>(client, {
+    pageSize: 100,
+    queryThrottleInMS: 350,
+    fieldBlackList: ['id'],
+    suggestions: {myNewSuggestionName: newCustomSuggestion}
+});
+```
+
+### Set middleware
+
+```typescript
+import {Middleware} from '@social-native/snpkg-client-elasticsearch';
+
+const logRequestObj: Middleware = (
+    _effectRequest: EffectRequest<EffectKinds>,
+    request: ESRequest
+) => {
+    console.log(request);
+    return request;
+};
+
+manager.setMiddleware([logRequestObj]);
+```
+
+### Get the initial results for a manager
 
 All queries are treated as requests and added to an internal queue. Thus, you don't await this method but, react to the `manager.results` attribute.
 
@@ -144,7 +201,15 @@ All queries are treated as requests and added to an internal queue. Thus, you do
 manager.runStartQuery();
 ```
 
-#### Setting a range filter
+### Run a custom elastic search query using the current filters
+
+If you wanted to bulk export a subset of the filtered results without having to paginate programmatically, you could request the results for a much larger page size this way over a reduced field list:
+
+```typescript
+const results = await manager.runCustomFilterQuery({whiteList: ['id'], pageSize: 10000});
+```
+
+### Setting a range filter
 
 ```typescript
 manager.filters.range.setFilter('age', {greaterThanEqual: 20, lessThan: 40});
@@ -153,13 +218,25 @@ manager.filters.range.setFilter('age', {greaterThanEqual: 20, lessThan: 40});
 > Note: This triggers a query to rurun with all the existing filters plus the range filter for `age` will be updated
 > to only include people between the ages of 20-40 (inclusive to exclusive).
 
-#### Setting a boolean filter
+### Setting a boolean filter
 
 ```typescript
 manager.filters.boolean.setFilter('isActive', {state: true});
 ```
 
-#### Access the results of a query
+### Setting a prefix suggestion
+
+```typescript
+manager.suggestions.prefix.setSearch('tags', 'blu'});
+```
+
+### Setting a fuzzy suggestion
+
+```typescript
+manager.suggestions.prefix.setSearch('tags', 'ca'});
+```
+
+### Access the results of a query
 
 ```typescript
 manager.results; // Array<ESHit>
@@ -168,7 +245,7 @@ manager.results; // Array<ESHit>
 Results are an array where each object in the array has the type:
 
 ```typescript
-export type ESHit<Source extends object = object> = {
+type ESHit<Source extends object = object> = {
     _index: string;
     _type: string;
     _id: string;
@@ -186,7 +263,7 @@ Thus, you would likely use the `results` like:
 manager.results.map(r => r._source);
 ```
 
-#### Paginating through the results set
+### Paginating through the results set
 
 ```typescript
 manager.nextPage();
@@ -399,114 +476,20 @@ type RangeConfig = {
 
 ## Verbose Examples
 
+See [./dev/app/](./dev/app/) for examples used in the development environment.
+
 ### Set the context
 
 ```typescript
-const defaultRangeConfig = {
-    aggsEnabled: false,
-    defaultFilterKind: 'should',
-    getDistribution: true,
-    getRangeBounds: true,
-    rangeInterval: 1
-};
+import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
 
-type RF = 'instagram_avg_like_rate' | 'invites_pending' | 'user_profile_age';
-const customRangeFieldConfig: RangeConfigs<RF> = {
-    instagram_avg_like_rate: {
-        field: 'instagram.avg_like_rate',
-        defaultFilterKind: 'should',
-        getDistribution: true,
-        getRangeBounds: true,
-        rangeInterval: 1
-    },
-    invites_pending: {
-        field: 'invites.pending',
-        defaultFilterKind: 'should',
-        getDistribution: true,
-        getRangeBounds: true,
-        rangeInterval: 1
-    },
-    user_profile_age: {
-        field: 'user_profile.age',
-        defaultFilterKind: 'should',
-        getDistribution: true,
-        getRangeBounds: true,
-        rangeInterval: 1
-    }
-};
-
-const rangeFilter = new RangeFilterClass<RF>(defaultRangeConfig, customRangeFieldConfig);
-const client = new Axios(process.env.ELASTIC_SEARCH_ENDPOINT);
-const creatorCRM = new Manager<typeof rangeFilter>(client, {range: rangeFilter});
+const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
+const creatorCRM = new Manager(client);
 
 creatorCRM.runStartQuery();
 
 export default {
-    gqlClient: React.createContext(gqlClient),
     exampleForm: React.createContext(exampleFormInstance),
     creatorCRM: React.createContext(creatorCRM)
 };
-```
-
-### Use a filter in a pure component
-
-Example with incomplete code. See `dev/app/features/range_filter.tsx` for working feature.
-
-```typescript
-export default observer(({filterName, maxRange}) => {
-    const {
-        filters: {range}
-    } = useContext(Context.creatorCRM);
-    return (
-        <RangeContainer>
-            <ClearFilterButton onClick={() => range.clearFilter(filterName)}>
-                clear filter
-            </ClearFilterButton>
-            <Dropdown
-                options={['should', 'must']}
-                onChange={option => {
-                    range.setKind(filterName, ((option as any).value as unknown) as FilterKind);
-                }}
-                value={filterConfig.defaultFilterKind}
-                placeholder={'Select a filter kind'}
-            />
-
-            <SliderContainer>
-                <Range
-                    max={
-                        maxRange
-                            ? maxRange
-                            : unfilteredBounds.max > upperValue
-                            ? unfilteredBounds.max
-                            : upperValue
-                    }
-                    min={unfilteredBounds.min < lowerValue ? unfilteredBounds.min : lowerValue}
-                    value={[lowerValue, upperValue]}
-                    onChange={(v: number[]) => {
-                        range.setFilter(filterName, {
-                            lessThen: Math.round(v[1]),
-                            greaterThen: Math.round(v[0])
-                        });
-                    }}
-                />
-            </SliderContainer>
-            <VictoryChart>
-                <VictoryLine
-                    data={unfilteredData}
-                    domain={{x: [unfilteredBounds.min, maxRange ? maxRange : unfilteredBounds.max]}}
-                />
-                <VictoryLine
-                    data={filteredData}
-                    domain={{
-                        x: [
-                            filteredBounds.min,
-                            filteredBounds.max > maxRange ? maxRange : filteredBounds.max
-                        ]
-                    }}
-                    style={{data: {stroke: '#0000ff', strokeWidth: 4, strokeLinecap: 'round'}}}
-                />
-            </VictoryChart>
-        </RangeContainer>
-    );
-});
 ```

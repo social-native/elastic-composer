@@ -1,6 +1,21 @@
 'use strict';
-import {RangeFilter, BooleanFilter, BaseFilter} from './filters';
-import {ESRequest, ESResponse, IClient, ESHit, ESRequestSortField, ESMappingType} from './types';
+import {RangeFilter, BooleanFilter} from './filters';
+import {
+    ESRequest,
+    ESResponse,
+    IClient,
+    ESHit,
+    ESRequestSortField,
+    ESMappingType,
+    Middleware,
+    DebounceFn,
+    EffectInput,
+    EffectRequest,
+    IFilters,
+    ISuggestions,
+    ManagerOptions,
+    EffectKinds
+} from './types';
 import {objKeys} from './utils';
 import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx';
 import Timeout from 'await-timeout';
@@ -61,37 +76,6 @@ const DEFAULT_MANAGER_OPTIONS: Omit<
     middleware: []
 };
 
-interface IFilters {
-    range: RangeFilter<any>;
-    boolean: BooleanFilter<any>;
-    [customFilter: string]: BaseFilter<any, any, any>;
-}
-
-interface ISuggestions {
-    fuzzy: FuzzySuggestion<any>;
-    prefix: PrefixSuggestion<any>;
-    [customSuggestion: string]: BaseSuggestion<any, any>;
-}
-
-type ManagerOptions = {
-    pageSize?: number;
-    queryThrottleInMS?: number;
-    fieldWhiteList?: string[];
-    fieldBlackList?: string[];
-    filters?: IFilters;
-    suggestions?: ISuggestions;
-    middleware?: Middleware[];
-};
-
-type EffectInput<EffectKind extends string> = {
-    kind: EffectKind;
-    effect: QueryFn;
-    debouncedByKind?: EffectKind[];
-    debounce?: 'leading' | 'trailing' | DebounceFn;
-    throttle: number; // in milliseconds
-    params: any[];
-};
-
 const debounceSuggestionsFn = <CurrentEffectKind extends string, LookingEffectKind extends string>(
     currentEffectRequest: EffectRequest<CurrentEffectKind>,
     lookingAtEffectRequest: EffectRequest<LookingEffectKind>
@@ -102,43 +86,14 @@ const debounceSuggestionsFn = <CurrentEffectKind extends string, LookingEffectKi
     currentEffectRequest.params[0] === lookingAtEffectRequest.params[0] &&
     currentEffectRequest.params[1] === lookingAtEffectRequest.params[1];
 
-type DebounceFn = <CurrentEffectKind extends string, LookingEffectKind extends string>(
-    currentEffectRequest: EffectRequest<CurrentEffectKind>,
-    lookingAtEffectRequest: EffectRequest<LookingEffectKind>
-) => boolean;
-
-type EffectRequest<EffectKind extends string> = {
-    kind: EffectKind;
-    effect: QueryFn;
-    debouncedByKind?: EffectKind[];
-    debounce?: 'leading' | 'trailing' | DebounceFn;
-    throttle: number; // in milliseconds
-    params: any[];
-};
-
 const createEffectRequest = <EffectKind extends string>(
     input: EffectInput<EffectKind>
 ): EffectRequest<EffectKind> => input;
-
-type EffectKinds =
-    | 'allEnabledSuggestions'
-    | 'suggestion'
-    | 'batchAggs'
-    | 'unfilteredQuery'
-    | 'unfilteredAggs'
-    | 'unfilteredQueryAndAggs'
-    | 'filteredQuery'
-    | 'filteredAggs'
-    | 'filteredQueryAndAggs';
-
-type QueryFn = (...params: any[]) => void;
 
 type DefaultOptions = {
     filters: IFilters;
     suggestions: ISuggestions;
 };
-
-type Middleware = (effectRequest: EffectRequest<EffectKinds>, request: ESRequest) => ESRequest;
 
 class Manager<
     Options extends DefaultOptions = DefaultOptions,
