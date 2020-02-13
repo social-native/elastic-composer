@@ -46,7 +46,8 @@
       - [Methods](#methods-4)
       - [Attributes](#attributes-4)
   - [Verbose Examples](#verbose-examples)
-    - [Set the context](#set-the-context)
+    - [Usage with React](#usage-with-react)
+  - [Extending Filters and Suggestions](#extending-filters-and-suggestions)
 
 ## Install
 
@@ -437,7 +438,7 @@ type BooleanConfig = {
 
 | method    | description                 | type                                                                    |
 | --------- | --------------------------- | ----------------------------------------------------------------------- |
-| setFilter | sets the filter for a field | `(field: <name of boolean field>, filter: {state: true | false}): void` |
+| setFilter | sets the filter for a field | `(field: <name of boolean field>, filter: {state: true or false}): void` |
 
 #### Attributes
 
@@ -531,7 +532,7 @@ All filter constructors have the signature `(defaultConfig, specificConfig) => S
 
 See [./dev/app/](./dev/app/) for examples used in the development environment.
 
-### Set the context
+### Usage with React
 
 ```typescript
 import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
@@ -546,3 +547,7 @@ export default {
     creatorCRM: React.createContext(creatorCRM)
 };
 ```
+
+## Extending Filters and Suggestions
+
+TODO
