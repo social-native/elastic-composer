@@ -219,7 +219,7 @@ const results = await manager.runCustomFilterQuery({whiteList: ['id'], pageSize:
 manager.filters.range.setFilter('age', {greaterThanEqual: 20, lessThan: 40});
 ```
 
-> Note: This triggers a query to rurun with all the existing filters plus the range filter for `age` will be updated
+> Note: This triggers a query to rerun with all the existing filters plus the range filter for `age` will be updated
 > to only include people between the ages of 20-40 (inclusive to exclusive).
 
 ### Setting a boolean filter
@@ -237,7 +237,7 @@ manager.suggestions.prefix.setSearch('tags', 'blu'});
 ### Setting a fuzzy suggestion
 
 ```typescript
-manager.suggestions.prefix.setSearch('tags', 'ca'});
+manager.suggestions.fuzzy.setSearch('tags', 'ca'});
 ```
 
 ### Access the results of a query
