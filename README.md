@@ -1,49 +1,52 @@
 # snpkg-client-elasticsearch
 
--   [snpkg-client-elasticsearch](#snpkg-client-elasticsearch)
-    -   [Install](#install)
-    -   [Peer dependencies](#peer-dependencies)
-    -   [About](#about)
-    -   [Quick Examples](#quick-examples)
-        -   [Instantiate a manager](#instantiate-a-manager)
-        -   [Instantiate a manager with specific config options for a range filter](#instantiate-a-manager-with-specific-config-options-for-a-range-filter)
-        -   [Add a custom filter during manager instantiation](#add-a-custom-filter-during-manager-instantiation)
-        -   [Add a custom suggestion during manager instantiation](#add-a-custom-suggestion-during-manager-instantiation)
-        -   [Set middleware](#set-middleware)
-        -   [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
-        -   [Run a custom elastic search query using the current filters](#run-a-custom-elastic-search-query-using-the-current-filters)
-        -   [Setting a range filter](#setting-a-range-filter)
-        -   [Setting a boolean filter](#setting-a-boolean-filter)
-        -   [Setting a prefix suggestion](#setting-a-prefix-suggestion)
-        -   [Setting a fuzzy suggestion](#setting-a-fuzzy-suggestion)
-        -   [Access the results of a query](#access-the-results-of-a-query)
-        -   [Paginating through the results set](#paginating-through-the-results-set)
-    -   [API](#api)
-        -   [Manager](#manager)
-            -   [Initialization](#initialization)
-                -   [Client](#client)
-                -   [Filters](#filters)
-                -   [Options](#options)
-            -   [Methods](#methods)
-            -   [Attributes](#attributes)
-        -   [Common Among All Filters](#common-among-all-filters)
-            -   [Initialization](#initialization-1)
-            -   [Methods](#methods-1)
-            -   [Attributes](#attributes-1)
-        -   [Boolean Specific](#boolean-specific)
-            -   [Initialization](#initialization-2)
-                -   [defaultConfig](#defaultconfig)
-                -   [specificConfig](#specificconfig)
-            -   [Methods](#methods-2)
-            -   [Attributes](#attributes-2)
-        -   [Range Specific](#range-specific)
-            -   [Initialization](#initialization-3)
-                -   [defaultConfig](#defaultconfig-1)
-                -   [specificConfig](#specificconfig-1)
-            -   [Methods](#methods-3)
-            -   [Attributes](#attributes-3)
-    -   [Verbose Examples](#verbose-examples)
-        -   [Set the context](#set-the-context)
+- [snpkg-client-elasticsearch](#snpkg-client-elasticsearch)
+  - [Install](#install)
+  - [Peer dependencies](#peer-dependencies)
+  - [About](#about)
+  - [Quick Examples](#quick-examples)
+    - [Instantiate a manager](#instantiate-a-manager)
+    - [Instantiate a manager with specific config options for a range filter](#instantiate-a-manager-with-specific-config-options-for-a-range-filter)
+    - [Add a custom filter during manager instantiation](#add-a-custom-filter-during-manager-instantiation)
+    - [Add a custom suggestion during manager instantiation](#add-a-custom-suggestion-during-manager-instantiation)
+    - [Set middleware](#set-middleware)
+    - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
+    - [Run a custom elastic search query using the current filters](#run-a-custom-elastic-search-query-using-the-current-filters)
+    - [Setting a range filter](#setting-a-range-filter)
+    - [Setting a boolean filter](#setting-a-boolean-filter)
+    - [Setting a prefix suggestion](#setting-a-prefix-suggestion)
+    - [Setting a fuzzy suggestion](#setting-a-fuzzy-suggestion)
+    - [Access the results of a query](#access-the-results-of-a-query)
+    - [Paginating through the results set](#paginating-through-the-results-set)
+  - [API](#api)
+    - [Manager](#manager)
+      - [Initialization](#initialization)
+        - [Client](#client)
+        - [Options](#options)
+      - [Methods](#methods)
+      - [Attributes](#attributes)
+    - [Common Among All Filters](#common-among-all-filters)
+      - [Initialization](#initialization-1)
+      - [Methods](#methods-1)
+      - [Attributes](#attributes-1)
+    - [Boolean Specific](#boolean-specific)
+      - [Initialization](#initialization-2)
+        - [defaultConfig](#defaultconfig)
+        - [specificConfig](#specificconfig)
+      - [Methods](#methods-2)
+      - [Attributes](#attributes-2)
+    - [Range Specific](#range-specific)
+      - [Initialization](#initialization-3)
+        - [defaultConfig](#defaultconfig-1)
+        - [specificConfig](#specificconfig-1)
+      - [Methods](#methods-3)
+      - [Attributes](#attributes-3)
+    - [Common Among All Suggestions](#common-among-all-suggestions)
+      - [Initialization](#initialization-4)
+      - [Methods](#methods-4)
+      - [Attributes](#attributes-4)
+  - [Verbose Examples](#verbose-examples)
+    - [Set the context](#set-the-context)
 
 ## Install
 
@@ -280,7 +283,7 @@ manager.currentPage; // number
 
 #### Initialization
 
-The manager constructor has the signature `(client, filters, options) => ManagerInstance`
+The manager constructor has the signature `(client, options) => ManagerInstance`
 
 ##### Client
 
@@ -294,22 +297,14 @@ interface IClient<Source extends object = object> {
 }
 ```
 
-At the moment there only exists an `Axios` client. This can be imported via a named import:
+At the moment there only exists an `AxiosESClient` client. This can be imported via a named import:
 
 ```ts
-import {Axios} from '@socil-native/snpkg-client-elasticsearch';
+import {AxiosESClient} from '@socil-native/snpkg-client-elasticsearch';
 
-const axiosESClient = new Axios(endpoint);
+const axiosESClient = new AxiosESClient(endpoint);
 
 // endpoint is in the form: blah2lalkdjhgak.us-east-1.es.amazonaws.com/myindex1
-```
-
-##### Filters
-
-`filters` is an object of filter instances. Ahead of time, you should have instantiated every filter you want to use. You then pass these filter instances to the manager in this object, like so:
-
-```ts
-const filters = {range: rangeFilterInstance};
 ```
 
 ##### Options
@@ -322,13 +317,38 @@ type ManagerOptions = {
     queryThrottleInMS?: number;
     fieldWhiteList?: string[];
     fieldBlackList?: string[];
+    middleware?: Middleware[];
+    filters?: IFilters;
+    suggestions?: ISuggestions;
 };
 ```
 
 -   `pageSize`: the number of results to expect when calling `manager.results`. The default size is 10.
 -   `queryThrottleInMS`: the amount of time to wait before executing an Elasticsearch query. The default time is 1000.
--   `fieldWhiteList`: A list of elasticsearch fields that you only want to allow filtering on. This can't be used with `fieldBlackList`
--   `fieldBlackList`: A list of elasticsearch fields that you don't want to allow filtering on. This can't be used with `fieldWhiteList`
+-   `fieldWhiteList`: A list of elasticsearch fields that you only want to allow filtering on. This can't be used with `fieldBlackList`. Only white list fields will be returned in an elasticsearch query response.
+-   `fieldBlackList`: A list of elasticsearch fields that you don't want to allow filtering on. This can't be used with `fieldWhiteList`. Black list fields will be excluded from an elasticsearch query response.
+-  `middleware`: An array of custom middleware to run during elasticsearch request object construction. See below for the type.
+- `filters`: An object of filter instances. Default filters will be instantiate if none are specified in this options field. This options field however can be used to override existing filters or specify a custom one.
+- `suggestions`: An object of suggestion instances. Default suggestions will be instantiated if none are specified in this options field. This options field however can be used to override existing suggestions or specify a custom one.
+
+The middleware function type signature is:
+
+```typescript
+Middleware = (
+    effectRequest: EffectRequest<EffectKinds>,
+    request: ESRequest
+) => ESRequest;
+```
+
+Example of overriding the range filter:
+```ts
+const options = {filters: {range: rangeFilterInstance}};
+```
+
+Example of overriding the fuzzy suggestion:
+```ts
+const options = {suggestions: {fuzzy: fuzzyFilterInstance}};
+```
 
 #### Methods
 
@@ -336,8 +356,10 @@ type ManagerOptions = {
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | nextPage              | paginates forward                                                                                                                       | `(): void` |
 | prevPage              | paginates backward                                                                                                                      | `(): void` |
-| getFieldNamesAndTypes | runs an introspection query on the index mapping and generates an object of elasticsearch fields and the filter type they correspond to | `(): void` |
+| getFieldNamesAndTypes | runs an introspection query on the index mapping and generates an object of elasticsearch fields and the filter type they correspond to | `async (): void` |
 | runStartQuery         | runs the initial elasticsearch query that fetches unfiltered data                                                                       | `(): void` |
+| runCustomFilterQuery | runs a custom query using the existing applied filters outside the side effect queue flow. white lists and black lists control which data is returned in the elasticsearch response source object | `async (options?: {fieldBlackList?: string[], fieldWhiteList?: string[], pageSize?: number }): Promise<ESResponse>` |
+| setMiddleware | adds middleware to run during construction of the elasticsearch query request object | `(middlewares: Middleware): void`. Middleware has the type `(effectRequest: EffectRequest<EffectKinds>, request: ESRequest) => ESRequest` |
 
 #### Attributes
 
@@ -367,6 +389,8 @@ All filter constructors have the signature `(defaultConfig, specificConfig) => F
 | setFilter   | sets the filter for a field   | `(field: <name of field>, filter: <filter specific to filter class type>): void` |
 | clearFilter | clears the filter for a field | `(field: <name of field>): void`                                                 |
 | setKind     | sets the kind for a field     | `(field: <name of field>, kind: should or must): void`                           |
+| setAggsEnabledToTrue | enables fetching of aggs for this filter field | `(field: <name of field>): void` |
+| setAggsEnabledToFalse | disables fetching of aggs for this filter field | `(field: <name of field>): void` |
 
 #### Attributes
 
@@ -473,6 +497,35 @@ type RangeConfig = {
 | unfilteredRangeBounds  | the bounds of all unfiltered ranges (ex: 0 - 100), keyed by field name | `{ [<names of range fields>]: { min: { value: number; value_as_string?: string; }; max: { value: number; value_as_string?: string; };} }` |
 | filteredDistribution   | the distribution of all filtered ranges, keyed by field name           | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}`                                                                 |
 | unfilteredDistribution | the distribution of all filtered ranges, keyed by field name           | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}`                                                                 |
+
+### Common Among All Suggestions
+
+The suggestions that ship with this package all have the same public interface (for the moment). Thus, you can rely on this section for API documentation on each suggestion type.
+
+#### Initialization
+
+All filter constructors have the signature `(defaultConfig, specificConfig) => SuggestionTypeInstance`
+
+`defaultConfig` and `specificConfig` are specific to each suggestion class type.
+
+#### Methods
+
+| method      | description                   | type                                                                             |
+| ----------- | ----------------------------- | -------------------------------------------------------------------------------- |
+| setSearch   | sets the search term for a field to get suggestions for | `(field: <name of field>, searchTerm: string): void` |
+| clearSearch | clears the search for a field | `(field: <name of field>): void`                                                 |
+| setKind     | sets the kind for a field     | `(field: <name of field>, kind: should or must): void`                           |
+| setEnabledToTrue | enables fetching of suggestions for this suggestion field | `(field: <name of field>): void` |
+| setEnabledToFalse | disables fetching of suggestions for this suggestion field | `(field: <name of field>): void` |
+
+#### Attributes
+
+| attribute    | description                                                  | type                                                              |
+| ------------ | ------------------------------------------------------------ | ----------------------------------------------------------------- |
+| fieldConfigs | the config for a field, keyed by field name                  | `{ [<names of fields>]: <config specific to filter class type> }` |
+| fieldSuggestions | the suggestions for a field, keyed by field name                 | `{ [<names of fields>]: Array<{suggestion: string; count: number}> }`                                 |
+| fieldSearches | the searches for a field, keyed by field name | `{ [<names of fields>]: string }` |
+| fieldKinds   | the kind (`should or must`) for a field, keyed by field name | `{ [<names of fields>]: 'should' or 'must' }`                     |
 
 ## Verbose Examples
 
