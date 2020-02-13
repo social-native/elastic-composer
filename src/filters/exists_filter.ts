@@ -42,13 +42,7 @@ export type Filter = {
 /**
  *  Results
  */
-export type RawExistsCountResult = {
-    buckets: Array<{
-        key: 0 | 1;
-        key_as_string: 'true' | 'false';
-        doc_count: number;
-    }>;
-};
+export type RawExistsCountResult = number;
 
 export type ExistsCountResult = {
     exists: number;
@@ -60,14 +54,9 @@ export type CountResults<Fields extends string> = {
 };
 
 // use with all fields b/c exists can check any field data value for existence
-export const shouldUseField = (_fieldName: string, _fieldType: ESMappingType) =>
-    true;
+export const shouldUseField = (_fieldName: string, _fieldType: ESMappingType) => true;
 
-class ExistsFilter<Fields extends string> extends BaseFilter<
-    Fields,
-    IConfig,
-    Filter
-> {
+class ExistsFilter<Fields extends string> extends BaseFilter<Fields, IConfig, Filter> {
     public filteredCount: CountResults<Fields>;
     public unfilteredCount: CountResults<Fields>;
 
@@ -210,17 +199,16 @@ class ExistsFilter<Fields extends string> extends BaseFilter<
 
             if (filter) {
                 const existingFiltersForKind = acc.query.bool[kind as FilterKind] || [];
-                const newFilter = filter.exists ? { exists: { field: name }} : { must_not: { exists: { field: name}}}
+                const newFilter = filter.exists
+                    ? {exists: {field: name}}
+                    : {bool: {must_not: {exists: {field: name}}}};
                 return {
                     ...acc,
                     query: {
                         ...acc.query,
                         bool: {
                             ...acc.query.bool,
-                            [kind as FilterKind]: [
-                                ...existingFiltersForKind,
-                                newFilter
-                            ]
+                            [kind as FilterKind]: [...existingFiltersForKind, newFilter]
                         }
                     }
                 };
@@ -248,7 +236,7 @@ class ExistsFilter<Fields extends string> extends BaseFilter<
                         ...acc.aggs,
                         [`${name}__exists_doesnt_count`]: {
                             missing: {
-                                field: name,
+                                field: name
                             }
                         }
                     }
@@ -266,32 +254,23 @@ class ExistsFilter<Fields extends string> extends BaseFilter<
         const existingCount = isUnfilteredQuery ? this.unfilteredCount : this.filteredCount;
         const count = objKeys(this.fieldConfigs).reduce(
             // tslint:disable-next-line
-            (acc, booleanFieldName) => {
-                const config = this.fieldConfigs[booleanFieldName];
+            (acc, existFieldName) => {
+                const config = this.fieldConfigs[existFieldName];
                 const name = config.field;
                 if (config.getCount && response.aggregations) {
-                    const allCounts = response.aggregations[
+                    const doesntExistCount = (response.aggregations[
                         `${name}__exists_doesnt_count`
-                    ] as RawExitsCountResult;
-                    if (allCounts && allCounts.buckets && allCounts.buckets.length > 0) {
-                        const trueBucket = allCounts.buckets.find(b => b.key === 1) || {
-                            doc_count: 0
-                        };
-                        const falseBucket = allCounts.buckets.find(b => b.key === 0) || {
-                            doc_count: 0
-                        };
-
+                    ] || 0) as RawExistsCountResult;
+                    const totalCount = response.hits.total || 0;
+                    const existCount = totalCount - doesntExistCount;
+                    if (existCount && doesntExistCount) {
                         return {
                             ...acc,
-                            [booleanFieldName]: {
-                                true: trueBucket.doc_count,
-                                false: falseBucket.doc_count
+                            [existFieldName]: {
+                                exists: existCount,
+                                doesntExist: doesntExistCount
                             }
                         };
-                    } else if (allCounts && allCounts.buckets && allCounts.buckets.length > 3) {
-                        throw new Error(
-                            `There shouldn't be more than 3 states for boolean fields. Check data for ${booleanFieldName}`
-                        );
                     } else {
                         return acc;
                     }

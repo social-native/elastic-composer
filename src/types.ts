@@ -3,6 +3,7 @@ import {RawBooleanCountResult} from './filters/boolean_filter';
 import PrefixSuggestion, {RawPrefixSuggestionResult} from './suggestions/prefix_suggestion';
 import {RangeFilter, BooleanFilter, BaseFilter} from './filters';
 import {FuzzySuggestion, BaseSuggestion} from './suggestions';
+import {RawExistsCountResult} from 'filters/exists_filter';
 /**
  * ***********************************
  * ES Request
@@ -36,6 +37,7 @@ export type ESRequest = {
  */
 
 export type AggregationResults =
+    | RawExistsCountResult
     | RawRangeBoundResult
     | RawRangeDistributionResult
     | RawBooleanCountResult
