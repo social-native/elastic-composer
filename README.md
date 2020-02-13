@@ -412,7 +412,7 @@ The configuration that each field will acquire if an override is not specificall
 
 ```typescript
 type DefaultConfig = {
-    defaultFilterKind: 'should' | 'must';
+    defaultFilterKind: 'should' or 'must';
     getCount: boolean;
     aggsEnabled: boolean;
 };
@@ -427,7 +427,7 @@ type SpecificConfig = Record<string, BooleanConfig>;
 
 type BooleanConfig = {
     field: string;
-    defaultFilterKind?: 'should' | 'must';
+    defaultFilterKind?: 'should' or 'must';
     getCount?: boolean;
     aggsEnabled?: boolean;
 };
@@ -458,7 +458,7 @@ The configuration that each field will acquire if an override is not specificall
 
 ```typescript
 type RangeConfig = {
-    defaultFilterKind: 'should' | 'must';
+    defaultFilterKind: 'should' or 'must';
     getDistribution: boolean;
     getRangeBounds: boolean;
     rangeInterval: number;
@@ -475,7 +475,7 @@ type SpecificConfig = Record<string, RangeConfig>;
 
 type RangeConfig = {
     field: string;
-    defaultFilterKind?: 'should' | 'must';
+    defaultFilterKind?: 'should' or 'must';
     getDistribution?: boolean;
     getRangeBounds?: boolean;
     rangeInterval?: number;
