@@ -42,7 +42,7 @@
         "axios": "^0.19.1",
         "lodash.chunk": "^4.2.0",
         "mobx": "^5.14.2",
-        "mobx-react": "^6.1.4"
+        "mobx-react": "^6.1.4",
     },
     "peerDependencies": {
         "await-timeout": "^1.1.1",
@@ -76,6 +76,7 @@
         "react": "^16.11.0",
         "react-dom": "^16.11.0",
         "react-dropdown-now": "^1.0.3",
+        "react-super-responsive-table": "^5.1.1",
         "rimraf": "^2.6.3",
         "rollup": "^1.2.2",
         "rollup-plugin-typescript2": "^0.21.1",

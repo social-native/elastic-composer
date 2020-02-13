@@ -1,5 +1,5 @@
 'use strict';
-import {RangeFilter, BooleanFilter} from './filters';
+import {RangeFilter, BooleanFilter, ExistsFilter} from './filters';
 import {
     ESRequest,
     ESResponse,
@@ -66,6 +66,7 @@ const DEFAULT_MANAGER_OPTIONS: Omit<
     pageSize: 10,
     queryThrottleInMS: 1000,
     filters: {
+        exists: new ExistsFilter(),
         boolean: new BooleanFilter(),
         range: new RangeFilter()
     },

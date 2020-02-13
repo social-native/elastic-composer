@@ -42,7 +42,7 @@ export type Filter = {
 /**
  *  Results
  */
-export type RawExistsCountResult = number;
+export type RawExistsCountResult = {doc_count: number};
 
 export type ExistsCountResult = {
     exists: number;
@@ -258,22 +258,25 @@ class ExistsFilter<Fields extends string> extends BaseFilter<Fields, IConfig, Fi
                 const config = this.fieldConfigs[existFieldName];
                 const name = config.field;
                 if (config.getCount && response.aggregations) {
-                    const doesntExistCount = (response.aggregations[
+                    const fieldExists = response.aggregations[
                         `${name}__exists_doesnt_count`
-                    ] || 0) as RawExistsCountResult;
-                    const totalCount = response.hits.total || 0;
-                    const existCount = totalCount - doesntExistCount;
-                    if (existCount && doesntExistCount) {
-                        return {
-                            ...acc,
-                            [existFieldName]: {
-                                exists: existCount,
-                                doesntExist: doesntExistCount
-                            }
-                        };
-                    } else {
+                    ] as RawExistsCountResult;
+
+                    if (!fieldExists) {
                         return acc;
                     }
+
+                    const doesntExistCount = fieldExists.doc_count;
+                    const totalCount = response.hits.total || 0;
+                    const existCount = totalCount - doesntExistCount;
+
+                    return {
+                        ...acc,
+                        [existFieldName]: {
+                            exists: existCount,
+                            doesntExist: doesntExistCount
+                        }
+                    };
                 } else {
                     return acc;
                 }

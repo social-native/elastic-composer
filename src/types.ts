@@ -1,9 +1,9 @@
 import {RawRangeBoundResult, RawRangeDistributionResult} from './filters/range_filter';
 import {RawBooleanCountResult} from './filters/boolean_filter';
 import PrefixSuggestion, {RawPrefixSuggestionResult} from './suggestions/prefix_suggestion';
-import {RangeFilter, BooleanFilter, BaseFilter} from './filters';
+import {RangeFilter, BooleanFilter, BaseFilter, ExistsFilter} from './filters';
 import {FuzzySuggestion, BaseSuggestion} from './suggestions';
-import {RawExistsCountResult} from 'filters/exists_filter';
+import {RawExistsCountResult} from './filters/exists_filter';
 /**
  * ***********************************
  * ES Request
@@ -244,6 +244,7 @@ export type ManagerOptions = {
 export interface IFilters {
     range: RangeFilter<any>;
     boolean: BooleanFilter<any>;
+    exists: ExistsFilter<any>;
     [customFilter: string]: BaseFilter<any, any, any>;
 }
 

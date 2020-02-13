@@ -1,6 +1,7 @@
 export {default as RangeFilter} from './range_filter';
 export {default as BooleanFilter} from './boolean_filter';
 export {default as BaseFilter} from './base';
+export {default as ExistsFilter} from './exists_filter';
 export {default as filterUtils} from './utils';
 
 import {

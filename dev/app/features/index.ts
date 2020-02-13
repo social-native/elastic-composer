@@ -7,3 +7,4 @@ export {default as SuggestionSelector} from './suggestion_selector';
 export {default as BooleanFilter} from './boolean_filter';
 export {default as Suggestion} from './suggestion';
 export {default as CustomQuery} from './custom_query';
+export {default as ExistsFilter} from './exists_filter';
