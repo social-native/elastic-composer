@@ -1,4 +1,4 @@
-import {runInAction, decorate, observable, set} from 'mobx';
+import {runInAction, decorate, observable, set, toJS, reaction} from 'mobx';
 import {objKeys} from '../utils';
 import {
     ESRequest,
@@ -6,7 +6,10 @@ import {
     FilterKind,
     BaseFilterConfig,
     IBaseOptions,
-    ESMappingType
+    ESMappingType,
+    MultiSelectSubFieldFilterValue,
+    MultiSelectFieldFilter,
+    RawMultiSelectAggs
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -34,23 +37,8 @@ export type IConfigs<Fields extends string> = {
 };
 
 /**
- * Filter
- */
-
-type SubFilterValue = {inclusion: 'include' | 'exclude'; kind?: 'should' | 'must'};
-
-export type Filter = {
-    [selectedValue: string]: SubFilterValue;
-};
-
-/**
  *  Results
  */
-export type RawMultiSelectCountResult = {
-    buckets: Array<{
-        doc_count: number;
-    }>;
-};
 
 export type MultiSelectCountResult = {
     [selectedValue: string]: number;
@@ -64,7 +52,11 @@ export type CountResults<Fields extends string> = {
 export const shouldUseField = (_fieldName: string, fieldType: ESMappingType) =>
     fieldType === 'keyword' || fieldType === 'text';
 
-class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfig, Filter> {
+class MultiSelectFilter<Fields extends string> extends BaseFilter<
+    Fields,
+    IConfig,
+    MultiSelectFieldFilter
+> {
     public filteredCount: CountResults<Fields>;
     public unfilteredCount: CountResults<Fields>;
 
@@ -74,7 +66,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfi
         options?: IBaseOptions
     ) {
         super(
-            'exists',
+            'multiselect',
             defaultConfig || (CONFIG_DEFAULT as Omit<Required<IConfig>, 'field'>),
             specificConfigs as IConfigs<Fields>
         );
@@ -83,12 +75,49 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfi
             this.filteredCount = {} as CountResults<Fields>;
             this.unfilteredCount = {} as CountResults<Fields>;
         });
+
+        reaction(() => {
+            const filteredCountFieldNames = objKeys(this.filteredCount);
+
+            const fieldsMissingUnfilteredCounts = filteredCountFieldNames.reduce((acc, fieldName) => {
+                const filteredSubFieldNameValues = Object.keys(this.filteredCount[fieldName] || {})
+                const unfilteredSubFieldNameObj = this.unfilteredCount[fieldName] || {}
+
+                const fieldIsMissingUnfilteredCounts = filteredSubFieldNameValues.reduce((missingUnfilteredCounts, name) => {
+                    if (unfilteredSubFieldNameObj[name] === undefined) {
+                        return true
+                    } else {
+                        return missingUnfilteredCounts
+                    }
+                }, false)
+
+                if (fieldIsMissingUnfilteredCounts) {
+                    return [...acc, fieldName]
+                } else {
+                    return acc
+                }
+
+            }, [] as string[])
+
+            return fieldsMissingUnfilteredCounts;
+
+        }, (fieldsMissingUnfilteredCounts) => {
+            if (fieldsMissingUnfilteredCounts && fieldsMissingUnfilteredCounts.length > 0) {
+                fieldsMissingUnfilteredCounts.forEach(field => {
+                    this._shouldUpdateUnfilteredAggsSubscribers.forEach(s => s(this.filterKind, field as Fields));
+                })
+            }
+        }
     }
 
     /**
      * Sets a sub filter for a field.
      */
-    public addToFilter(field: Fields, subFilterName: string, subFilterValue: SubFilterValue): void {
+    public addToFilter(
+        field: Fields,
+        subFilterName: string,
+        subFilterValue: MultiSelectSubFieldFilterValue
+    ): void {
         runInAction(() => {
             const subFilters = this.fieldFilters[field];
             const newSubFilters = {
@@ -236,33 +265,37 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfi
 
             const kind = this.kindForField(fieldName);
             if (!kind) {
-                throw new Error(`kind is not set for exits filter type ${fieldName}`);
+                throw new Error(`kind is not set for multi-select filter type ${fieldName}`);
             }
 
             if (filter) {
-                return objKeys(filter as Filter).reduce((newQuery, selectedValue) => {
-                    const selectedValueFilter = filter[selectedValue];
-                    const newFilter =
-                        selectedValueFilter.inclusion === 'include'
-                            ? {match: {[name]: selectedValue}}
-                            : {bool: {must_not: {match: {[name]: selectedValue}}}};
-                    const kindForSelectedValue = selectedValueFilter.kind || kind;
-                    const existingFiltersForKind =
-                        acc.query.bool[kindForSelectedValue as FilterKind] || [];
-                    return {
-                        ...newQuery,
-                        query: {
-                            ...newQuery.query,
-                            bool: {
-                                ...newQuery.query.bool,
-                                [kindForSelectedValue as FilterKind]: [
-                                    ...existingFiltersForKind,
-                                    newFilter
-                                ]
+                return objKeys(filter as MultiSelectFieldFilter).reduce(
+                    (newQuery, selectedValue) => {
+                        const selectedValueFilter = filter[selectedValue];
+                        const newFilter =
+                            selectedValueFilter.inclusion === 'include'
+                                ? {match: {[name]: selectedValue}}
+                                : {bool: {must_not: {match: {[name]: selectedValue}}}};
+                        const kindForSelectedValue = selectedValueFilter.kind || kind;
+                        const existingFiltersForKind =
+                            newQuery.query.bool[kindForSelectedValue as FilterKind] || [];
+
+                            return {
+                            ...newQuery,
+                            query: {
+                                ...newQuery.query,
+                                bool: {
+                                    ...newQuery.query.bool,
+                                    [kindForSelectedValue as FilterKind]: [
+                                        ...existingFiltersForKind,
+                                        newFilter
+                                    ]
+                                }
                             }
-                        }
-                    };
-                }, acc);
+                        };
+                    },
+                    acc
+                );
             } else {
                 return acc;
             }
@@ -276,6 +309,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfi
                 return acc;
             }
             const config = this.fieldConfigs[fieldName];
+          
             const name = config.field;
             if (!config || !config.aggsEnabled) {
                 return acc;
@@ -285,7 +319,8 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfi
             if (!filter) {
                 return acc;
             }
-            const valuesToFilterOn = objKeys(filter as Filter);
+            const valuesToFilterOn = objKeys(filter as MultiSelectFieldFilter);
+
             const aggsToAdd = valuesToFilterOn.reduce((aggFilters, value) => {
                 return {
                     ...aggFilters,
@@ -296,6 +331,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfi
                     }
                 };
             }, {});
+
             if (config.getCount) {
                 return {
                     ...acc,
@@ -327,14 +363,14 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfi
                 if (config.getCount && response.aggregations) {
                     const allCounts = response.aggregations[
                         `${name}__multiselect_count`
-                    ] as RawMultiSelectCountResult;
+                    ] as RawMultiSelectAggs;
                     if (allCounts && allCounts.buckets) {
                         const countedSelections = Object.keys(allCounts.buckets);
                         const countsForSelections = countedSelections.reduce(
                             (newState, selection) => {
                                 return {
                                     ...newState,
-                                    [selection]: allCounts.buckets[selection as any]
+                                    [selection]: allCounts.buckets[selection as any].doc_count
                                 };
                             },
                             {}
@@ -353,7 +389,6 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfi
             },
             {...existingCount} as CountResults<Fields>
         );
-
         if (isUnfilteredQuery) {
             runInAction(() => {
                 this.unfilteredCount = count;

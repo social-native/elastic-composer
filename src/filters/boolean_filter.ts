@@ -6,7 +6,9 @@ import {
     FilterKind,
     BaseFilterConfig,
     IBaseOptions,
-    ESMappingType
+    ESMappingType,
+    BooleanFieldFilter,
+    RawBooleanAggs
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -32,35 +34,8 @@ export type IBooleanConfigs<BooleanFields extends string> = {
 };
 
 /**
- * Filter
+ * Results
  */
-
-export type Filter = {
-    state: boolean;
-};
-
-export type Filters<BooleanFields extends string> = {
-    [esFieldName in BooleanFields]: Filter | undefined;
-};
-
-/**
- * Kind
- */
-
-export type BooleanFilterKinds<BooleanFields extends string> = {
-    [esFieldName in BooleanFields]: FilterKind | undefined;
-};
-
-/**
- *  Results
- */
-export type RawBooleanCountResult = {
-    buckets: Array<{
-        key: 0 | 1;
-        key_as_string: 'true' | 'false';
-        doc_count: number;
-    }>;
-};
 
 export type BooleanCountResult = {
     true: number;
@@ -74,10 +49,10 @@ export type BooleanCountResults<BooleanFields extends string> = {
 export const booleanShouldUseField = (_fieldName: string, fieldType: ESMappingType) =>
     fieldType === 'boolean';
 
-class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
+class BooleanFilter<BooleanFields extends string> extends BaseFilter<
     BooleanFields,
     IBooleanConfig,
-    Filter
+    BooleanFieldFilter
 > {
     public filteredCount: BooleanCountResults<BooleanFields>;
     public unfilteredCount: BooleanCountResults<BooleanFields>;
@@ -202,21 +177,21 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
             return request;
         }
         // tslint:disable-next-line
-        return objKeys(this.fieldConfigs).reduce((acc, rangeFieldName) => {
+        return objKeys(this.fieldConfigs).reduce((acc, booleanFieldName) => {
             if (!this.fieldFilters) {
                 return acc;
             }
-            const config = this.fieldConfigs[rangeFieldName];
+            const config = this.fieldConfigs[booleanFieldName];
             const name = config.field;
 
-            const filter = this.fieldFilters[rangeFieldName];
+            const filter = this.fieldFilters[booleanFieldName];
             if (!filter) {
                 return acc;
             }
 
-            const kind = this.kindForField(rangeFieldName);
+            const kind = this.kindForField(booleanFieldName);
             if (!kind) {
-                throw new Error(`kind is not set for range type ${rangeFieldName}`);
+                throw new Error(`kind is not set for range type ${booleanFieldName}`);
             }
 
             if (filter) {
@@ -242,11 +217,11 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
 
     public _addCountAggsToEsRequest = (request: ESRequest, fieldToFilterOn?: string): ESRequest => {
         // tslint:disable-next-line
-        return objKeys(this.fieldConfigs || {}).reduce((acc, rangeFieldName) => {
-            if (fieldToFilterOn && rangeFieldName !== fieldToFilterOn) {
+        return objKeys(this.fieldConfigs || {}).reduce((acc, booleanFieldName) => {
+            if (fieldToFilterOn && booleanFieldName !== fieldToFilterOn) {
                 return acc;
             }
-            const config = this.fieldConfigs[rangeFieldName];
+            const config = this.fieldConfigs[booleanFieldName];
             const name = config.field;
             if (!config || !config.aggsEnabled) {
                 return acc;
@@ -281,9 +256,7 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
                 const config = this.fieldConfigs[booleanFieldName];
                 const name = config.field;
                 if (config.getCount && response.aggregations) {
-                    const allCounts = response.aggregations[
-                        `${name}__count`
-                    ] as RawBooleanCountResult;
+                    const allCounts = response.aggregations[`${name}__count`] as RawBooleanAggs;
                     if (allCounts && allCounts.buckets && allCounts.buckets.length > 0) {
                         const trueBucket = allCounts.buckets.find(b => b.key === 1) || {
                             doc_count: 0
@@ -325,11 +298,11 @@ class BooleanFilterClass<BooleanFields extends string> extends BaseFilter<
     };
 }
 
-decorate(BooleanFilterClass, {
+decorate(BooleanFilter, {
     filteredCount: observable,
     unfilteredCount: observable
 });
 
-utils.decorateFilter(BooleanFilterClass);
+utils.decorateFilter(BooleanFilter);
 
-export default BooleanFilterClass;
+export default BooleanFilter;

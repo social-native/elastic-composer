@@ -7,7 +7,15 @@ import {
     BaseFilterConfig,
     AggregationResults,
     ESMappingType,
-    IBaseOptions
+    IBaseOptions,
+    RawRangeDistributionAggs,
+    RawRangeBoundAggs,
+    RawRangeBoundAggsWithString,
+    GreaterThanFilter,
+    GreaterThanEqualFilter,
+    LessThanEqualFilter,
+    RangeFieldFilter,
+    LessThanFilter
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -37,20 +45,12 @@ export type IRangeConfigs<RangeFields extends string> = {
 };
 
 /**
- * Filter
+ * Typeguards
  */
-
-export type GreaterThanFilter = {
-    greaterThan: number;
-};
 
 export function isGreaterThanFilter(filter: GreaterThanFilter | {}): filter is GreaterThanFilter {
     return (filter as GreaterThanFilter).greaterThan !== undefined;
 }
-
-export type GreaterThanEqualFilter = {
-    greaterThanEqual: number;
-};
 
 export function isGreaterThanEqualFilter(
     filter: GreaterThanEqualFilter | {}
@@ -58,17 +58,9 @@ export function isGreaterThanEqualFilter(
     return (filter as GreaterThanEqualFilter).greaterThanEqual !== undefined;
 }
 
-export type LessThanFilter = {
-    lessThan: number;
-};
-
 export function isLessThanFilter(filter: LessThanFilter | {}): filter is LessThanFilter {
     return (filter as LessThanFilter).lessThan !== undefined;
 }
-
-export type LessThanEqualFilter = {
-    lessThanEqual: number;
-};
 
 export function isLessThanEqualFilter(
     filter: LessThanEqualFilter | {}
@@ -76,17 +68,10 @@ export function isLessThanEqualFilter(
     return (filter as LessThanEqualFilter).lessThanEqual !== undefined;
 }
 
-export type RangeFilter = (GreaterThanFilter | GreaterThanEqualFilter | {}) &
-    (LessThanFilter | LessThanEqualFilter | {});
-
-export type Filters<RangeFields extends string> = {
-    [esFieldName in RangeFields]: RangeFilter | undefined;
-};
-
 /**
  * Filter Utilities
  */
-const convertGreaterRanges = (filter: RangeFilter) => {
+const convertGreaterRanges = (filter: RangeFieldFilter) => {
     if (isGreaterThanFilter(filter)) {
         return {gt: filter.greaterThan};
     } else if (isGreaterThanEqualFilter(filter)) {
@@ -96,7 +81,7 @@ const convertGreaterRanges = (filter: RangeFilter) => {
     }
 };
 
-const convertLesserRanges = (filter: RangeFilter) => {
+const convertLesserRanges = (filter: RangeFieldFilter) => {
     if (isLessThanFilter(filter)) {
         return {lt: filter.lessThan};
     } else if (isLessThanEqualFilter(filter)) {
@@ -106,7 +91,7 @@ const convertLesserRanges = (filter: RangeFilter) => {
     }
 };
 
-const convertRanges = (fieldName: string, filter: RangeFilter | undefined) => {
+const convertRanges = (fieldName: string, filter: RangeFieldFilter | undefined) => {
     if (!filter) {
         return undefined;
     }
@@ -120,22 +105,9 @@ const convertRanges = (fieldName: string, filter: RangeFilter | undefined) => {
 };
 
 /**
- * Kind
- */
-
-export type RangeFilterKinds<RangeFields extends string> = {
-    [esFieldName in RangeFields]: FilterKind | undefined;
-};
-
-/**
  * Results - Distribution
  */
-export type RawRangeDistributionResult = {
-    buckets: Array<{
-        key: number;
-        doc_count: number;
-    }>;
-};
+
 export type RangeDistributionResult = Array<{
     key: number;
     doc_count: number;
@@ -145,30 +117,22 @@ export type RangeDistributionResults<RangeFields extends string> = {
     [esFieldName in RangeFields]: RangeDistributionResult;
 };
 
-function isHistResult(result: AggregationResults): result is RawRangeDistributionResult {
-    return (result as RawRangeDistributionResult).buckets !== undefined;
+function isHistResult(result: AggregationResults): result is RawRangeDistributionAggs {
+    return (result as RawRangeDistributionAggs).buckets !== undefined;
 }
 
 /**
  * Results - Bounds
  */
-export type RawRangeBoundResultBasic = {
-    value: number;
-};
-export type RawRangeBoundResultWithString = {
-    value: number;
-    value_as_string: number;
-};
-export type RawRangeBoundResult = RawRangeBoundResultBasic | RawRangeBoundResultWithString;
 
-function isRangeResult(result: AggregationResults): result is RawRangeBoundResult {
-    return (result as RawRangeBoundResult).value !== undefined;
+function isRangeResult(result: AggregationResults): result is RawRangeBoundAggs {
+    return (result as RawRangeBoundAggs).value !== undefined;
 }
 
 function isRangeResultWithString(
     result: AggregationResults
-): result is RawRangeBoundResultWithString {
-    return (result as RawRangeBoundResultWithString).value_as_string !== undefined;
+): result is RawRangeBoundAggsWithString {
+    return (result as RawRangeBoundAggsWithString).value_as_string !== undefined;
 }
 
 export type RangeBoundResult = {
@@ -186,7 +150,7 @@ export const rangeShouldUseFieldFn = (_fieldName: string, fieldType: ESMappingTy
 class RangeFilterClass<RangeFields extends string> extends BaseFilter<
     RangeFields,
     IRangeConfig,
-    RangeFilter
+    RangeFieldFilter
 > {
     public filteredRangeBounds: RangeBoundResults<RangeFields>;
     public unfilteredRangeBounds: RangeBoundResults<RangeFields>;

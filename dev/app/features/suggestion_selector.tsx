@@ -7,7 +7,7 @@ import Context from '../context';
 
 const SuggestionSelectorContainer = styled.div`
     height: 400px;
-    width: 250px;
+    width: 300px;
     padding: 25px;
     border: 1px solid rgba(0, 0, 0, 0.75);
     margin: 5px;
@@ -38,6 +38,8 @@ const SuggestionSelector: React.FunctionComponent<IProps> = observer(
 
         const [suggestionFieldName, setSuggestionFieldName] = useState(defaultFieldName);
         const suggestion = creatorCRM.suggestions[suggestionType];
+        const multiselect = creatorCRM.filters.multiselect;
+
         const suggestionConfig =
             creatorCRM.suggestions[suggestionType].fieldConfigs[suggestionFieldName];
 
@@ -63,8 +65,10 @@ const SuggestionSelector: React.FunctionComponent<IProps> = observer(
                             onChange={({value}) => {
                                 if (value === 'Enabled ON') {
                                     suggestion.setEnabledToTrue(suggestionFieldName);
+                                    multiselect.setAggsEnabledToTrue(suggestionFieldName)
                                 } else {
                                     suggestion.setEnabledToFalse(suggestionFieldName);
+                                    multiselect.setAggsEnabledToFalse(suggestionFieldName)
                                 }
                             }}
                             value={suggestionConfig.enabled ? 'Enabled ON' : 'Enabled OFF'}

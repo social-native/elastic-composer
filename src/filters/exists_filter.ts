@@ -6,7 +6,9 @@ import {
     FilterKind,
     BaseFilterConfig,
     IBaseOptions,
-    ESMappingType
+    ESMappingType,
+    ExistsFieldFilter,
+    RawExistsAggs
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -32,18 +34,8 @@ export type IConfigs<Fields extends string> = {
 };
 
 /**
- * Filter
- */
-
-export type Filter = {
-    exists: boolean;
-};
-
-/**
  *  Results
  */
-export type RawExistsCountResult = {doc_count: number};
-
 export type ExistsCountResult = {
     exists: number;
     doesntExist: number;
@@ -56,7 +48,7 @@ export type CountResults<Fields extends string> = {
 // use with all fields b/c exists can check any field data value for existence
 export const shouldUseField = (_fieldName: string, _fieldType: ESMappingType) => true;
 
-class ExistsFilter<Fields extends string> extends BaseFilter<Fields, IConfig, Filter> {
+class ExistsFilter<Fields extends string> extends BaseFilter<Fields, IConfig, ExistsFieldFilter> {
     public filteredCount: CountResults<Fields>;
     public unfilteredCount: CountResults<Fields>;
 
@@ -194,7 +186,7 @@ class ExistsFilter<Fields extends string> extends BaseFilter<Fields, IConfig, Fi
 
             const kind = this.kindForField(fieldName);
             if (!kind) {
-                throw new Error(`kind is not set for exits filter type ${fieldName}`);
+                throw new Error(`kind is not set for exists filter type ${fieldName}`);
             }
 
             if (filter) {
@@ -260,7 +252,7 @@ class ExistsFilter<Fields extends string> extends BaseFilter<Fields, IConfig, Fi
                 if (config.getCount && response.aggregations) {
                     const fieldExists = response.aggregations[
                         `${name}__exists_doesnt_count`
-                    ] as RawExistsCountResult;
+                    ] as RawExistsAggs;
 
                     if (!fieldExists) {
                         return acc;
