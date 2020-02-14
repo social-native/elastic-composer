@@ -301,7 +301,7 @@ interface IClient<Source extends object = object> {
 At the moment there only exists an `AxiosESClient` client. This can be imported via a named import:
 
 ```ts
-import {AxiosESClient} from '@socil-native/snpkg-client-elasticsearch';
+import {AxiosESClient} from '@social-native/snpkg-client-elasticsearch';
 
 const axiosESClient = new AxiosESClient(endpoint);
 
