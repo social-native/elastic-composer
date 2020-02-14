@@ -4,6 +4,7 @@ import PrefixSuggestion, {RawPrefixSuggestionResult} from './suggestions/prefix_
 import {RangeFilter, BooleanFilter, BaseFilter, ExistsFilter} from './filters';
 import {FuzzySuggestion, BaseSuggestion} from './suggestions';
 import {RawExistsCountResult} from './filters/exists_filter';
+import { RawMultiSelectCountResult } from 'filters/multi_select_filter';
 /**
  * ***********************************
  * ES Request
@@ -37,6 +38,7 @@ export type ESRequest = {
  */
 
 export type AggregationResults =
+    | RawMultiSelectCountResult
     | RawExistsCountResult
     | RawRangeBoundResult
     | RawRangeDistributionResult

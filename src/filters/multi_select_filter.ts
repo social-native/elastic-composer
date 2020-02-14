@@ -1,4 +1,4 @@
-import {runInAction, decorate, observable} from 'mobx';
+import {runInAction, decorate, observable, set} from 'mobx';
 import {objKeys} from '../utils';
 import {
     ESRequest,
@@ -24,7 +24,7 @@ const CONFIG_DEFAULT = {
 export interface IConfig extends BaseFilterConfig {
     field: string;
     defaultFilterKind?: 'should' | 'must';
-    defaultFilterInclusion?: 'include' | 'exclude',
+    defaultFilterInclusion?: 'include' | 'exclude';
     getCount?: boolean;
     aggsEnabled?: boolean;
 }
@@ -37,17 +37,17 @@ export type IConfigs<Fields extends string> = {
  * Filter
  */
 
+type SubFilterValue = {inclusion: 'include' | 'exclude'; kind?: 'should' | 'must'};
+
 export type Filter = {
-    [selectedValue: string]: { inclusion: 'include' | 'exclude', kind?: 'should' | 'must' };
+    [selectedValue: string]: SubFilterValue;
 };
 
 /**
  *  Results
  */
-export type RawExistsCountResult = {
+export type RawMultiSelectCountResult = {
     buckets: Array<{
-        key: 0 | 1;
-        key_as_string: 'true' | 'false';
         doc_count: number;
     }>;
 };
@@ -64,11 +64,7 @@ export type CountResults<Fields extends string> = {
 export const shouldUseField = (_fieldName: string, fieldType: ESMappingType) =>
     fieldType === 'keyword' || fieldType === 'text';
 
-class MultiSelectFilter<Fields extends string> extends BaseFilter<
-    Fields,
-    IConfig,
-    Filter
-> {
+class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfig, Filter> {
     public filteredCount: CountResults<Fields>;
     public unfilteredCount: CountResults<Fields>;
 
@@ -86,6 +82,40 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
             this._shouldUseField = (options && options.shouldUseField) || shouldUseField;
             this.filteredCount = {} as CountResults<Fields>;
             this.unfilteredCount = {} as CountResults<Fields>;
+        });
+    }
+
+    /**
+     * Sets a sub filter for a field.
+     */
+    public addToFilter(field: Fields, subFilterName: string, subFilterValue: SubFilterValue): void {
+        runInAction(() => {
+            const subFilters = this.fieldFilters[field];
+            const newSubFilters = {
+                ...subFilters,
+                [subFilterName]: subFilterValue
+            };
+            set(this.fieldFilters, {
+                [field]: newSubFilters
+            });
+        });
+    }
+
+    /**
+     * Deletes a sub filter for a field.
+     */
+    public removeFromFilter(field: Fields, subFilterName: string): void {
+        runInAction(() => {
+            const subFilters = this.fieldFilters[field];
+            if (!subFilters) {
+                return;
+            }
+
+            delete subFilters[subFilterName];
+
+            set(this.fieldFilters, {
+                [field]: subFilters
+            });
         });
     }
 
@@ -212,9 +242,13 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
             if (filter) {
                 return objKeys(filter as Filter).reduce((newQuery, selectedValue) => {
                     const selectedValueFilter = filter[selectedValue];
-                    const newFilter = selectedValueFilter.inclusion === 'include' ? { match: { field: name }} : { must_not: { match: { field: name}}}
+                    const newFilter =
+                        selectedValueFilter.inclusion === 'include'
+                            ? {match: {[name]: selectedValue}}
+                            : {bool: {must_not: {match: {[name]: selectedValue}}}};
                     const kindForSelectedValue = selectedValueFilter.kind || kind;
-                    const existingFiltersForKind = acc.query.bool[kindForSelectedValue as FilterKind] || [];
+                    const existingFiltersForKind =
+                        acc.query.bool[kindForSelectedValue as FilterKind] || [];
                     return {
                         ...newQuery,
                         query: {
@@ -228,7 +262,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                             }
                         }
                     };
-                }, acc)
+                }, acc);
             } else {
                 return acc;
             }
@@ -246,14 +280,30 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
             if (!config || !config.aggsEnabled) {
                 return acc;
             }
+
+            const filter = this.fieldFilters[fieldName];
+            if (!filter) {
+                return acc;
+            }
+            const valuesToFilterOn = objKeys(filter as Filter);
+            const aggsToAdd = valuesToFilterOn.reduce((aggFilters, value) => {
+                return {
+                    ...aggFilters,
+                    [value]: {
+                        match: {
+                            [name]: value
+                        }
+                    }
+                };
+            }, {});
             if (config.getCount) {
                 return {
                     ...acc,
                     aggs: {
                         ...acc.aggs,
-                        [`${name}__exists_doesnt_count`]: {
-                            missing: {
-                                field: name,
+                        [`${name}__multiselect_count`]: {
+                            filters: {
+                                filters: aggsToAdd
                             }
                         }
                     }
@@ -271,32 +321,29 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
         const existingCount = isUnfilteredQuery ? this.unfilteredCount : this.filteredCount;
         const count = objKeys(this.fieldConfigs).reduce(
             // tslint:disable-next-line
-            (acc, booleanFieldName) => {
-                const config = this.fieldConfigs[booleanFieldName];
+            (acc, multiselectFieldName) => {
+                const config = this.fieldConfigs[multiselectFieldName];
                 const name = config.field;
                 if (config.getCount && response.aggregations) {
                     const allCounts = response.aggregations[
-                        `${name}__exists_doesnt_count`
-                    ] as RawExitsCountResult;
-                    if (allCounts && allCounts.buckets && allCounts.buckets.length > 0) {
-                        const trueBucket = allCounts.buckets.find(b => b.key === 1) || {
-                            doc_count: 0
-                        };
-                        const falseBucket = allCounts.buckets.find(b => b.key === 0) || {
-                            doc_count: 0
-                        };
+                        `${name}__multiselect_count`
+                    ] as RawMultiSelectCountResult;
+                    if (allCounts && allCounts.buckets) {
+                        const countedSelections = Object.keys(allCounts.buckets);
+                        const countsForSelections = countedSelections.reduce(
+                            (newState, selection) => {
+                                return {
+                                    ...newState,
+                                    [selection]: allCounts.buckets[selection as any]
+                                };
+                            },
+                            {}
+                        );
 
                         return {
                             ...acc,
-                            [booleanFieldName]: {
-                                true: trueBucket.doc_count,
-                                false: falseBucket.doc_count
-                            }
+                            [multiselectFieldName]: countsForSelections
                         };
-                    } else if (allCounts && allCounts.buckets && allCounts.buckets.length > 3) {
-                        throw new Error(
-                            `There shouldn't be more than 3 states for boolean fields. Check data for ${booleanFieldName}`
-                        );
                     } else {
                         return acc;
                     }

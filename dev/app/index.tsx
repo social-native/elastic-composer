@@ -36,9 +36,9 @@ export default () => (
         <ApiAccessToken />
         <CustomQuery />
         <HorizontalLayout>
-            {/* <SuggestionSelector suggestionType={'fuzzy'} defaultFieldName={'tags'}>
+            <SuggestionSelector suggestionType={'fuzzy'} defaultFieldName={'tags'}>
                 {fieldName => <Suggestion fieldName={fieldName} />}
-            </SuggestionSelector> */}
+            </SuggestionSelector>
             {/* <FilterSelector filterType={'range'} defaultFilterName={'instagram.total_posts'}>
                 {filterName => <RangeFilter filterName={filterName} maxRange={50} />}
             </FilterSelector> */}
