@@ -76,38 +76,49 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
             this.unfilteredCount = {} as CountResults<Fields>;
         });
 
-        reaction(() => {
-            const filteredCountFieldNames = objKeys(this.filteredCount);
+        reaction(
+            () => {
+                const filteredCountFieldNames = objKeys(this.filteredCount);
 
-            const fieldsMissingUnfilteredCounts = filteredCountFieldNames.reduce((acc, fieldName) => {
-                const filteredSubFieldNameValues = Object.keys(this.filteredCount[fieldName] || {})
-                const unfilteredSubFieldNameObj = this.unfilteredCount[fieldName] || {}
+                const fieldsMissingUnfilteredCounts = filteredCountFieldNames.reduce(
+                    (acc, fieldName) => {
+                        const filteredSubFieldNameValues = Object.keys(
+                            this.filteredCount[fieldName] || {}
+                        );
+                        const unfilteredSubFieldNameObj = this.unfilteredCount[fieldName] || {};
 
-                const fieldIsMissingUnfilteredCounts = filteredSubFieldNameValues.reduce((missingUnfilteredCounts, name) => {
-                    if (unfilteredSubFieldNameObj[name] === undefined) {
-                        return true
-                    } else {
-                        return missingUnfilteredCounts
-                    }
-                }, false)
+                        const fieldIsMissingUnfilteredCounts = filteredSubFieldNameValues.reduce(
+                            (missingUnfilteredCounts, name) => {
+                                if (unfilteredSubFieldNameObj[name] === undefined) {
+                                    return true;
+                                } else {
+                                    return missingUnfilteredCounts;
+                                }
+                            },
+                            false
+                        );
 
-                if (fieldIsMissingUnfilteredCounts) {
-                    return [...acc, fieldName]
-                } else {
-                    return acc
+                        if (fieldIsMissingUnfilteredCounts) {
+                            return [...acc, fieldName];
+                        } else {
+                            return acc;
+                        }
+                    },
+                    [] as string[]
+                );
+
+                return fieldsMissingUnfilteredCounts;
+            },
+            fieldsMissingUnfilteredCounts => {
+                if (fieldsMissingUnfilteredCounts && fieldsMissingUnfilteredCounts.length > 0) {
+                    fieldsMissingUnfilteredCounts.forEach(field => {
+                        this._shouldUpdateUnfilteredAggsSubscribers.forEach(s =>
+                            s(this.filterKind, field as Fields)
+                        );
+                    });
                 }
-
-            }, [] as string[])
-
-            return fieldsMissingUnfilteredCounts;
-
-        }, (fieldsMissingUnfilteredCounts) => {
-            if (fieldsMissingUnfilteredCounts && fieldsMissingUnfilteredCounts.length > 0) {
-                fieldsMissingUnfilteredCounts.forEach(field => {
-                    this._shouldUpdateUnfilteredAggsSubscribers.forEach(s => s(this.filterKind, field as Fields));
-                })
             }
-        }
+        );
     }
 
     /**
@@ -280,7 +291,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                         const existingFiltersForKind =
                             newQuery.query.bool[kindForSelectedValue as FilterKind] || [];
 
-                            return {
+                        return {
                             ...newQuery,
                             query: {
                                 ...newQuery.query,
@@ -309,7 +320,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                 return acc;
             }
             const config = this.fieldConfigs[fieldName];
-          
+
             const name = config.field;
             if (!config || !config.aggsEnabled) {
                 return acc;
