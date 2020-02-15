@@ -85,7 +85,7 @@ This package requires that you also install:
 ```typescript
 {
         "await-timeout": "^1.1.1",
-        "axios": "^0.19.1", <------- only used if using the AxiosESClient
+        "axios": "^0.19.1", <------- only needed if using the AxiosESClient
         "lodash.chunk": "^4.2.0",
         "mobx": "^5.14.2"
 }
