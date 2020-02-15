@@ -1,4 +1,4 @@
-import {runInAction, decorate, observable, set, toJS, reaction} from 'mobx';
+import {runInAction, decorate, observable, set, reaction} from 'mobx';
 import {objKeys} from '../utils';
 import {
     ESRequest,

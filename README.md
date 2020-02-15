@@ -368,7 +368,7 @@ By default, aggregation data is turned off for all filter. This data shows thing
 manager.filters.boolean.setAggsEnabledToTrue();
 ```
 
-> The idea with enabling and disabling aggregation data is that these aggregations only need to run when a filter is visible to the user in the UI. Thus, enabling and disabling should mirror filter visiblity in the UI.
+> The idea with enabling and disabling aggregation data is that these aggregations only need to run when a filter is visible to the user in the UI. Thus, enabling and disabling should mirror filter visibility in the UI.
 
 ### Disabling aggregation data for a filter
 
