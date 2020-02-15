@@ -93,23 +93,37 @@ This package requires that you also install:
 
 ## About
 
-This package aids in querying an Elasticsearch index. You define `filter`s for each field in the index that you want to query, and the specific filter API allows you to generate a valid query across many fields. Additionally, you can define `suggestions` for `text` and `keyword` fields to aid in suggesting possible `filters` to apply for that field.
+This package aids in querying an Elasticsearch index. 
+
+You either (A): define `filters` for each field in the index that you want to query or (B) use the package's introspection abilities to generate filters for all the fields in the index. Once filters have been defined, you can use a specific filter's API to do unique and compound filtering with field level granularity. 
+
+The manager will: (1) react to all filter changes, (2) generate a valid query using all active filters, (3) enqueue the query (debouncing, throttling, and batching aggregations in the queries), and then (4) continually process of the queue - submitting queries, one by one, to elasticsearch via specific clients that were provided to the manager. Furthermore, the manager stores the results of all queries and handles pagination among a result set.
+
+Additionally, similar to how filters work, you can define`suggestions` and use the specific API for each one to get search suggestions from elasticsearch. These results can be used to inform configuration for different `filters`.
 
 The currently available filters are:
 
--   `range`: Filter records by specifying a LT (<), LTE(<=), GT(>), GTE(>=) range
--   `boolean`: Filter records that have a value of either `true` or `false`
--   `exists`: Filter records that have any value for a field
--   `multiselect`: Filter records that have fields matching certain values (includes or excludes)
+-   `range`: Filter documents by fields that fit within a LT (<), LTE(<=), GT(>), GTE(>=) range
+-   `boolean`: Filter documents by fields that have a value of either `true` or `false`
+-   `exists`: Filter documents by fields that have any value existing for that field
+-   `multiselect`: Filter documents that have fields matching certain values (includes or excludes)
 
 The currently available suggestions are:
 
 -   `prefix`: Get suggestions for fields based on matches with the same prefix
 -   `fuzzy`: Get suggestions for fields based on [fuzzy matching](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-fuzzy-query.html)
 
-There also exists a `manager` object which is how you access each filter, get the results of a query, and paginate through the result set.
+All filters affect both the `query` and `aggs` part of an Elasticsearch request object. The `query` part is how the filter impacts which documents match the filters. The `aggs` part provides information about how successfull the filter is - showing things like histogram of range results, count of exists and not exists, etc... By default, the `aggs` part is disabled for every filter. You should use `setAggsEnabledToTrue` and `setAggsEnabledToFalse` to toggle `aggs` for a filter. The idea is to only run `aggs` queries when you want to show this data to the user.
 
-Extending and overriding the set of usable filters or suggestions is also possible. See [Extending Filters and Suggestions](#extending-filters-and-suggestions)
+Simillarily, `suggestions` are disabled by default. For the same reason above, suggestions shouldn't run unless you explicitly are showing suggestion data to a user. To toggle suggestion state use the methods `setEnabledToTrue` and `setEnabledToFalse`.
+
+The interplay between `suggestions` and `filters` is such:
+
+- `suggestions` don't affect filters, but they will react to every filter change
+- `filters` affect suggestions and don't react to suggestion changes
+
+
+Extending and overriding the set of usable filters or suggestions is both possible, and easy. See [Extending Filters and Suggestions](#extending-filters-and-suggestions) for a complete guide. The basic idea is that you extend a `base` filter or `base` suggestion and fill out methods that tell: (A) when the manager should react to changes, (B) how to mutate a Elasticsearch request object to add filter or suggestion specific `query` and `aggs`, (C) how to parse an Elasticsearch response object to extract `aggs`.
 
 ## Quick Examples
 
