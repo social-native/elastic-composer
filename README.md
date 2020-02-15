@@ -95,13 +95,13 @@ This package requires that you also install:
 
 This package aids in querying an Elasticsearch index. It is written in MobX, which makes it reactive. If you don't want to use MobX, you can convert any attribute ([see all attributes in the API](#api)) to an observable stream (RxJS, 😎) using the [mobx-utils tool](https://github.com/mobxjs/mobx-utils#tostream).
 
-You either: (A) define `filters` for each field in the index that you want to query or (B) use the package's introspection abilities to generate filters for all the fields in the index. Once filters have been defined, you can use a specific filter's API to do unique and compound filtering with field level granularity. 
+You either: (A) define `Filters` for each field in the index that you want to query or (B) use the package's introspection abilities to generate `Filters` for all the fields in the index. Once `Filters` have been defined, you can use a specific one's API to do unique and compound filtering with field level granularity. 
 
-The manager will: (1) react to all filter changes, (2) generate a valid query using all active filters, (3) enqueue the query (debouncing, throttling, and batching aggregations in the queries), and then (4) continually process of the queue - submitting queries, one by one, to elasticsearch via specific clients that were provided to the manager. Furthermore, the manager stores the results of all queries and handles pagination among a result set.
+The Manager will: (1) react to all `Filter` changes, (2) generate a valid query using all active `Filters`, (3) enqueue the query (debouncing, throttling, and batching aggregations in the queries), and then (4) continually process off the queue - submitting queries, one by one, to Elasticsearch via specific clients that were provided to the manager. Furthermore, the manager stores the results of all queries and handles pagination among a result set.
 
-Additionally, similar to how filters work, you can define`suggestions` and use the specific API for each one to get search suggestions from elasticsearch. These results can be used to inform configuration for different `filters`.
+Additionally, similar to how Filters work, you can define `Suggestions` and use the specific API for each one to get search suggestions from Elasticsearch. These results can be used to inform configuration for different `Filters`.
 
-The currently available filters are:
+The currently available Filters are:
 
 -   `range`: Filter documents by fields that fit within a LT (<), LTE(<=), GT(>), GTE(>=) range
 -   `boolean`: Filter documents by fields that have a value of either `true` or `false`
@@ -113,21 +113,21 @@ The currently available suggestions are:
 -   `prefix`: Get suggestions for fields based on matches with the same prefix
 -   `fuzzy`: Get suggestions for fields based on [fuzzy matching](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-fuzzy-query.html)
 
-All filters affect both the `query` and `aggs` part of an Elasticsearch request object. The `query` part is how the filter impacts which documents match the filters. The `aggs` part provides information about how successfull the filter is - showing things like histogram of range results, count of exists and not exists, etc... By default, the `aggs` part is disabled for every filter. You should use `setAggsEnabledToTrue` and `setAggsEnabledToFalse` to toggle `aggs` for a filter. The idea is to only run `aggs` queries when you want to show this data to the user.
+All Filters affect both the `query` and `aggs` part of an Elasticsearch request object. The `query` part is how the Filter impacts which documents match the filters. The `aggs` part provides information about how successfull the filter is - showing things like histogram of range results, count of exists and not exists, etc... By default, the `aggs` part is disabled for every Filter. You should use `setAggsEnabledToTrue` and `setAggsEnabledToFalse` to toggle `aggs` for a Filter. The idea is to only run `aggs` queries when you want to show this data to the user.
 
-Simillarily, `suggestions` are disabled by default. For the same reason above, suggestions shouldn't run unless you explicitly are showing suggestion data to a user. To toggle suggestion state use the methods `setEnabledToTrue` and `setEnabledToFalse`.
+Simillarily, `Suggestions` are disabled by default. For the same reason above, suggestions shouldn't run unless you explicitly are showing suggestion data to a user. To toggle Suggestion enabled state use the methods `setEnabledToTrue` and `setEnabledToFalse`.
 
-The interplay between `suggestions` and `filters` is such:
+The interplay between `Suggestions` and `Filters` is such:
 
-- `suggestions` don't affect filters, but they will react to every filter change
-- `filters` affect suggestions and don't react to suggestion changes
+- `Suggestions` don't affect Filters, but they will react to every Filter change
+- `Filters` affect Suggestions and don't react to Suggestion changes
 
 
-Extending and overriding the set of usable filters or suggestions is both possible, and easy. See [Extending Filters and Suggestions](#extending-filters-and-suggestions) for a complete guide. The basic idea is that you extend a `base` filter or `base` suggestion and fill out methods that tell: (A) when the manager should react to changes, (B) how to mutate a Elasticsearch request object to add filter or suggestion specific `query` and `aggs`, (C) how to parse an Elasticsearch response object to extract `aggs`.
+Extending and overriding the set of usable Filters or Suggestions is both possible, and easy. See [Extending Filters and Suggestions](#extending-filters-and-suggestions) for a complete guide. The basic idea is that you extend a `base` Filter or `base` Suggestion and fill out methods that tell: (A) when the manager should react to changes, (B) how to mutate a Elasticsearch request object to add Filter or Suggestion specific `query` and `aggs`, (C) how to parse an Elasticsearch response object to extract `aggs`.
 
 ## Quick Examples
 
-Various use cases are described below. Be sure to check out the API for the full range of attributes and methods available on the manager, filters, and suggestions.
+Various use cases are described below. Be sure to check out the API for the full range of attributes and methods available on the Manager, Filters, and Suggestions.
 
 ### Instantiate a manager
 
