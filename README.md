@@ -717,15 +717,15 @@ A filter selection has the type:
 | method           | description                              | type                                                                                                                                    |
 | ---------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | setFilter        | sets the filter for a field              | `(field: <name of multiselect field>, filter: {[selectionName]: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}}): void` |
-| addToFilter      | adds a single selection to a filter      | `addToFilter(field: <name of multiselect field>, selectionName: string, subFilterValue: MultiSelectSubFieldFilterValue): void`          |
+| addToFilter      | adds a single selection to a filter      | `addToFilter(field: <name of multiselect field>, selectionName: string, selectionFilter: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}): void`          |
 | removeFromFilter | removes a single selection from a filter | `removeFromFilter(field: <name of multiselect field>, selectionName: string): void`                                                     |
 
 #### Attributes
 
 | attribute       | description                                                                      | type                                                                                |
 | --------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| filteredCount   | the count of multiselect values of all filtered documents, keyed by field name   | `{ [<names of multiselect fields>]: { multiselect: number; doesntExist: number;} }` |
-| unfilteredCount | the count of multiselect values of all unfiltered documents, keyed by field name | `{ [<names of multiselect fields>]: { multiselect: number; doesntExist: number;} }` |
+| filteredCount   | the count of multiselect values of all filtered documents, keyed by field name   | `{ [<names of multiselect fields>]: { [<names of selectons>]: number } }` |
+| unfilteredCount | the count of multiselect values of all unfiltered documents, keyed by field name | `{ [<names of multiselect fields>]: { [<names of selectons>]: number } }` |
 
 ### Common Among All Suggestions
 
