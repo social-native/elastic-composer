@@ -93,9 +93,9 @@ This package requires that you also install:
 
 ## About
 
-This package aids in querying an Elasticsearch index. 
+This package aids in querying an Elasticsearch index. It is written in MobX, which makes it reactive. If you don't want to use MobX, you can convert any attribute ([see all attributes in the API](#api)) to an observable stream (RxJS, 😎) using the [mobx-utils tool](https://github.com/mobxjs/mobx-utils#tostream).
 
-You either (A): define `filters` for each field in the index that you want to query or (B) use the package's introspection abilities to generate filters for all the fields in the index. Once filters have been defined, you can use a specific filter's API to do unique and compound filtering with field level granularity. 
+You either: (A) define `filters` for each field in the index that you want to query or (B) use the package's introspection abilities to generate filters for all the fields in the index. Once filters have been defined, you can use a specific filter's API to do unique and compound filtering with field level granularity. 
 
 The manager will: (1) react to all filter changes, (2) generate a valid query using all active filters, (3) enqueue the query (debouncing, throttling, and batching aggregations in the queries), and then (4) continually process of the queue - submitting queries, one by one, to elasticsearch via specific clients that were provided to the manager. Furthermore, the manager stores the results of all queries and handles pagination among a result set.
 
