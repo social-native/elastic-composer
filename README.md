@@ -20,10 +20,13 @@
     - [Clearing a filter](#clearing-a-filter)
     - [Setting a prefix suggestion](#setting-a-prefix-suggestion)
     - [Setting a fuzzy suggestion](#setting-a-fuzzy-suggestion)
+    - [Access suggestion results](#access-suggestion-results)
     - [Access the results of a query](#access-the-results-of-a-query)
     - [Paginating through the results set](#paginating-through-the-results-set)
     - [Enabling aggregation data for a filter](#enabling-aggregation-data-for-a-filter)
     - [Disabling aggregation data for a filter](#disabling-aggregation-data-for-a-filter)
+    - [Enabling suggestions](#enabling-suggestions)
+    - [Disabling suggestions](#disabling-suggestions)
     - [Setting filter 'should' or 'must' kind](#setting-filter-should-or-must-kind)
   - [API](#api)
     - [Manager](#manager)
@@ -67,6 +70,7 @@
   - [Verbose Examples](#verbose-examples)
     - [Usage with React](#usage-with-react)
   - [Extending Filters and Suggestions](#extending-filters-and-suggestions)
+
 
 ## Install
 
@@ -276,7 +280,10 @@ manager.filters.multiselect.setFilter('tags', {
 To set one selection at a time, you would do:
 
 ```typescript
-manager.filters.multiselect.addToFilter('tags', 'has_green_hair', {inclusion: 'exclude', kind: 'must'});
+manager.filters.multiselect.addToFilter('tags', 'has_green_hair', {
+    inclusion: 'exclude',
+    kind: 'must'
+});
 ```
 
 ### Clearing a single selection from a multi-select filter
@@ -296,13 +303,23 @@ manager.filters.boolean.clearFilter('isActive');
 ### Setting a prefix suggestion
 
 ```typescript
-manager.suggestions.prefix.setSearch('tags', 'blu'});
+manager.suggestions.prefix.setSearch('tags', 'blu');
 ```
 
 ### Setting a fuzzy suggestion
 
 ```typescript
-manager.suggestions.fuzzy.setSearch('tags', 'ca'});
+manager.suggestions.fuzzy.setSearch('tags', 'ca');
+```
+
+### Access suggestion results
+
+All suggestions have the same interface (currently). For both `prefix` and `fuzzy` would get the suggestions for a search like:
+
+```typescript
+manager.suggestions.fuzzy.fieldSuggestions['tags'];
+
+// => [{ suggestion: 'car', count: 120}, { suggestion: 'can', count: 9 }]
 ```
 
 ### Access the results of a query
@@ -357,6 +374,20 @@ manager.filters.boolean.setAggsEnabledToTrue();
 
 ```typescript
 manager.filters.boolean.setAggsEnabledToFalse();
+```
+
+### Enabling suggestions
+
+Similar to `filters`, suggestions are disabled by default because they rely on elasticsearch aggregations to run, and there is no point in collecting the data unless the user cares about it.
+
+```typescript
+manager.filters.fuzzy.setEnabledToTrue('tags');
+```
+
+### Disabling suggestions
+
+```typescript
+manager.filters.fuzzy.setEnabledToFalse('tags');
 ```
 
 ### Setting filter 'should' or 'must' kind
@@ -536,7 +567,7 @@ type BooleanConfig = {
 
 | attribute       | description                                                                  | type                                                               |
 | --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| filteredCount   | the count of boolean values of all filtered documents, keyed by field name | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
+| filteredCount   | the count of boolean values of all filtered documents, keyed by field name   | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
 | unfilteredCount | the count of boolean values of all unfiltered documents, keyed by field name | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
 
 ### Range Specific
@@ -632,9 +663,9 @@ type ExistsConfig = {
 
 #### Attributes
 
-| attribute       | description                                                                  | type                                                               |
-| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| filteredCount   | the count of exists values of all filtered documents, keyed by field name | `{ [<names of exists fields>]: { exists: number; doesntExist: number;} }` |
+| attribute       | description                                                                 | type                                                                      |
+| --------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| filteredCount   | the count of exists values of all filtered documents, keyed by field name   | `{ [<names of exists fields>]: { exists: number; doesntExist: number;} }` |
 | unfilteredCount | the count of exists values of all unfiltered documents, keyed by field name | `{ [<names of exists fields>]: { exists: number; doesntExist: number;} }` |
 
 ### Multi-Select Specific
@@ -683,19 +714,18 @@ A filter selection has the type:
 }
 ```
 
-| method    | description                 | type                                                                     |
-| --------- | --------------------------- | ------------------------------------------------------------------------ |
-| setFilter | sets the filter for a field | `(field: <name of multiselect field>, filter: {[selectionName]: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}}): void` |
-| addToFilter | adds a single selection to a filter | `addToFilter(field: <name of multiselect field>, selectionName: string, subFilterValue: MultiSelectSubFieldFilterValue): void` |
-| removeFromFilter | removes a single selection from a filter | `removeFromFilter(field: <name of multiselect field>, selectionName: string): void` |
+| method           | description                              | type                                                                                                                                    |
+| ---------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| setFilter        | sets the filter for a field              | `(field: <name of multiselect field>, filter: {[selectionName]: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}}): void` |
+| addToFilter      | adds a single selection to a filter      | `addToFilter(field: <name of multiselect field>, selectionName: string, subFilterValue: MultiSelectSubFieldFilterValue): void`          |
+| removeFromFilter | removes a single selection from a filter | `removeFromFilter(field: <name of multiselect field>, selectionName: string): void`                                                     |
 
 #### Attributes
 
-| attribute       | description                                                                  | type                                                               |
-| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| filteredCount   | the count of multiselect values of all filtered documents, keyed by field name | `{ [<names of multiselect fields>]: { multiselect: number; doesntExist: number;} }` |
+| attribute       | description                                                                      | type                                                                                |
+| --------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| filteredCount   | the count of multiselect values of all filtered documents, keyed by field name   | `{ [<names of multiselect fields>]: { multiselect: number; doesntExist: number;} }` |
 | unfilteredCount | the count of multiselect values of all unfiltered documents, keyed by field name | `{ [<names of multiselect fields>]: { multiselect: number; doesntExist: number;} }` |
-
 
 ### Common Among All Suggestions
 
