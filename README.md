@@ -97,7 +97,7 @@ This package aids in querying an Elasticsearch index. It is written in MobX, whi
 
 You either: (A) define `Filters` for each field in the index that you want to query or (B) use the package's introspection abilities to generate `Filters` for all the fields in the index. Once `Filters` have been defined, you can use a specific one's API to do unique and compound filtering with field level granularity. 
 
-The Manager will: (1) react to all `Filter` changes, (2) generate a valid query using all active `Filters`, (3) enqueue the query (debouncing, throttling, and batching aggregations in the queries), and then (4) continually process off the queue - submitting queries, one by one, to Elasticsearch via specific clients that were provided to the manager. Furthermore, the manager stores the results of all queries and handles pagination among a result set.
+Once a filter for a field is set (`setFieldFilter(<fieldName>, <filterObj>`), the Manager will: (1) react to the `Filter` change, (2) generate a valid Elasticsearch query using all active `Filters`, (3) enqueue the query (debouncing, throttling, and batching aggregations in the queries), and then (4) continually process off the queue - submitting queries, one by one, to Elasticsearch via specific clients that were provided to the manager. Furthermore, the manager stores the results of the most recent query (`manager.results`) and handles pagination among a result set (`manager.nextPage` & `manager.prevPage`).
 
 Additionally, similar to how Filters work, you can define `Suggestions` and use the specific API for each one to get search suggestions from Elasticsearch. These results can be used to inform configuration for different `Filters`.
 
@@ -511,6 +511,7 @@ const options = {suggestions: {fuzzy: fuzzyFilterInstance}};
 | queryThrottleInMS       | the throttle time for queries                                                                                                                 | The default is 1000 ms. This can be changed by setting manager options during init. |
 | filters                 | the filter instances that the manager controls                                                                                                |
 | indexFieldNamesAndTypes | A list of fields that can be filtered over and the filter name that this field uses. This is populated by the method `getFieldNamesAndTypes`. |
+| results | the results of the most recent query | The `results` type is Array<ESHit>. See [the `results` quick example doc for the type](https://github.com/social-native/snpkg-client-elasticsearch#access-the-results-of-a-query) |
 
 ### Common Among All Filters
 
