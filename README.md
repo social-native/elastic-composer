@@ -93,13 +93,23 @@ This package requires that you also install:
 
 ## About
 
-This package aids in querying an Elasticsearch index. It is written in MobX, which makes it reactive. If you don't want to use MobX, you can convert any attribute ([see all attributes in the API](#api)) to an observable stream (RxJS, 😎) using the [mobx-utils tool](https://github.com/mobxjs/mobx-utils#tostream).
+This library is a high level aid in querying an Elasticsearch index and building applications ontop of indexes. It is designed to bind directly to the view layer (React, Vue, Vanilla, etc..) of your app, and it handles the vast majority of associated business logic internally.
+
+This library is written in MobX, which makes it reactive. If you don't want to use MobX, you can convert any attribute ([see all attributes in the API](#api)) to an observable stream (RxJS, 😎) using the [mobx-utils tool](https://github.com/mobxjs/mobx-utils#tostream).
+
+### Paradigm
+
+**TL;DR**: You describe how you want to filer each field via a `Filter API` customized to your index and the manager handles querying, state, and pagination.
+
+The general paradigm is as follows:
 
 You either: (A) define `Filters` for each field in the index that you want to query or (B) use the package's introspection abilities to generate `Filters` for all the fields in the index. Once `Filters` have been defined, you can use a specific one's API to do unique and compound filtering with field level granularity. 
 
 Once a filter for a field is set (`setFieldFilter(<fieldName>, <filterObj>`), the Manager will: (1) react to the `Filter` change, (2) generate a valid Elasticsearch query using all active `Filters`, (3) enqueue the query (debouncing, throttling, and batching aggregations in the queries), and then (4) continually process off the queue - submitting queries, one by one, to Elasticsearch via specific clients that were provided to the manager. Furthermore, the manager stores the results of the most recent query (`manager.results`) and handles pagination among a result set (`manager.nextPage` & `manager.prevPage`).
 
 Additionally, similar to how Filters work, you can define `Suggestions` and use the specific API for each one to get search suggestions from Elasticsearch. These results can be used to inform configuration for different `Filters`.
+
+### Available filters and suggestions
 
 The currently available Filters are:
 
@@ -113,15 +123,20 @@ The currently available suggestions are:
 -   `prefix`: Get suggestions for fields based on matches with the same prefix
 -   `fuzzy`: Get suggestions for fields based on [fuzzy matching](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-fuzzy-query.html)
 
+### Enabling filters and suggestions
+
 All Filters affect both the `query` and `aggs` part of an Elasticsearch request object. The `query` part is how the Filter impacts which documents match the filters. The `aggs` part provides information about how successfull the filter is - showing things like histogram of range results, count of exists and not exists, etc... By default, the `aggs` part is disabled for every Filter. You should use `setAggsEnabledToTrue` and `setAggsEnabledToFalse` to toggle `aggs` for a Filter. The idea is to only run `aggs` queries when you want to show this data to the user.
 
 Simillarily, `Suggestions` are disabled by default. For the same reason above, suggestions shouldn't run unless you explicitly are showing suggestion data to a user. To toggle Suggestion enabled state use the methods `setEnabledToTrue` and `setEnabledToFalse`.
+
+### How filters and suggestions affect one another
 
 The interplay between `Suggestions` and `Filters` is such:
 
 - `Suggestions` don't affect Filters, but they will react to every Filter change
 - `Filters` affect Suggestions and don't react to Suggestion changes
 
+### Extending and customizing filters
 
 Extending and overriding the set of usable Filters or Suggestions is both possible, and easy. See [Extending Filters and Suggestions](#extending-filters-and-suggestions) for a complete guide. The basic idea is that you extend a `base` Filter or `base` Suggestion and fill out methods that tell: (A) when the manager should react to changes, (B) how to mutate a Elasticsearch request object to add Filter or Suggestion specific `query` and `aggs`, (C) how to parse an Elasticsearch response object to extract `aggs`.
 
