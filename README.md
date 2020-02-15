@@ -14,10 +14,17 @@
     - [Run a custom elastic search query using the current filters](#run-a-custom-elastic-search-query-using-the-current-filters)
     - [Setting a range filter](#setting-a-range-filter)
     - [Setting a boolean filter](#setting-a-boolean-filter)
+    - [Setting a exists filter](#setting-a-exists-filter)
+    - [Setting a multi-select filter](#setting-a-multi-select-filter)
+    - [Clearing a single selection from a multi-select filter](#clearing-a-single-selection-from-a-multi-select-filter)
+    - [Clearing a filter](#clearing-a-filter)
     - [Setting a prefix suggestion](#setting-a-prefix-suggestion)
     - [Setting a fuzzy suggestion](#setting-a-fuzzy-suggestion)
     - [Access the results of a query](#access-the-results-of-a-query)
     - [Paginating through the results set](#paginating-through-the-results-set)
+    - [Enabling aggregation data for a filter](#enabling-aggregation-data-for-a-filter)
+    - [Disabling aggregation data for a filter](#disabling-aggregation-data-for-a-filter)
+    - [Setting filter 'should' or 'must' kind](#setting-filter-should-or-must-kind)
   - [API](#api)
     - [Manager](#manager)
       - [Initialization](#initialization)
@@ -41,10 +48,22 @@
         - [specificConfig](#specificconfig-1)
       - [Methods](#methods-3)
       - [Attributes](#attributes-3)
-    - [Common Among All Suggestions](#common-among-all-suggestions)
+    - [Exists Specific](#exists-specific)
       - [Initialization](#initialization-4)
+        - [defaultConfig](#defaultconfig-2)
+        - [specificConfig](#specificconfig-2)
       - [Methods](#methods-4)
       - [Attributes](#attributes-4)
+    - [Multi-Select Specific](#multi-select-specific)
+      - [Initialization](#initialization-5)
+        - [defaultConfig](#defaultconfig-3)
+        - [specificConfig](#specificconfig-3)
+      - [Methods](#methods-5)
+      - [Attributes](#attributes-5)
+    - [Common Among All Suggestions](#common-among-all-suggestions)
+      - [Initialization](#initialization-6)
+      - [Methods](#methods-6)
+      - [Attributes](#attributes-6)
   - [Verbose Examples](#verbose-examples)
     - [Usage with React](#usage-with-react)
   - [Extending Filters and Suggestions](#extending-filters-and-suggestions)
@@ -76,6 +95,8 @@ The currently available filters are:
 
 -   `range`: Filter records by specifying a LT (<), LTE(<=), GT(>), GTE(>=) range
 -   `boolean`: Filter records that have a value of either `true` or `false`
+-   `exists`: Filter records that have any value for a field
+-   `multiselect`: Filter records that have fields matching certain values (includes or excludes)
 
 The currently available suggestions are:
 
@@ -156,7 +177,7 @@ import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch'
 const client = new AxiosESClient('my_url/my_index');
 const newCustomFilter = new MyCustomFilter();
 
-const manager = new Manager<{filters: { myNewFilterName: MyCustomFilter }}>(client, {
+const manager = new Manager(client, {
     pageSize: 100,
     queryThrottleInMS: 350,
     fieldBlackList: ['id'],
@@ -173,7 +194,7 @@ import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch'
 const client = new AxiosESClient('my_url/my_index');
 const newCustomSuggestion = new MyCustomSuggestion();
 
-const manager = new Manager<{suggestions: { myNewSuggestionName: MyCustomSuggestion } }>(client, {
+const manager = new Manager(client, {
     pageSize: 100,
     queryThrottleInMS: 350,
     fieldBlackList: ['id'],
@@ -228,6 +249,50 @@ manager.filters.range.setFilter('age', {greaterThanEqual: 20, lessThan: 40});
 manager.filters.boolean.setFilter('isActive', {state: true});
 ```
 
+### Setting a exists filter
+
+For example, this will filter all documents so only the ones with a `facebook.id` are shown
+
+```typescript
+manager.filters.boolean.setFilter('facebook.id', {exists: true});
+```
+
+### Setting a multi-select filter
+
+A multi select filter can be set in two ways: (1) all selections at once, or (2) one selection at a time.
+
+To set all selections at once, you would do something like:
+
+```typescript
+manager.filters.multiselect.setFilter('tags', {
+    is_good_user: {inclusion: 'include'},
+    has_green_hair: {inclusion: 'exclude', kind: 'must'},
+    likes_ham: {inclusion: 'include', kind: 'should'}
+});
+```
+
+> Notice how `kind` is optional. If its not specified, it will default to whatever `defaultFilterKind` is set to for the filter (aka `manager.filter.multiselect.fieldConfigs['tags].defaultFilterKind`)
+
+To set one selection at a time, you would do:
+
+```typescript
+manager.filters.multiselect.addToFilter('tags', 'has_green_hair', {inclusion: 'exclude', kind: 'must'});
+```
+
+### Clearing a single selection from a multi-select filter
+
+```typescript
+manager.filters.multiselect.removeFromFilter('tags', 'has_green_hair');
+```
+
+### Clearing a filter
+
+For example, to clear the `isActive` field on a boolean filter, we would do:
+
+```typescript
+manager.filters.boolean.clearFilter('isActive');
+```
+
 ### Setting a prefix suggestion
 
 ```typescript
@@ -276,6 +341,34 @@ manager.prevPage();
 manager.currentPage; // number
 // # => 0 when no results exist
 // # => 1 for the first page of results
+```
+
+### Enabling aggregation data for a filter
+
+By default, aggregation data is turned off for all filter. This data shows things like count of exists field, histogram of range data, etc..
+
+```typescript
+manager.filters.boolean.setAggsEnabledToTrue();
+```
+
+> The idea with enabling and disabling aggregation data is that these aggregations only need to run when a filter is visible to the user in the UI. Thus, enabling and disabling should mirror filter visiblity in the UI.
+
+### Disabling aggregation data for a filter
+
+```typescript
+manager.filters.boolean.setAggsEnabledToFalse();
+```
+
+### Setting filter 'should' or 'must' kind
+
+All filters can be use in `should` or `must` mode. By default, all filters are `should` filters unless explicitly changed to `must` filters. [Read this for more info on the difference between should and must](https://stackoverflow.com/questions/28768277/elasticsearch-difference-between-must-and-should-bool-query)
+
+```typescript
+manager.filters.boolean.setKind('facebook.id', 'must');
+
+// or to go back to should:
+
+manager.filters.boolean.setKind('facebook.id', 'should');
 ```
 
 ## API
@@ -328,39 +421,38 @@ type ManagerOptions = {
 -   `queryThrottleInMS`: the amount of time to wait before executing an Elasticsearch query. The default time is 1000.
 -   `fieldWhiteList`: A list of elasticsearch fields that you only want to allow filtering on. This can't be used with `fieldBlackList`. Only white list fields will be returned in an elasticsearch query response.
 -   `fieldBlackList`: A list of elasticsearch fields that you don't want to allow filtering on. This can't be used with `fieldWhiteList`. Black list fields will be excluded from an elasticsearch query response.
--  `middleware`: An array of custom middleware to run during elasticsearch request object construction. See below for the type.
-- `filters`: An object of filter instances. Default filters will be instantiate if none are specified in this options field. This options field however can be used to override existing filters or specify a custom one.
-- `suggestions`: An object of suggestion instances. Default suggestions will be instantiated if none are specified in this options field. This options field however can be used to override existing suggestions or specify a custom one.
+-   `middleware`: An array of custom middleware to run during elasticsearch request object construction. See below for the type.
+-   `filters`: An object of filter instances. Default filters will be instantiate if none are specified in this options field. This options field however can be used to override existing filters or specify a custom one.
+-   `suggestions`: An object of suggestion instances. Default suggestions will be instantiated if none are specified in this options field. This options field however can be used to override existing suggestions or specify a custom one.
 
 The middleware function type signature is:
 
 ```typescript
-Middleware = (
-    effectRequest: EffectRequest<EffectKinds>,
-    request: ESRequest
-) => ESRequest;
+Middleware = (effectRequest: EffectRequest<EffectKinds>, request: ESRequest) => ESRequest;
 ```
 
 Example of overriding the range filter:
+
 ```ts
 const options = {filters: {range: rangeFilterInstance}};
 ```
 
 Example of overriding the fuzzy suggestion:
+
 ```ts
 const options = {suggestions: {fuzzy: fuzzyFilterInstance}};
 ```
 
 #### Methods
 
-| method                | description                                                                                                                             | type       |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| nextPage              | paginates forward                                                                                                                       | `(): void` |
-| prevPage              | paginates backward                                                                                                                      | `(): void` |
-| getFieldNamesAndTypes | runs an introspection query on the index mapping and generates an object of elasticsearch fields and the filter type they correspond to | `async (): void` |
-| runStartQuery         | runs the initial elasticsearch query that fetches unfiltered data                                                                       | `(): void` |
-| runCustomFilterQuery | runs a custom query using the existing applied filters outside the side effect queue flow. white lists and black lists control which data is returned in the elasticsearch response source object | `async (options?: {fieldBlackList?: string[], fieldWhiteList?: string[], pageSize?: number }): Promise<ESResponse>` |
-| setMiddleware | adds middleware to run during construction of the elasticsearch query request object | `(middlewares: Middleware): void`. Middleware has the type `(effectRequest: EffectRequest<EffectKinds>, request: ESRequest) => ESRequest` |
+| method                | description                                                                                                                                                                                       | type                                                                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| nextPage              | paginates forward                                                                                                                                                                                 | `(): void`                                                                                                                                |
+| prevPage              | paginates backward                                                                                                                                                                                | `(): void`                                                                                                                                |
+| getFieldNamesAndTypes | runs an introspection query on the index mapping and generates an object of elasticsearch fields and the filter type they correspond to                                                           | `async (): void`                                                                                                                          |
+| runStartQuery         | runs the initial elasticsearch query that fetches unfiltered data                                                                                                                                 | `(): void`                                                                                                                                |
+| runCustomFilterQuery  | runs a custom query using the existing applied filters outside the side effect queue flow. white lists and black lists control which data is returned in the elasticsearch response source object | `async (options?: {fieldBlackList?: string[], fieldWhiteList?: string[], pageSize?: number }): Promise<ESResponse>`                       |
+| setMiddleware         | adds middleware to run during construction of the elasticsearch query request object                                                                                                              | `(middlewares: Middleware): void`. Middleware has the type `(effectRequest: EffectRequest<EffectKinds>, request: ESRequest) => ESRequest` |
 
 #### Attributes
 
@@ -385,13 +477,13 @@ All filter constructors have the signature `(defaultConfig, specificConfig) => F
 
 #### Methods
 
-| method      | description                   | type                                                                             |
-| ----------- | ----------------------------- | -------------------------------------------------------------------------------- |
-| setFilter   | sets the filter for a field   | `(field: <name of field>, filter: <filter specific to filter class type>): void` |
-| clearFilter | clears the filter for a field | `(field: <name of field>): void`                                                 |
-| setKind     | sets the kind for a field     | `(field: <name of field>, kind: should or must): void`                           |
-| setAggsEnabledToTrue | enables fetching of aggs for this filter field | `(field: <name of field>): void` |
-| setAggsEnabledToFalse | disables fetching of aggs for this filter field | `(field: <name of field>): void` |
+| method                | description                                     | type                                                                             |
+| --------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------- |
+| setFilter             | sets the filter for a field                     | `(field: <name of field>, filter: <filter specific to filter class type>): void` |
+| clearFilter           | clears the filter for a field                   | `(field: <name of field>): void`                                                 |
+| setKind               | sets the kind for a field                       | `(field: <name of field>, kind: should or must): void`                           |
+| setAggsEnabledToTrue  | enables fetching of aggs for this filter field  | `(field: <name of field>): void`                                                 |
+| setAggsEnabledToFalse | disables fetching of aggs for this filter field | `(field: <name of field>): void`                                                 |
 
 #### Attributes
 
@@ -405,7 +497,7 @@ All filter constructors have the signature `(defaultConfig, specificConfig) => F
 
 #### Initialization
 
-The boolean constructor has the signature `(defaultConfig, specificConfig) => RangeInstance`
+The boolean constructor has the signature `(defaultConfig, specificConfig) => BooleanFilterInstance`
 
 ##### defaultConfig
 
@@ -436,22 +528,22 @@ type BooleanConfig = {
 
 #### Methods
 
-| method    | description                 | type                                                                    |
-| --------- | --------------------------- | ----------------------------------------------------------------------- |
+| method    | description                 | type                                                                     |
+| --------- | --------------------------- | ------------------------------------------------------------------------ |
 | setFilter | sets the filter for a field | `(field: <name of boolean field>, filter: {state: true or false}): void` |
 
 #### Attributes
 
 | attribute       | description                                                                  | type                                                               |
 | --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| filteredCount   | the count of boolean values of all unfiltered documents, keyed by field name | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
+| filteredCount   | the count of boolean values of all filtered documents, keyed by field name | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
 | unfilteredCount | the count of boolean values of all unfiltered documents, keyed by field name | `{ [<names of boolean fields>]: { true: number; false: number;} }` |
 
 ### Range Specific
 
 #### Initialization
 
-The range constructor has the signature `(defaultConfig, specificConfig) => RangeInstance`
+The range constructor has the signature `(defaultConfig, specificConfig) => RangeFilterInstance`
 
 ##### defaultConfig
 
@@ -499,6 +591,112 @@ type RangeConfig = {
 | filteredDistribution   | the distribution of all filtered ranges, keyed by field name           | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}`                                                                 |
 | unfilteredDistribution | the distribution of all filtered ranges, keyed by field name           | `{[<names of range fields>]: Array<{ key: number; doc_count: number; }>}`                                                                 |
 
+### Exists Specific
+
+#### Initialization
+
+The exists constructor has the signature `(defaultConfig, specificConfig) => ExistsFilterInstance`
+
+##### defaultConfig
+
+The configuration that each field will acquire if an override is not specifically set in `specificConfig`
+
+```typescript
+type DefaultConfig = {
+    defaultFilterKind: 'should' or 'must';
+    getCount: boolean;
+    aggsEnabled: boolean;
+};
+```
+
+##### specificConfig
+
+The explicit configuration set on a per field level. If a config isn't specified or only partially specified for a field, the defaultConfig will be used to fill in the gaps.
+
+```typescript
+type SpecificConfig = Record<string, ExistsConfig>;
+
+type ExistsConfig = {
+    field: string;
+    defaultFilterKind?: 'should' or 'must';
+    getCount?: boolean;
+    aggsEnabled?: boolean;
+};
+```
+
+#### Methods
+
+| method    | description                 | type                                                                     |
+| --------- | --------------------------- | ------------------------------------------------------------------------ |
+| setFilter | sets the filter for a field | `(field: <name of exists field>, filter: {exists: true or false}): void` |
+
+#### Attributes
+
+| attribute       | description                                                                  | type                                                               |
+| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| filteredCount   | the count of exists values of all filtered documents, keyed by field name | `{ [<names of exists fields>]: { exists: number; doesntExist: number;} }` |
+| unfilteredCount | the count of exists values of all unfiltered documents, keyed by field name | `{ [<names of exists fields>]: { exists: number; doesntExist: number;} }` |
+
+### Multi-Select Specific
+
+#### Initialization
+
+The multiselect constructor has the signature `(defaultConfig, specificConfig) => MultiSelectFilterInstance`
+
+##### defaultConfig
+
+The configuration that each field will acquire if an override is not specifically set in `specificConfig`
+
+```typescript
+type DefaultConfig = {
+    defaultFilterKind: 'should' or 'must';
+    defaultFilterInclusion?: 'include' | 'exclude';
+    getCount: boolean;
+    aggsEnabled: boolean;
+};
+```
+
+##### specificConfig
+
+The explicit configuration set on a per field level. If a config isn't specified or only partially specified for a field, the defaultConfig will be used to fill in the gaps.
+
+```typescript
+type SpecificConfig = Record<string, MultiSelectConfig>;
+
+type MultiSelectConfig = {
+    field: string;
+    defaultFilterKind?: 'should' or 'must';
+    defaultFilterInclusion?: 'include' | 'exclude';
+    getCount?: boolean;
+    aggsEnabled?: boolean;
+};
+```
+
+#### Methods
+
+A filter selection has the type:
+
+```typescript
+{
+  inclusion: 'include' | 'exclude';
+  kind?: 'should' | 'must';
+}
+```
+
+| method    | description                 | type                                                                     |
+| --------- | --------------------------- | ------------------------------------------------------------------------ |
+| setFilter | sets the filter for a field | `(field: <name of multiselect field>, filter: {[selectionName]: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}}): void` |
+| addToFilter | adds a single selection to a filter | `addToFilter(field: <name of multiselect field>, selectionName: string, subFilterValue: MultiSelectSubFieldFilterValue): void` |
+| removeFromFilter | removes a single selection from a filter | `removeFromFilter(field: <name of multiselect field>, selectionName: string): void` |
+
+#### Attributes
+
+| attribute       | description                                                                  | type                                                               |
+| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| filteredCount   | the count of multiselect values of all filtered documents, keyed by field name | `{ [<names of multiselect fields>]: { multiselect: number; doesntExist: number;} }` |
+| unfilteredCount | the count of multiselect values of all unfiltered documents, keyed by field name | `{ [<names of multiselect fields>]: { multiselect: number; doesntExist: number;} }` |
+
+
 ### Common Among All Suggestions
 
 The suggestions that ship with this package all have the same public interface (for the moment). Thus, you can rely on this section for API documentation on each suggestion type.
@@ -511,22 +709,22 @@ All filter constructors have the signature `(defaultConfig, specificConfig) => S
 
 #### Methods
 
-| method      | description                   | type                                                                             |
-| ----------- | ----------------------------- | -------------------------------------------------------------------------------- |
-| setSearch   | sets the search term for a field to get suggestions for | `(field: <name of field>, searchTerm: string): void` |
-| clearSearch | clears the search for a field | `(field: <name of field>): void`                                                 |
-| setKind     | sets the kind for a field     | `(field: <name of field>, kind: should or must): void`                           |
-| setEnabledToTrue | enables fetching of suggestions for this suggestion field | `(field: <name of field>): void` |
-| setEnabledToFalse | disables fetching of suggestions for this suggestion field | `(field: <name of field>): void` |
+| method            | description                                                | type                                                   |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
+| setSearch         | sets the search term for a field to get suggestions for    | `(field: <name of field>, searchTerm: string): void`   |
+| clearSearch       | clears the search for a field                              | `(field: <name of field>): void`                       |
+| setKind           | sets the kind for a field                                  | `(field: <name of field>, kind: should or must): void` |
+| setEnabledToTrue  | enables fetching of suggestions for this suggestion field  | `(field: <name of field>): void`                       |
+| setEnabledToFalse | disables fetching of suggestions for this suggestion field | `(field: <name of field>): void`                       |
 
 #### Attributes
 
-| attribute    | description                                                  | type                                                              |
-| ------------ | ------------------------------------------------------------ | ----------------------------------------------------------------- |
-| fieldConfigs | the config for a field, keyed by field name                  | `{ [<names of fields>]: <config specific to filter class type> }` |
-| fieldSuggestions | the suggestions for a field, keyed by field name                 | `{ [<names of fields>]: Array<{suggestion: string; count: number}> }`                                 |
-| fieldSearches | the searches for a field, keyed by field name | `{ [<names of fields>]: string }` |
-| fieldKinds   | the kind (`should or must`) for a field, keyed by field name | `{ [<names of fields>]: 'should' or 'must' }`                     |
+| attribute        | description                                                  | type                                                                  |
+| ---------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| fieldConfigs     | the config for a field, keyed by field name                  | `{ [<names of fields>]: <config specific to filter class type> }`     |
+| fieldSuggestions | the suggestions for a field, keyed by field name             | `{ [<names of fields>]: Array<{suggestion: string; count: number}> }` |
+| fieldSearches    | the searches for a field, keyed by field name                | `{ [<names of fields>]: string }`                                     |
+| fieldKinds       | the kind (`should or must`) for a field, keyed by field name | `{ [<names of fields>]: 'should' or 'must' }`                         |
 
 ## Verbose Examples
 
