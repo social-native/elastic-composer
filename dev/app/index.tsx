@@ -10,7 +10,9 @@ import {
     BooleanFilter,
     CustomQuery,
     SuggestionSelector,
-    Suggestion
+    Suggestion,
+    ExistsFilter,
+    MultiSelectFilter
 } from './features';
 
 const Main = styled.div`
@@ -36,10 +38,23 @@ export default () => (
         <CustomQuery />
         <HorizontalLayout>
             <SuggestionSelector suggestionType={'fuzzy'} defaultFieldName={'tags'}>
-                {fieldName => <Suggestion fieldName={fieldName} />}
+                {fieldName => (
+                    <Suggestion fieldName={fieldName}>
+                        {(multiSelectFieldFilters, removeSubFieldValueFromFilter) => (
+                            <MultiSelectFilter
+                                fieldName={fieldName}
+                                removeSubFieldValueFromFilter={removeSubFieldValueFromFilter}
+                                multiSelectFieldFilters={multiSelectFieldFilters}
+                            />
+                        )}
+                    </Suggestion>
+                )}
             </SuggestionSelector>
-            <FilterSelector filterType={'range'} defaultFilterName={'instagram.total_posts'}>
+            {/* <FilterSelector filterType={'range'} defaultFilterName={'instagram.total_posts'}>
                 {filterName => <RangeFilter filterName={filterName} maxRange={50} />}
+            </FilterSelector> */}
+            <FilterSelector filterType={'exists'} defaultFilterName={'tags'}>
+                {filterName => <ExistsFilter filterName={filterName} maxRange={100} />}
             </FilterSelector>
             <FilterSelector filterType={'range'} defaultFilterName={'user_profile.age'}>
                 {filterName => <RangeFilter filterName={filterName} maxRange={100} />}

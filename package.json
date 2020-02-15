@@ -1,6 +1,6 @@
 {
     "name": "@social-native/snpkg-client-elasticsearch",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "",
     "main": "dist/index.cjs.js",
     "module": "dist/index.es.js",
@@ -51,11 +51,6 @@
         "lodash.chunk": "^4.2.0"
     },
     "devDependencies": {
-        "@devexpress/dx-react-core": "^2.4.0",
-        "@devexpress/dx-react-grid": "^2.4.0",
-        "@devexpress/dx-react-grid-material-ui": "^2.4.0",
-        "@material-ui/core": "^4.9.0",
-        "@material-ui/icons": "^4.5.1",
         "@social-native/snpkg-client-graphql-client": "^0.2.1",
         "@social-native/snpkg-dependency-check": "^0.1.0",
         "@social-native/snpkg-package-version-validation": "^3.1.0",
@@ -76,6 +71,7 @@
         "react": "^16.11.0",
         "react-dom": "^16.11.0",
         "react-dropdown-now": "^1.0.3",
+        "react-super-responsive-table": "^5.1.1",
         "rimraf": "^2.6.3",
         "rollup": "^1.2.2",
         "rollup-plugin-typescript2": "^0.21.1",

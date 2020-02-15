@@ -1,16 +1,11 @@
 import React, {useContext, useState} from 'react';
 import {observer} from 'mobx-react';
 import styled from 'styled-components';
-
 import Context from '../context';
+import {toJS} from 'mobx';
+import {Table, Thead, Tbody, Tr, Th, Td} from 'react-super-responsive-table';
+import 'react-super-responsive-table/dist/SuperResponsiveTableStyle.css';
 
-import {
-    Grid,
-    DragDropProvider,
-    Table,
-    TableHeaderRow,
-    TableColumnReordering
-} from '@devexpress/dx-react-grid-material-ui';
 
 const Container = styled.div`
     display: flex;
@@ -64,43 +59,60 @@ const flattenSourceResult = (source: object, parentFieldName: string | undefined
 export default observer(() => {
     const creatorCRM = useContext(Context.creatorCRM);
 
-    const fields = Object.keys(creatorCRM.fieldsToFilterType).filter(
-        f =>
-            !f.startsWith('snapchat') &&
-            !f.startsWith('post') &&
-            !f.startsWith('invites') &&
-            !f.startsWith('twitter') &&
-            !f.startsWith('insta') &&
-            !f.startsWith('youtube')
+    const fields = Object.keys(creatorCRM.fieldsToFilterType);
+ 
+    const results = (creatorCRM.results || []).map((r, i) =>
+        toJS({
+            key: i,
+            id: r._id,
+            ...flattenSourceResult(r._source)
+        })
     );
-    const columns = fields.map(name => ({name, title: name}));
+    const columns = fields.map(title => ({name: title, key: title, width: 100, dataIndex: title}));
 
-    const [tableColumnExtensions] = useState([{columnName: 'gender', width: 100}]);
+    if (columns.length === 0 || results.length === 0) {
+        return null;
+    }
+    const Headers = fields.map((columnName, i) => {
+        return <Th key={i}>{columnName}</Th>;
+    });
 
-    const results = (creatorCRM.results || []).map(r => ({
-        score: r._score,
-        source: flattenSourceResult(r._source)
-    }));
+    const getData = (rowData, columnName) => {
+        const data = rowData[columnName]
+        if (Array.isArray(data)) {
+           const le = data.join(' ')
+           return le.length > 100 ? 'uh oh' : le
+        }
+        if (typeof data === 'object' || data === undefined) {
+            return ''
+        } 
+        return data.length > 100 ? 'uh oh' : data
+
+    }
+
+    const data = results.map((result, i) => fields.map((columnName, ii) => getData(result,columnName)))
+
+    const Rows = results.map((result, i) => {
+        return (
+            <Tr key={`row-${i}`}>
+                {fields.map((columnName, ii) => {
+                    return <Td key={`row-${i}-header-${ii}`}>{getData(result,columnName)}</Td>;
+                })}
+            </Tr>
+        );
+    });
     return (
         <Container>
             <Header>
                 <Paginate onClick={creatorCRM.prevPage}>Previous</Paginate>
                 <Paginate onClick={creatorCRM.nextPage}>Next</Paginate>
             </Header>
-            <Grid
-                rows={results || []}
-                columns={columns}
-                getCellValue={(a, v) => {
-                    return v === 'score' ? a._score : a.source[v] || '';
-                }}
-            >
-                <DragDropProvider />
-                <Table columnExtensions={tableColumnExtensions} />
-                <TableColumnReordering
-                // defaultOrder={ ["avg_comments_per_post", "avg_comment_rate", "avg_likes_per_post", "avg_like_rate", "avg_engagements_per_post", "avg_engagement_rate", "follows", "followed_by", "publisher_rank", "reference_payout", "total_posts", "comment_engagement_percentage", "id", "bio", "social_id", "age_range", "publisher_type", "min_compensation", "tags", "super_caption", "likelihood_to_post", "engagement_score", "social_handle"]}
-                />
-                <TableHeaderRow />
-            </Grid>
+            <Table>
+                <Thead>
+                    <Tr>{Headers}</Tr>
+                </Thead>
+            <Tbody>{Rows}</Tbody>
+            </Table>
         </Container>
     );
 });

@@ -7,8 +7,8 @@ import {
     BaseFilterConfig,
     IBaseOptions,
     ESMappingType,
-    BooleanFieldFilter,
-    RawBooleanAggs
+    ExistsFieldFilter,
+    RawExistsAggs
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -16,61 +16,56 @@ import utils from './utils';
 /**
  * Config
  */
-const BOOLEAN_CONFIG_DEFAULT = {
+const CONFIG_DEFAULT = {
     defaultFilterKind: 'should',
     getCount: true,
     aggsEnabled: false
 };
 
-export interface IBooleanConfig extends BaseFilterConfig {
+export interface IConfig extends BaseFilterConfig {
     field: string;
     defaultFilterKind?: 'should' | 'must';
     getCount?: boolean;
     aggsEnabled?: boolean;
 }
 
-export type IBooleanConfigs<BooleanFields extends string> = {
-    [esFieldName in BooleanFields]: IBooleanConfig;
+export type IConfigs<Fields extends string> = {
+    [esFieldName in Fields]: IConfig;
 };
 
 /**
- * Results
+ *  Results
  */
-
-export type BooleanCountResult = {
-    true: number;
-    false: number;
+export type ExistsCountResult = {
+    exists: number;
+    doesntExist: number;
 };
 
-export type BooleanCountResults<BooleanFields extends string> = {
-    [esFieldName in BooleanFields]: BooleanCountResult;
+export type CountResults<Fields extends string> = {
+    [esFieldName in Fields]: ExistsCountResult;
 };
 
-export const booleanShouldUseField = (_fieldName: string, fieldType: ESMappingType) =>
-    fieldType === 'boolean';
+// use with all fields b/c exists can check any field data value for existence
+export const shouldUseField = (_fieldName: string, _fieldType: ESMappingType) => true;
 
-class BooleanFilter<BooleanFields extends string> extends BaseFilter<
-    BooleanFields,
-    IBooleanConfig,
-    BooleanFieldFilter
-> {
-    public filteredCount: BooleanCountResults<BooleanFields>;
-    public unfilteredCount: BooleanCountResults<BooleanFields>;
+class ExistsFilter<Fields extends string> extends BaseFilter<Fields, IConfig, ExistsFieldFilter> {
+    public filteredCount: CountResults<Fields>;
+    public unfilteredCount: CountResults<Fields>;
 
     constructor(
-        defaultConfig?: Omit<Required<IBooleanConfig>, 'field'>,
-        specificConfigs?: IBooleanConfigs<BooleanFields>,
+        defaultConfig?: Omit<Required<IConfig>, 'field'>,
+        specificConfigs?: IConfigs<Fields>,
         options?: IBaseOptions
     ) {
         super(
-            'boolean',
-            defaultConfig || (BOOLEAN_CONFIG_DEFAULT as Omit<Required<IBooleanConfig>, 'field'>),
-            specificConfigs as IBooleanConfigs<BooleanFields>
+            'exists',
+            defaultConfig || (CONFIG_DEFAULT as Omit<Required<IConfig>, 'field'>),
+            specificConfigs as IConfigs<Fields>
         );
         runInAction(() => {
-            this._shouldUseField = (options && options.shouldUseField) || booleanShouldUseField;
-            this.filteredCount = {} as BooleanCountResults<BooleanFields>;
-            this.unfilteredCount = {} as BooleanCountResults<BooleanFields>;
+            this._shouldUseField = (options && options.shouldUseField) || shouldUseField;
+            this.filteredCount = {} as CountResults<Fields>;
+            this.unfilteredCount = {} as CountResults<Fields>;
         });
     }
 
@@ -177,35 +172,35 @@ class BooleanFilter<BooleanFields extends string> extends BaseFilter<
             return request;
         }
         // tslint:disable-next-line
-        return objKeys(this.fieldConfigs).reduce((acc, booleanFieldName) => {
+        return objKeys(this.fieldConfigs).reduce((acc, fieldName) => {
             if (!this.fieldFilters) {
                 return acc;
             }
-            const config = this.fieldConfigs[booleanFieldName];
+            const config = this.fieldConfigs[fieldName];
             const name = config.field;
 
-            const filter = this.fieldFilters[booleanFieldName];
+            const filter = this.fieldFilters[fieldName];
             if (!filter) {
                 return acc;
             }
 
-            const kind = this.kindForField(booleanFieldName);
+            const kind = this.kindForField(fieldName);
             if (!kind) {
-                throw new Error(`kind is not set for range type ${booleanFieldName}`);
+                throw new Error(`kind is not set for exists filter type ${fieldName}`);
             }
 
             if (filter) {
                 const existingFiltersForKind = acc.query.bool[kind as FilterKind] || [];
+                const newFilter = filter.exists
+                    ? {exists: {field: name}}
+                    : {bool: {must_not: {exists: {field: name}}}};
                 return {
                     ...acc,
                     query: {
                         ...acc.query,
                         bool: {
                             ...acc.query.bool,
-                            [kind as FilterKind]: [
-                                ...existingFiltersForKind,
-                                {term: {[name]: filter.state}}
-                            ]
+                            [kind as FilterKind]: [...existingFiltersForKind, newFilter]
                         }
                     }
                 };
@@ -217,11 +212,11 @@ class BooleanFilter<BooleanFields extends string> extends BaseFilter<
 
     public _addCountAggsToEsRequest = (request: ESRequest, fieldToFilterOn?: string): ESRequest => {
         // tslint:disable-next-line
-        return objKeys(this.fieldConfigs || {}).reduce((acc, booleanFieldName) => {
-            if (fieldToFilterOn && booleanFieldName !== fieldToFilterOn) {
+        return objKeys(this.fieldConfigs || {}).reduce((acc, fieldName) => {
+            if (fieldToFilterOn && fieldName !== fieldToFilterOn) {
                 return acc;
             }
-            const config = this.fieldConfigs[booleanFieldName];
+            const config = this.fieldConfigs[fieldName];
             const name = config.field;
             if (!config || !config.aggsEnabled) {
                 return acc;
@@ -231,10 +226,9 @@ class BooleanFilter<BooleanFields extends string> extends BaseFilter<
                     ...acc,
                     aggs: {
                         ...acc.aggs,
-                        [`${name}__count`]: {
-                            terms: {
-                                field: name,
-                                size: 2
+                        [`${name}__exists_doesnt_count`]: {
+                            missing: {
+                                field: name
                             }
                         }
                     }
@@ -250,59 +244,55 @@ class BooleanFilter<BooleanFields extends string> extends BaseFilter<
             return;
         }
         const existingCount = isUnfilteredQuery ? this.unfilteredCount : this.filteredCount;
-        const booleanCount = objKeys(this.fieldConfigs).reduce(
+        const count = objKeys(this.fieldConfigs).reduce(
             // tslint:disable-next-line
-            (acc, booleanFieldName) => {
-                const config = this.fieldConfigs[booleanFieldName];
+            (acc, existFieldName) => {
+                const config = this.fieldConfigs[existFieldName];
                 const name = config.field;
                 if (config.getCount && response.aggregations) {
-                    const allCounts = response.aggregations[`${name}__count`] as RawBooleanAggs;
-                    if (allCounts && allCounts.buckets && allCounts.buckets.length > 0) {
-                        const trueBucket = allCounts.buckets.find(b => b.key === 1) || {
-                            doc_count: 0
-                        };
-                        const falseBucket = allCounts.buckets.find(b => b.key === 0) || {
-                            doc_count: 0
-                        };
+                    const fieldExists = response.aggregations[
+                        `${name}__exists_doesnt_count`
+                    ] as RawExistsAggs;
 
-                        return {
-                            ...acc,
-                            [booleanFieldName]: {
-                                true: trueBucket.doc_count,
-                                false: falseBucket.doc_count
-                            }
-                        };
-                    } else if (allCounts && allCounts.buckets && allCounts.buckets.length > 3) {
-                        throw new Error(
-                            `There shouldn't be more than 3 states for boolean fields. Check data for ${booleanFieldName}`
-                        );
-                    } else {
+                    if (!fieldExists) {
                         return acc;
                     }
+
+                    const doesntExistCount = fieldExists.doc_count;
+                    const totalCount = response.hits.total || 0;
+                    const existCount = totalCount - doesntExistCount;
+
+                    return {
+                        ...acc,
+                        [existFieldName]: {
+                            exists: existCount,
+                            doesntExist: doesntExistCount
+                        }
+                    };
                 } else {
                     return acc;
                 }
             },
-            {...existingCount} as BooleanCountResults<BooleanFields>
+            {...existingCount} as CountResults<Fields>
         );
 
         if (isUnfilteredQuery) {
             runInAction(() => {
-                this.unfilteredCount = booleanCount;
+                this.unfilteredCount = count;
             });
         } else {
             runInAction(() => {
-                this.filteredCount = booleanCount;
+                this.filteredCount = count;
             });
         }
     };
 }
 
-decorate(BooleanFilter, {
+decorate(ExistsFilter, {
     filteredCount: observable,
     unfilteredCount: observable
 });
 
-utils.decorateFilter(BooleanFilter);
+utils.decorateFilter(ExistsFilter);
 
-export default BooleanFilter;
+export default ExistsFilter;

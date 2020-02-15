@@ -1,7 +1,5 @@
-import {RawRangeBoundResult, RawRangeDistributionResult} from './filters/range_filter';
-import {RawBooleanCountResult} from './filters/boolean_filter';
 import PrefixSuggestion, {RawPrefixSuggestionResult} from './suggestions/prefix_suggestion';
-import {RangeFilter, BooleanFilter, BaseFilter} from './filters';
+import {RangeFilter, BooleanFilter, BaseFilter, ExistsFilter, MultiSelectFilter} from './filters';
 import {FuzzySuggestion, BaseSuggestion} from './suggestions';
 /**
  * ***********************************
@@ -36,9 +34,11 @@ export type ESRequest = {
  */
 
 export type AggregationResults =
-    | RawRangeBoundResult
-    | RawRangeDistributionResult
-    | RawBooleanCountResult
+    | RawMultiSelectAggs
+    | RawExistsAggs
+    | RawRangeBoundAggs
+    | RawRangeDistributionAggs
+    | RawBooleanAggs
     | RawPrefixSuggestionResult;
 
 export type ESResponse<Source extends object = object> = {
@@ -240,8 +240,10 @@ export type ManagerOptions = {
 };
 
 export interface IFilters {
+    multiselect: MultiSelectFilter<any>;
     range: RangeFilter<any>;
     boolean: BooleanFilter<any>;
+    exists: ExistsFilter<any>;
     [customFilter: string]: BaseFilter<any, any, any>;
 }
 
@@ -250,3 +252,93 @@ export interface ISuggestions {
     prefix: PrefixSuggestion<any>;
     [customSuggestion: string]: BaseSuggestion<any, any>;
 }
+
+/**
+ * ***********************************
+ * Filter Specific
+ * ***********************************
+ */
+
+/**
+ * Multi Select Filter
+ */
+
+export type MultiSelectSubFieldFilterValue = {
+    inclusion: 'include' | 'exclude';
+    kind?: 'should' | 'must';
+};
+
+export type MultiSelectFieldFilter = {
+    [selectedValue: string]: MultiSelectSubFieldFilterValue;
+};
+
+export type RawMultiSelectAggs = {
+    buckets: Array<{
+        doc_count: number;
+    }>;
+};
+
+/**
+ * Boolean Filter
+ */
+
+export type BooleanFieldFilter = {
+    state: boolean;
+};
+
+export type RawBooleanAggs = {
+    buckets: Array<{
+        key: 0 | 1;
+        key_as_string: 'true' | 'false';
+        doc_count: number;
+    }>;
+};
+
+/**
+ * Exists Filter
+ */
+
+export type ExistsFieldFilter = {
+    exists: boolean;
+};
+
+export type RawExistsAggs = {doc_count: number};
+
+/**
+ * Range Filter
+ */
+
+export type GreaterThanFilter = {
+    greaterThan: number;
+};
+
+export type GreaterThanEqualFilter = {
+    greaterThanEqual: number;
+};
+
+export type LessThanFilter = {
+    lessThan: number;
+};
+
+export type LessThanEqualFilter = {
+    lessThanEqual: number;
+};
+
+export type RangeFieldFilter = (GreaterThanFilter | GreaterThanEqualFilter | {}) &
+    (LessThanFilter | LessThanEqualFilter | {});
+
+export type RawRangeDistributionAggs = {
+    buckets: Array<{
+        key: number;
+        doc_count: number;
+    }>;
+};
+
+export type RawRangeBoundAggsBasic = {
+    value: number;
+};
+export type RawRangeBoundAggsWithString = {
+    value: number;
+    value_as_string: number;
+};
+export type RawRangeBoundAggs = RawRangeBoundAggsBasic | RawRangeBoundAggsWithString;

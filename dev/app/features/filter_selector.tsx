@@ -3,6 +3,7 @@ import {observer} from 'mobx-react';
 import styled from 'styled-components';
 import Dropdown from 'react-dropdown-now';
 import Context from '../context';
+import { toJS } from 'mobx';
 const FilterSelectorContainer = styled.div`
     height: 400px;
     width: 250px;
@@ -25,7 +26,7 @@ const DropDownFilterSelect = styled.div`
 
 interface IProps {
     defaultFilterName: string;
-    filterType: 'range' | 'boolean';
+    filterType: 'range' | 'boolean' | 'exists';
     children(filterName: string): ReactElement;
 }
 // tslint:disable-next-line
@@ -36,6 +37,7 @@ const FilterSelector: React.FunctionComponent<IProps> = observer(
         const [filterName, setFilterName] = useState(defaultFilterName);
         const filter = creatorCRM.filters[filterType];
         const filterConfig = creatorCRM.filters[filterType].fieldConfigs[filterName]
+
         return (
             <FilterSelectorContainer>
                 <DropDownFilterSelect>
