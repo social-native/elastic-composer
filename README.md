@@ -4,11 +4,17 @@
   - [Install](#install)
   - [Peer dependencies](#peer-dependencies)
   - [About](#about)
+    - [Paradigm](#paradigm)
+    - [Available filters and suggestions](#available-filters-and-suggestions)
+    - [Enabling filters and suggestions](#enabling-filters-and-suggestions)
+    - [How filters and suggestions affect one another](#how-filters-and-suggestions-affect-one-another)
+    - [Extending and customizing filters](#extending-and-customizing-filters)
   - [Quick Examples](#quick-examples)
     - [Instantiate a manager](#instantiate-a-manager)
     - [Instantiate a manager with specific config options for a range filter](#instantiate-a-manager-with-specific-config-options-for-a-range-filter)
     - [Add a custom filter during manager instantiation](#add-a-custom-filter-during-manager-instantiation)
     - [Add a custom suggestion during manager instantiation](#add-a-custom-suggestion-during-manager-instantiation)
+    - [Adding a custom client to the manager](#adding-a-custom-client-to-the-manager)
     - [Set middleware](#set-middleware)
     - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
     - [Run a custom elasticsearch query using the current filters](#run-a-custom-elasticsearch-query-using-the-current-filters)
@@ -235,6 +241,61 @@ const manager = new Manager(client, {
 });
 ```
 
+### Adding a custom client to the manager
+
+If you don't have permissions set up on your Elasticsearch cluster, you will most likely want to create a custom client that uses your backend as a pass through layer for making Elasticsearch calls.
+
+An example could look like this: 
+
+```typescript
+import {Manager, IClient, ESRequest, ESResponse, ESMappingType} from '@social-native/snpkg-client-elasticsearch';
+
+/**
+ * Create a custom client that works on a specific through backend graphql nodes
+ * In this case, the client uses the nodes 'creatorCRMSearch' and 'creatorCRMFields'
+ */
+class CreatorIndexGQLClient<Source extends object = object> implements IClient {
+    public graphqlClient: GqlClient;
+
+    constructor(graphqlClient: GqlClient) {
+        if (graphqlClient === undefined) {
+            throw new Error(
+                'GraphqlQL client is undefined. Please instantiate this class with a GqlClient instance'
+            );
+        }
+        this.graphqlClient = graphqlClient;
+    }
+
+    public search = async (search: ESRequest): Promise<ESResponse<Source>> => {
+        const {data} = await this.graphqlClient.client.query({
+            query: gql`
+                query CreatorCRMSearch($search: JSON) {
+                    creatorCRMSearch(search: $search)
+                }
+            `,
+            fetchPolicy: 'no-cache',
+            variables: {search: JSON.stringify(search)}
+        });
+        return JSON.parse(data.creatorCRMSearch);
+    };
+
+    public mapping = async (): Promise<Record<string, ESMappingType>> => {
+        const {data} = (await this.graphqlClient.client.query({
+            query: gql`
+                query CreatorCRMFields {
+                    creatorCRMFields
+                }
+            `,
+            fetchPolicy: 'no-cache'
+        })) as any;
+        return JSON.parse(data.creatorCRMFields);
+    };
+}
+
+const customClient = new CreatorIndexGQLClient(gqlClient);
+const creatorCRM = new Manager(customClient);
+```
+
 ### Set middleware
 
 ```typescript
@@ -326,7 +387,7 @@ manager.filters.multiselect.removeFromFilter('tags', 'has_green_hair');
 For example, to clear the `isActive` field on a boolean filter, we would do:
 
 ```typescript
-manager.filters.boolean.clearFilter('isActive');
+manager.filters.boolean.clearFilter('tags');
 ```
 
 ### Setting a prefix suggestion
@@ -394,7 +455,7 @@ manager.currentPage; // number
 By default, aggregation data is turned off for all filter. This data shows things like count of exists field, histogram of range data, etc..
 
 ```typescript
-manager.filters.boolean.setAggsEnabledToTrue();
+manager.filters.boolean.setAggsEnabledToTrue('tags');
 ```
 
 > The idea with enabling and disabling aggregation data is that these aggregations only need to run when a filter is visible to the user in the UI. Thus, enabling and disabling should mirror filter visibility in the UI.
@@ -402,7 +463,7 @@ manager.filters.boolean.setAggsEnabledToTrue();
 ### Disabling aggregation data for a filter
 
 ```typescript
-manager.filters.boolean.setAggsEnabledToFalse();
+manager.filters.boolean.setAggsEnabledToFalse('tags');
 ```
 
 ### Enabling suggestions
@@ -410,13 +471,13 @@ manager.filters.boolean.setAggsEnabledToFalse();
 Similar to `filters`, suggestions are disabled by default because they rely on elasticsearch aggregations to run, and there is no point in collecting the data unless the user cares about it.
 
 ```typescript
-manager.filters.fuzzy.setEnabledToTrue('tags');
+manager.suggestions.fuzzy.setEnabledToTrue('tags');
 ```
 
 ### Disabling suggestions
 
 ```typescript
-manager.filters.fuzzy.setEnabledToFalse('tags');
+manager.suggestions.fuzzy.setEnabledToFalse('tags');
 ```
 
 ### Setting filter 'should' or 'must' kind

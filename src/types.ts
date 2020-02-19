@@ -342,3 +342,27 @@ export type RawRangeBoundAggsWithString = {
     value_as_string: number;
 };
 export type RawRangeBoundAggs = RawRangeBoundAggsBasic | RawRangeBoundAggsWithString;
+
+/**
+ * ***********************************
+ * Mappings
+ * ***********************************
+ */
+export type ESMappingPropertyType = {
+    type: ESMappingType;
+};
+export type ESMappingProperties = {
+    [field: string]: ESMappingPropertyType | {properties: ESMappingProperties};
+};
+
+export type ESMapping<Alias extends string> = {
+    [index: string]: {
+        mappings: {
+            [alias in Alias]: {
+                dynamic: string;
+                _all: object;
+                properties: ESMappingProperties;
+            };
+        };
+    };
+};

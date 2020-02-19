@@ -1,7 +1,8 @@
 import {configure} from 'mobx';
 
 export {default as Manager} from './manager';
-// export {BaseFilter} from './filters';
+export {default as MappingParser} from './mapping_parser';
+
 export * from './types';
 export * from './filters';
 export * from './clients';
