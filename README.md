@@ -1,5 +1,7 @@
 # snpkg-client-elasticsearch
 
+A high-level Elasticsearch query manager and executor. Filter fields, find search suggestions, and paginate query results for your indicies
+
 - [snpkg-client-elasticsearch](#snpkg-client-elasticsearch)
   - [Install](#install)
   - [Peer dependencies](#peer-dependencies)
