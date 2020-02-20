@@ -15,7 +15,8 @@ import {
     GreaterThanEqualFilter,
     LessThanEqualFilter,
     RangeFieldFilter,
-    LessThanFilter
+    LessThanFilter,
+    FieldFilters
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -175,6 +176,34 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
             this.unfilteredDistribution = {} as RangeDistributionResults<RangeFields>;
         });
     }
+
+    /**
+     * Alias to getter b/c computed getters can't be inherited
+     */
+
+    public get fields() {
+        return this._fields;
+    }
+    /**
+     * Alias to getter b/c computed getters can't be inherited
+     */
+    public get activeFields() {
+        return this._activeFields;
+    }
+
+    /**
+     * Clears all field filters for this filter.
+     * Clears all state related to aggregations.
+     */
+    public clearAllFieldFilters = () => {
+        runInAction(() => {
+            this.fieldFilters = {} as FieldFilters<RangeFields, RangeFieldFilter>;
+            this.filteredRangeBounds = {} as RangeBoundResults<RangeFields>;
+            this.unfilteredRangeBounds = {} as RangeBoundResults<RangeFields>;
+            this.filteredDistribution = {} as RangeDistributionResults<RangeFields>;
+            this.unfilteredDistribution = {} as RangeDistributionResults<RangeFields>;
+        });
+    };
 
     /**
      * State that should cause a global ES query request using all filters

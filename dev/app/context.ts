@@ -3,7 +3,7 @@ import gql from 'graphql-tag';
 
 import {GqlClient} from '@social-native/snpkg-client-graphql-client';
 import {ExampleForm} from './state';
-const gqlClient = new GqlClient({enablePersistance: true, headers: {testme: 'ethan'}});
+const gqlClient = new GqlClient({enablePersistance: true});
 import {Manager, AxiosESClient, IClient, ESRequest, ESResponse, ESMappingType} from '../../src';
 
 const exampleFormInstance = new ExampleForm();
@@ -46,12 +46,12 @@ class CreatorIndexGQLClient<Source extends object = object> implements IClient {
     };
 }
 
-// const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
-const client = new CreatorIndexGQLClient(gqlClient);
+const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
+// const client = new CreatorIndexGQLClient(gqlClient);
 const creatorCRM = new Manager(client, {
     pageSize: 10,
     queryThrottleInMS: 350,
-    fieldBlackList: ['instagram.bio']
+    fieldBlackList: ['youtube', 'twitter', 'snapchat']
 });
 
 gqlClient.createClient().then(() => {

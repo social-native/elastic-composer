@@ -62,6 +62,7 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
         this.setKind = this.setKind.bind(this);
         this.kindForField = this.kindForField.bind(this);
         this._shouldRunQuery = this._shouldRunQuery.bind(this);
+        this.clearAllFieldSuggestions = this.clearAllFieldSuggestions.bind(this);
     }
 
     public _subscribeToShouldRunSuggestionSearch(subscriber: FieldSuggestionSubscribers<Fields>) {
@@ -85,8 +86,20 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
         );
     }
 
+    public get _fields(): Fields[] {
+        return objKeys(this.fieldConfigs);
+    }
+
     public get fields(): Fields[] {
-        return Object.keys(this.fieldConfigs) as Fields[];
+        throw new Error('fields is not defined');
+    }
+
+    public get _activeFields(): Fields[] {
+        return objKeys(this.fieldSearches);
+    }
+
+    public get activeFields(): Fields[] {
+        throw new Error('activeFields is not defined');
     }
 
     public _shouldRunQuery(fieldName: Fields) {
@@ -96,6 +109,17 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
         } else {
             return true;
         }
+    }
+
+    /**
+     * Clears all field suggestions for this suggestions.
+     * This includes `fieldSearches` and `fieldSuggestions`.
+     */
+    public clearAllFieldSuggestions() {
+        runInAction(() => {
+            this.fieldSearches = {} as FieldSearches<Fields>;
+            this.fieldSuggestions = {} as FieldSuggestions<Fields>;
+        });
     }
 
     /**
@@ -248,6 +272,7 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
  */
 // decorate(BaseSuggestion, {
 //     fields: computed,
+//     activeFields: computed,
 //     fieldConfigDefault: observable,
 //     fieldConfigs: observable,
 //     fieldKinds: observable,

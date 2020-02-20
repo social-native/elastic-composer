@@ -8,7 +8,8 @@ import {
     IBaseOptions,
     ESMappingType,
     BooleanFieldFilter,
-    RawBooleanAggs
+    RawBooleanAggs,
+    FieldFilters
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -29,8 +30,8 @@ export interface IBooleanConfig extends BaseFilterConfig {
     aggsEnabled?: boolean;
 }
 
-export type IBooleanConfigs<BooleanFields extends string> = {
-    [esFieldName in BooleanFields]: IBooleanConfig;
+export type IBooleanConfigs<Fields extends string> = {
+    [esFieldName in Fields]: IBooleanConfig;
 };
 
 /**
@@ -42,37 +43,63 @@ export type BooleanCountResult = {
     false: number;
 };
 
-export type BooleanCountResults<BooleanFields extends string> = {
-    [esFieldName in BooleanFields]: BooleanCountResult;
+export type CountResults<Fields extends string> = {
+    [esFieldName in Fields]: BooleanCountResult;
 };
 
 export const booleanShouldUseField = (_fieldName: string, fieldType: ESMappingType) =>
     fieldType === 'boolean';
 
-class BooleanFilter<BooleanFields extends string> extends BaseFilter<
-    BooleanFields,
+class BooleanFilter<Fields extends string> extends BaseFilter<
+    Fields,
     IBooleanConfig,
     BooleanFieldFilter
 > {
-    public filteredCount: BooleanCountResults<BooleanFields>;
-    public unfilteredCount: BooleanCountResults<BooleanFields>;
+    public filteredCount: CountResults<Fields>;
+    public unfilteredCount: CountResults<Fields>;
 
     constructor(
         defaultConfig?: Omit<Required<IBooleanConfig>, 'field'>,
-        specificConfigs?: IBooleanConfigs<BooleanFields>,
+        specificConfigs?: IBooleanConfigs<Fields>,
         options?: IBaseOptions
     ) {
         super(
             'boolean',
             defaultConfig || (BOOLEAN_CONFIG_DEFAULT as Omit<Required<IBooleanConfig>, 'field'>),
-            specificConfigs as IBooleanConfigs<BooleanFields>
+            specificConfigs as IBooleanConfigs<Fields>
         );
         runInAction(() => {
             this._shouldUseField = (options && options.shouldUseField) || booleanShouldUseField;
-            this.filteredCount = {} as BooleanCountResults<BooleanFields>;
-            this.unfilteredCount = {} as BooleanCountResults<BooleanFields>;
+            this.filteredCount = {} as CountResults<Fields>;
+            this.unfilteredCount = {} as CountResults<Fields>;
         });
     }
+
+    /**
+     * Alias to getter b/c computed getters can't be inherited
+     */
+
+    public get fields() {
+        return this._fields;
+    }
+    /**
+     * Alias to getter b/c computed getters can't be inherited
+     */
+    public get activeFields() {
+        return this._activeFields;
+    }
+
+    /**
+     * Clears all field filters for this filter.
+     * Clears all state related to aggregations.
+     */
+    public clearAllFieldFilters = () => {
+        runInAction(() => {
+            this.fieldFilters = {} as FieldFilters<Fields, BooleanFieldFilter>;
+            this.filteredCount = {} as CountResults<Fields>;
+            this.unfilteredCount = {} as CountResults<Fields>;
+        });
+    };
 
     /**
      * State that should cause a global ES query request using all filters
@@ -283,7 +310,7 @@ class BooleanFilter<BooleanFields extends string> extends BaseFilter<
                     return acc;
                 }
             },
-            {...existingCount} as BooleanCountResults<BooleanFields>
+            {...existingCount} as CountResults<Fields>
         );
 
         if (isUnfilteredQuery) {

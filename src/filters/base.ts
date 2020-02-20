@@ -73,6 +73,26 @@ class BaseFilter<Fields extends string, Config extends BaseFilterConfig, Filter 
         this.kindForField = this.kindForField.bind(this);
     }
 
+    public get _fields(): Fields[] {
+        return objKeys(this.fieldConfigs);
+    }
+
+    public get fields(): Fields[] {
+        throw new Error('fields is not defined');
+    }
+
+    public get _activeFields(): Fields[] {
+        return objKeys(this.fieldFilters);
+    }
+
+    public get activeFields(): Fields[] {
+        throw new Error('activeFields is not defined');
+    }
+
+    public clearAllFieldFilters() {
+        throw new Error('clearAllFieldFilters is not defined');
+    }
+
     /**
      * Subscribe to actions that should update a single fields unfiltered aggs state
      */
@@ -89,10 +109,6 @@ class BaseFilter<Fields extends string, Config extends BaseFilterConfig, Filter 
         runInAction(() => {
             this._shouldUpdateFilteredAggsSubscribers.push(subscriber);
         });
-    }
-
-    public get fields() {
-        return Object.keys(this.fieldConfigs);
     }
 
     /**
@@ -287,6 +303,7 @@ class BaseFilter<Fields extends string, Config extends BaseFilterConfig, Filter 
  */
 // decorate(BaseFilter, {
 //     fields: computed,
+//     activeFields: computed,
 //     _shouldRunFilteredQueryAndAggs: computed,
 //     fieldConfigDefault: observable,
 //     fieldConfigs: observable,

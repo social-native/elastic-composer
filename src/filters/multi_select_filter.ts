@@ -9,7 +9,8 @@ import {
     ESMappingType,
     MultiSelectSubFieldFilterValue,
     MultiSelectFieldFilter,
-    RawMultiSelectAggs
+    RawMultiSelectAggs,
+    FieldFilters
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -120,6 +121,32 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
             }
         );
     }
+
+    /**
+     * Alias to getter b/c computed getters can't be inherited
+     */
+
+    public get fields() {
+        return this._fields;
+    }
+    /**
+     * Alias to getter b/c computed getters can't be inherited
+     */
+    public get activeFields() {
+        return this._activeFields;
+    }
+
+    /**
+     * Clears all field filters for this filter.
+     * Clears all state related to aggregations.
+     */
+    public clearAllFieldFilters = () => {
+        runInAction(() => {
+            this.fieldFilters = {} as FieldFilters<Fields, MultiSelectFieldFilter>;
+            this.filteredCount = {} as CountResults<Fields>;
+            this.unfilteredCount = {} as CountResults<Fields>;
+        });
+    };
 
     /**
      * Sets a sub filter for a field.
