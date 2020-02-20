@@ -133,9 +133,9 @@ The currently available suggestions are:
 
 ### Enabling filters and suggestions
 
-All Filters affect both the `query` and `aggs` part of an Elasticsearch request object. The `query` part is how the Filter impacts which documents match the filters. The `aggs` part provides information about how successfull the filter is - showing things like histogram of range results, count of exists and not exists, etc... By default, the `aggs` part is disabled for every Filter. You should use `setAggsEnabledToTrue` and `setAggsEnabledToFalse` to toggle `aggs` for a Filter. The idea is to only run `aggs` queries when you want to show this data to the user.
+All Filters affect both the `query` and `aggs` part of an Elasticsearch request object. The `query` part is how the Filter impacts which documents match the filters. The `aggs` part provides information about how successful the filter is - showing things like histogram of range results, count of exists and not exists, etc... By default, the `aggs` part is disabled for every Filter. You should use `setAggsEnabledToTrue` and `setAggsEnabledToFalse` to toggle `aggs` for a Filter. The idea is to only run `aggs` queries when you want to show this data to the user.
 
-Simillarily, `Suggestions` are disabled by default. For the same reason above, suggestions shouldn't run unless you explicitly are showing suggestion data to a user. To toggle Suggestion enabled state use the methods `setEnabledToTrue` and `setEnabledToFalse`.
+Similarly, `Suggestions` are disabled by default. For the same reason above, suggestions shouldn't run unless you explicitly are showing suggestion data to a user. To toggle Suggestion enabled state use the methods `setEnabledToTrue` and `setEnabledToFalse`.
 
 ### How filters and suggestions affect one another
 

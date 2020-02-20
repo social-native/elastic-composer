@@ -309,14 +309,6 @@ class Manager<
 
     public get fieldsToFilterType(): Record<string, string> {
         throw new Error('Deprecated. Use fieldsWithFiltersAndSuggestions instead');
-        // return objKeys(this.filters).reduce((map, filterName) => {
-        //     const filter = this.filters[filterName];
-        //     const typeMaps = filter.fields.reduce((filterMap, fieldName) => {
-        //         return {...filterMap, [fieldName]: filter.filterKind};
-        //     }, {} as Record<string, string>);
-
-        //     return {...map, ...typeMaps};
-        // }, {} as Record<string, string>);
     }
 
     public get fieldsWithFiltersAndSuggestions(): Record<string, FiltersAndSuggestions> {

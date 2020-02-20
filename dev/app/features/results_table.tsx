@@ -77,6 +77,7 @@ export default observer(() => {
         return <Th key={i}>{columnName}</Th>;
     });
 
+    // tslint:disable-next-line
     const getData = (rowData, columnName) => {
         const data = rowData[columnName]
         if (Array.isArray(data)) {
