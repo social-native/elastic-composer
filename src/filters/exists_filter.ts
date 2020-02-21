@@ -8,7 +8,8 @@ import {
     IBaseOptions,
     ESMappingType,
     ExistsFieldFilter,
-    RawExistsAggs
+    RawExistsAggs,
+    FieldFilters
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -68,6 +69,32 @@ class ExistsFilter<Fields extends string> extends BaseFilter<Fields, IConfig, Ex
             this.unfilteredCount = {} as CountResults<Fields>;
         });
     }
+
+    /**
+     * Alias to getter b/c computed getters can't be inherited
+     */
+
+    public get fields() {
+        return this._fields;
+    }
+    /**
+     * Alias to getter b/c computed getters can't be inherited
+     */
+    public get activeFields() {
+        return this._activeFields;
+    }
+
+    /**
+     * Clears all field filters for this filter.
+     * Clears all state related to aggregations.
+     */
+    public clearAllFieldFilters = () => {
+        runInAction(() => {
+            this.fieldFilters = {} as FieldFilters<Fields, ExistsFieldFilter>;
+            this.filteredCount = {} as CountResults<Fields>;
+            this.unfilteredCount = {} as CountResults<Fields>;
+        });
+    };
 
     /**
      * State that should cause a global ES query request using all filters

@@ -59,7 +59,7 @@ const flattenSourceResult = (source: object, parentFieldName: string | undefined
 export default observer(() => {
     const creatorCRM = useContext(Context.creatorCRM);
 
-    const fields = Object.keys(creatorCRM.fieldsToFilterType);
+    const fields = Object.keys(creatorCRM.fieldsWithFiltersAndSuggestions);
  
     const results = (creatorCRM.results || []).map((r, i) =>
         toJS({
@@ -77,6 +77,7 @@ export default observer(() => {
         return <Th key={i}>{columnName}</Th>;
     });
 
+    // tslint:disable-next-line
     const getData = (rowData, columnName) => {
         const data = rowData[columnName]
         if (Array.isArray(data)) {

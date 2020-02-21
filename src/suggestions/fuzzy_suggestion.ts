@@ -62,6 +62,19 @@ class FuzzySuggestion<Fields extends string> extends BaseSuggestion<Fields, ICon
     }
 
     /**
+     * Alias to getter b/c computed getters can't be inherited
+     */
+    public get fields() {
+        return this._fields;
+    }
+    /**
+     * Alias to getter b/c computed getters can't be inherited
+     */
+    public get activeFields() {
+        return this._activeFields;
+    }
+
+    /**
      * Transforms the request obj.
      *
      * Adds query and aggs to the request to obtain suggestions.

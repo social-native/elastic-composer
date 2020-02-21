@@ -97,6 +97,11 @@ type DefaultOptions = {
     suggestions: ISuggestions;
 };
 
+type FiltersAndSuggestions = {
+    filters: IFilters[];
+    suggestions: ISuggestions[];
+};
+
 class Manager<
     Options extends DefaultOptions = DefaultOptions,
     ESDocSource extends object = object
@@ -107,7 +112,9 @@ class Manager<
     public queryThrottleInMS: number;
     public filters: Options['filters'];
     public suggestions: Options['suggestions'];
+
     public results: Array<ESHit<ESDocSource>>;
+    public rawESResponse?: ESResponse<ESDocSource>;
 
     public _sideEffectQueue: Array<EffectRequest<EffectKinds>>;
     public isSideEffectRunning: boolean;
@@ -136,6 +143,7 @@ class Manager<
             this.suggestions = suggestions;
             this.isSideEffectRunning = false;
             this._sideEffectQueue = [];
+
             this.results = [] as Array<ESHit<ESDocSource>>;
 
             this.pageSize = (options && options.pageSize) || DEFAULT_MANAGER_OPTIONS.pageSize;
@@ -224,7 +232,7 @@ class Manager<
             }
         );
 
-        // // FOR TESTING - Dont delete this code
+        // // FOR TESTING - Don't delete this code
         // reaction(
         //     () => ({
         //         queue: [...this._sideEffectQueue],
@@ -248,6 +256,44 @@ class Manager<
         );
     }
 
+    public get activeFilters() {
+        return objKeys(this.filters).reduce((acc, filterName) => {
+            const filter = this.filters[filterName];
+            const activeFieldsForFilter = filter.activeFields;
+            return activeFieldsForFilter.reduce((acc2, activeFieldName) => {
+                const existingActiveFilterNames = acc2[activeFieldName] || [];
+                acc2[activeFieldName] = [...existingActiveFilterNames, filter];
+                return acc2;
+            }, acc);
+        }, {});
+    }
+
+    public clearAllFilters = () => {
+        objKeys(this.filters).forEach(filterName => {
+            const filter = this.filters[filterName];
+            filter.clearAllFieldFilters();
+        });
+    };
+
+    public get activeSuggestions() {
+        return objKeys(this.suggestions).reduce((acc, suggestionName) => {
+            const suggestion = this.suggestions[suggestionName];
+            const activeFieldsForSuggestion = suggestion.activeFields;
+            return activeFieldsForSuggestion.reduce((acc2, activeFieldName) => {
+                const existingActiveSuggestionNames = acc2[activeFieldName] || [];
+                acc2[activeFieldName] = [...existingActiveSuggestionNames, suggestion];
+                return acc2;
+            }, acc);
+        }, {});
+    }
+
+    public clearAllSuggestions = () => {
+        objKeys(this.suggestions).forEach(suggestionName => {
+            const suggestion = this.suggestions[suggestionName];
+            suggestion.clearAllFieldSuggestions();
+        });
+    };
+
     public _tryToRunEffect = () => {
         if (this.isSideEffectRunning) {
             return;
@@ -262,14 +308,42 @@ class Manager<
     };
 
     public get fieldsToFilterType(): Record<string, string> {
-        return objKeys(this.filters).reduce((map, filterName) => {
-            const filter = this.filters[filterName];
-            const typeMaps = filter.fields.reduce((filterMap, fieldName) => {
-                return {...filterMap, [fieldName]: filter.filterKind};
-            }, {} as Record<string, string>);
+        throw new Error('Deprecated. Use fieldsWithFiltersAndSuggestions instead');
+    }
 
-            return {...map, ...typeMaps};
-        }, {} as Record<string, string>);
+    public get fieldsWithFiltersAndSuggestions(): Record<string, FiltersAndSuggestions> {
+        const fieldsWithFilters = objKeys(this.filters).reduce((acc, filterName) => {
+            const filter = this.filters[filterName];
+            const fieldsForFilter = filter.fields;
+            return fieldsForFilter.reduce((acc2, fieldName) => {
+                const existingFilterAndSuggestions = acc2[fieldName] || {};
+                const existingFilters = existingFilterAndSuggestions.filters || [];
+                acc2[fieldName] = {
+                    ...existingFilterAndSuggestions,
+                    filters: [...existingFilters, filter]
+                } as FiltersAndSuggestions;
+                return acc2;
+            }, acc);
+        }, {} as Record<string, FiltersAndSuggestions>);
+
+        const fieldsWithFiltersAndSuggestions = objKeys(this.suggestions).reduce(
+            (acc, suggestionName) => {
+                const suggestion = this.suggestions[suggestionName];
+                const fieldsForSuggestion = suggestion.fields;
+                return fieldsForSuggestion.reduce((acc2, fieldName) => {
+                    const existingFilterAndSuggestions = acc2[fieldName] || {};
+                    const existingFilters = existingFilterAndSuggestions.suggestions || [];
+                    acc2[fieldName] = {
+                        ...existingFilterAndSuggestions,
+                        suggestions: [...existingFilters, suggestion]
+                    } as FiltersAndSuggestions;
+                    return acc2;
+                }, acc);
+            },
+            fieldsWithFilters
+        );
+
+        return fieldsWithFiltersAndSuggestions;
     }
 
     public _runEffect = async (effectRequest: EffectRequest<EffectKinds>) => {
@@ -525,12 +599,18 @@ class Manager<
      * ***************************************************************************
      */
 
+    public _fieldMatchesPrefixs = (field: string, prefixes: string[]): boolean => {
+        return prefixes.reduce((acc, prefix) => {
+            return field.startsWith(prefix) || acc;
+        }, false as boolean);
+    };
+
     public _filterFieldNamesAndTypesUsingWhiteAndBlackList = (
         mappings: Record<string, ESMappingType>
     ): Record<string, ESMappingType> => {
         if (this.fieldWhiteList.length > 0) {
             return objKeys(mappings)
-                .filter(fieldName => this.fieldWhiteList.includes(fieldName))
+                .filter(fieldName => this._fieldMatchesPrefixs(fieldName, this.fieldWhiteList))
                 .reduce(
                     (newMappings, filteredFieldName) => ({
                         ...newMappings,
@@ -540,7 +620,7 @@ class Manager<
                 );
         } else if (this.fieldBlackList.length > 0) {
             return objKeys(mappings)
-                .filter(fieldName => !this.fieldBlackList.includes(fieldName))
+                .filter(fieldName => !this._fieldMatchesPrefixs(fieldName, this.fieldBlackList))
                 .reduce(
                     (newMappings, filteredFieldName) => ({
                         ...newMappings,
@@ -594,6 +674,9 @@ class Manager<
                 }
             });
         }
+        runInAction(() => {
+            this.rawESResponse = response;
+        });
     };
 
     public _extractUnfilteredAggsStateFromResponse = (response: ESResponse<ESDocSource>): void => {
@@ -1199,6 +1282,13 @@ class Manager<
         return newRequest;
     };
 
+    public get hasNextPage() {
+        const foundDocs =
+            (this.rawESResponse && this.rawESResponse.hits && this.rawESResponse.hits.total) || 0;
+        const currentDocsSeen = this.pageSize * this.currentPage;
+        return currentDocsSeen < foundDocs;
+    }
+
     public prevPage = () => {
         this._enqueueFilteredQuery('backward');
     };
@@ -1283,9 +1373,10 @@ decorate(Manager, {
     _pageCursorInfo: observable,
     indexFieldNamesAndTypes: observable,
     _nextPageCursor: computed,
-    fieldsToFilterType: computed,
+    fieldsWithFiltersAndSuggestions: computed,
     fieldBlackList: observable,
-    fieldWhiteList: observable
+    fieldWhiteList: observable,
+    hasNextPage: computed
 });
 
 export default Manager;

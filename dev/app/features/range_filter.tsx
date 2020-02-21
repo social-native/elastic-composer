@@ -1,4 +1,4 @@
-import React, {useContext, useState} from 'react';
+import React, {useContext, useState, useEffect} from 'react';
 import {observer} from 'mobx-react';
 import styled from 'styled-components';
 import {VictoryChart, VictoryLine} from 'victory';
@@ -71,6 +71,20 @@ const Range = createSliderWithTooltip(Slider.Range);
 // tslint:disable-next-line
 export default observer(({filterName, maxRange}) => {
     const creatorCRM = useContext(Context.creatorCRM);
+
+    console.log('activeFilters', toJS(creatorCRM.activeFilters))
+    console.log('activeSuggestions', toJS(creatorCRM.activeSuggestions))
+    // useEffect(() => {
+
+    //     setInterval(() => {
+    
+    //         creatorCRM.clearAllFilters()
+    //         creatorCRM.clearAllSuggestions()
+    //     }, 10000)
+    // },[])
+    // console.log('total available',creatorCRM.rawESResponse ? toJS(creatorCRM.rawESResponse.hits.total) : 0)
+    // console.log('has next page', creatorCRM.hasNextPage)
+
     if (!filterName) {
         return null;
     }
