@@ -1354,7 +1354,13 @@ class Manager<
     };
 
     public get _nextPageCursor(): ESRequestSortField {
-        return this.results[this.results.length - 1].sort;
+        const firstResult = this.results[this.results.length - 1];
+        if (!firstResult) {
+            throw new Error(
+                'Could not calculate next page cursor. No results to extract sorting from'
+            );
+        }
+        return firstResult.sort;
     }
 }
 
