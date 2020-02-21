@@ -42,7 +42,7 @@ A high-level Elasticsearch query manager and executor. Filter fields, find searc
     - [Clearing all suggestions](#clearing-all-suggestions)
     - [Looking at all active suggestions](#looking-at-all-active-suggestions)
     - [Looking at all active filters](#looking-at-all-active-filters)
-    - [Looking at all the Filter and Suggestion instances available for a filed](#looking-at-all-the-filter-and-suggestion-instances-available-for-a-filed)
+    - [Looking at all the Filter and Suggestion instances available for a field](#looking-at-all-the-filter-and-suggestion-instances-available-for-a-filed)
   - [API](#api)
     - [Manager](#manager)
       - [Initialization](#initialization)
