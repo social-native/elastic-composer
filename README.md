@@ -30,12 +30,19 @@ A high-level Elasticsearch query manager and executor. Filter fields, find searc
     - [Setting a fuzzy suggestion](#setting-a-fuzzy-suggestion)
     - [Access suggestion results](#access-suggestion-results)
     - [Access the results of a query](#access-the-results-of-a-query)
+    - [Access the raw response object of the current query](#access-the-raw-response-object-of-the-current-query)
     - [Paginating through the results set](#paginating-through-the-results-set)
+    - [Checking if there is another page to paginate to](#checking-if-there-is-another-page-to-paginate-to)
     - [Enabling aggregation data for a filter](#enabling-aggregation-data-for-a-filter)
     - [Disabling aggregation data for a filter](#disabling-aggregation-data-for-a-filter)
     - [Enabling suggestions](#enabling-suggestions)
     - [Disabling suggestions](#disabling-suggestions)
     - [Setting filter 'should' or 'must' kind](#setting-filter-should-or-must-kind)
+    - [Clearing all filters](#clearing-all-filters)
+    - [Clearing all suggestions](#clearing-all-suggestions)
+    - [Looking at all active suggestions](#looking-at-all-active-suggestions)
+    - [Looking at all active filters](#looking-at-all-active-filters)
+    - [Looking at all the Filter and Suggestion instances available for a filed](#looking-at-all-the-filter-and-suggestion-instances-available-for-a-filed)
   - [API](#api)
     - [Manager](#manager)
       - [Initialization](#initialization)
@@ -441,6 +448,16 @@ Thus, you would likely use the `results` like:
 manager.results.map(r => r._source);
 ```
 
+### Access the raw response object of the current query
+
+```typescript
+manager.rawESResponse
+
+// => 
+// {"took":1,"timed_out":false,"_shards":{"total":5,"successful":5,"skipped":0,"failed":0},"hits":{"total":2178389,"max_score":0.0,"hits":[]}}
+//
+```
+
 ### Paginating through the results set
 
 ```typescript
@@ -450,6 +467,12 @@ manager.prevPage();
 manager.currentPage; // number
 // # => 0 when no results exist
 // # => 1 for the first page of results
+```
+
+### Checking if there is another page to paginate to
+
+```typescript
+manager.hasNextPage
 ```
 
 ### Enabling aggregation data for a filter
@@ -492,6 +515,45 @@ manager.filters.boolean.setKind('facebook.id', 'must');
 // or to go back to should:
 
 manager.filters.boolean.setKind('facebook.id', 'should');
+```
+
+### Clearing all filters
+
+```typescript
+manager.clearAllFilters()
+```
+
+### Clearing all suggestions
+
+```typescript
+manager.clearAllSuggestions()
+```
+
+### Looking at all active suggestions
+
+```typescript
+manager.activeSuggestions
+
+// => 
+// { tags: [PrefixSuggestion, FuzzySuggestion], location: [PrefixSuggestion]}
+```
+
+### Looking at all active filters
+
+```typescript
+manager.activeFilters
+
+// => 
+// { tags: [MultiSelectFilter, ExistsFilter], location: [RangeFilter, ExistsFilter]}
+```
+
+### Looking at all the Filter and Suggestion instances available for a filed
+
+```typescript
+manager.fieldsWithFiltersAndSuggestions
+
+// =>
+// { tags: { filters: [MultiSelectFilter, ExistsFilter] suggestions: [PrefixSuggestion, FuzzySuggestion]} }
 ```
 
 ## API
@@ -572,6 +634,9 @@ const options = {suggestions: {fuzzy: fuzzyFilterInstance}};
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | nextPage              | paginates forward                                                                                                                                                                                 | `(): void`                                                                                                                                |
 | prevPage              | paginates backward                                                                                                                                                                                | `(): void`                                                                                                                                |
+| clearAllFilters | clears all active filters | `(): void` | 
+| clearAllSuggestions | clears all active suggestions | `(): void` | 
+
 | getFieldNamesAndTypes | runs an introspection query on the index mapping and generates an object of elasticsearch fields and the filter type they correspond to                                                           | `async (): void`                                                                                                                          |
 | runStartQuery         | runs the initial elasticsearch query that fetches unfiltered data                                                                                                                                 | `(): void`                                                                                                                                |
 | runCustomFilterQuery  | runs a custom query using the existing applied filters outside the side effect queue flow. white lists and black lists control which data is returned in the elasticsearch response source object | `async (options?: {fieldBlackList?: string[], fieldWhiteList?: string[], pageSize?: number }): Promise<ESResponse>`                       |
@@ -590,7 +655,11 @@ const options = {suggestions: {fuzzy: fuzzyFilterInstance}};
 | filters                 | the filter instances that the manager controls                                                                                                |
 | indexFieldNamesAndTypes | A list of fields that can be filtered over and the filter name that this field uses. This is populated by the method `getFieldNamesAndTypes`. |
 | results | the results of the most recent query | The `results` type is Array<ESHit>. See [the `results` quick example doc for the type](https://github.com/social-native/snpkg-client-elasticsearch#access-the-results-of-a-query) |
-
+| rawESResponse | The response object from the client from the query | `ESResponse` |
+| activeSuggestions | the object of fields with active suggestions | `{ fieldName: SuggestionInstance[] }`  |
+| activeFilters | the object of fields with active filters | `{ fieldName: FilterInstance[] }`  |
+| fieldsWithFiltersAndSuggestions | the object of fields and the filters and suggestions that are available for them | `{ fieldName: { suggestions: SuggestionInstance[], filters: FilterInstance[] } }`  |
+| hasNextPage | Whether another page is available via the `nextPage` method | `boolean` |
 ### Common Among All Filters
 
 #### Initialization
