@@ -7,7 +7,8 @@ import {
     FieldSuggestions,
     BaseSuggestionConfig,
     ESMappingType,
-    IBaseOptions
+    IBaseOptions,
+    FieldNameModifier
 } from '../types';
 import BaseSuggestion from './base';
 import utils from './utils';
@@ -18,13 +19,17 @@ import utils from './utils';
 
 const CONFIG_DEFAULT = {
     defaultSuggestionKind: 'should',
-    enabled: false
+    enabled: false,
+    fieldNameModifierQuery: (fieldName: string) => fieldName,
+    fieldNameModifierAggs: (fieldName: string) => fieldName
 };
 
 export interface IConfig extends BaseSuggestionConfig {
     field: string;
     defaultSuggestionKind?: 'should' | 'must';
     enabled?: boolean;
+    fieldNameModifierQuery?: FieldNameModifier;
+    fieldNameModifierAggs?: FieldNameModifier;
 }
 
 export type Configs<Fields extends string> = {
@@ -116,6 +121,7 @@ class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, ICo
         }
         const config = this.fieldConfigs[fieldName];
         const esFieldName = config.field;
+        const fieldNameModifier = config.fieldNameModifierQuery;
 
         const searchTerm = this.fieldSearches[fieldName];
         if (!searchTerm) {
@@ -139,7 +145,7 @@ class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, ICo
                             ...existingFiltersForKind,
                             {
                                 prefix: {
-                                    [esFieldName]: {
+                                    [fieldNameModifier(esFieldName)]: {
                                         value: searchTerm
                                     }
                                 }
@@ -156,6 +162,8 @@ class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, ICo
     public _addAggsToESRequest = (request: ESRequest, fieldName: Fields): ESRequest => {
         const config = this.fieldConfigs[fieldName];
         const esFieldName = config.field;
+        const fieldNameModifier = config.fieldNameModifierAggs;
+
         if (!config || !config.enabled) {
             return request;
         }
@@ -165,7 +173,7 @@ class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, ICo
                 ...request.aggs,
                 [`${esFieldName}__prefix_suggestion`]: {
                     terms: {
-                        field: esFieldName,
+                        field: fieldNameModifier(esFieldName),
                         size: 20
                     }
                 }

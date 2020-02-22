@@ -110,8 +110,8 @@ class Manager<
     public defaultMiddleware: Middleware[];
     public pageSize: number;
     public queryThrottleInMS: number;
-    public filters: Options['filters'];
-    public suggestions: Options['suggestions'];
+    public filters: IFilters;
+    public suggestions: ISuggestions;
 
     public results: Array<ESHit<ESDocSource>>;
     public rawESResponse?: ESResponse<ESDocSource>;
@@ -139,8 +139,8 @@ class Manager<
         // tslint:disable-next-line
         runInAction(() => {
             this.client = client;
-            this.filters = filters;
-            this.suggestions = suggestions;
+            this.filters = filters as IFilters;
+            this.suggestions = suggestions as ISuggestions;
             this.isSideEffectRunning = false;
             this._sideEffectQueue = [];
 

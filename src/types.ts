@@ -161,6 +161,8 @@ export type FieldSuggestionSubscribers<Fields extends string> = (
  * ***********************************
  */
 
+export type FieldNameModifier = (fieldName: string) => string;
+
 export type ShouldUseFieldFn = (fieldName: string, fieldType: ESMappingType) => boolean;
 
 export type IBaseOptions = {
@@ -234,10 +236,24 @@ export type ManagerOptions = {
     queryThrottleInMS?: number;
     fieldWhiteList?: string[];
     fieldBlackList?: string[];
-    filters?: IFilters;
-    suggestions?: ISuggestions;
+    filters?: IFiltersOptions;
+    suggestions?: ISuggestionsOptions;
     middleware?: Middleware[];
 };
+
+export interface IFiltersOptions {
+    multiselect?: MultiSelectFilter<any>;
+    range?: RangeFilter<any>;
+    boolean?: BooleanFilter<any>;
+    exists?: ExistsFilter<any>;
+    [customFilter: string]: BaseFilter<any, any, any> | undefined;
+}
+
+export interface ISuggestionsOptions {
+    fuzzy?: FuzzySuggestion<any>;
+    prefix?: PrefixSuggestion<any>;
+    [customSuggestion: string]: BaseSuggestion<any, any> | undefined;
+}
 
 export interface IFilters {
     multiselect: MultiSelectFilter<any>;

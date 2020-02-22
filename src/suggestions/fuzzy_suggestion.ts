@@ -7,7 +7,8 @@ import {
     FieldSuggestions,
     BaseSuggestionConfig,
     IBaseOptions,
-    ESMappingType
+    ESMappingType,
+    FieldNameModifier
 } from '../types';
 import BaseSuggestion from './base';
 import utils from './utils';
@@ -18,13 +19,17 @@ import utils from './utils';
 
 const CONFIG_DEFAULT = {
     defaultSuggestionKind: 'should',
-    enabled: false
+    enabled: false,
+    fieldNameModifierQuery: (fieldName: string) => fieldName,
+    fieldNameModifierAggs: (fieldName: string) => fieldName
 };
 
 export interface IConfig extends BaseSuggestionConfig {
     field: string;
     defaultSuggestionKind?: 'should' | 'must';
     enabled?: boolean;
+    fieldNameModifierQuery?: FieldNameModifier;
+    fieldNameModifierAggs?: FieldNameModifier;
 }
 
 export type Configs<Fields extends string> = {
@@ -115,6 +120,7 @@ class FuzzySuggestion<Fields extends string> extends BaseSuggestion<Fields, ICon
         }
         const config = this.fieldConfigs[fieldName];
         const esFieldName = config.field;
+        const fieldNameModifier = config.fieldNameModifierQuery;
 
         const searchTerm = this.fieldSearches[fieldName];
         if (!searchTerm) {
@@ -138,7 +144,7 @@ class FuzzySuggestion<Fields extends string> extends BaseSuggestion<Fields, ICon
                             ...existingFiltersForKind,
                             {
                                 fuzzy: {
-                                    [esFieldName]: {
+                                    [fieldNameModifier(esFieldName)]: {
                                         value: searchTerm
                                     }
                                 }
@@ -155,6 +161,8 @@ class FuzzySuggestion<Fields extends string> extends BaseSuggestion<Fields, ICon
     public _addAggsToESRequest = (request: ESRequest, fieldName: Fields): ESRequest => {
         const config = this.fieldConfigs[fieldName];
         const esFieldName = config.field;
+        const fieldNameModifier = config.fieldNameModifierAggs;
+
         if (!config || !config.enabled) {
             return request;
         }
@@ -164,7 +172,7 @@ class FuzzySuggestion<Fields extends string> extends BaseSuggestion<Fields, ICon
                 ...request.aggs,
                 [`${esFieldName}__fuzzy_suggestion`]: {
                     terms: {
-                        field: esFieldName,
+                        field: fieldNameModifier(esFieldName),
                         size: 20
                     }
                 }
