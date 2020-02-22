@@ -24,7 +24,8 @@ const CONFIG_DEFAULT = {
     defaultFilterInclusion: 'include',
     getCount: true,
     aggsEnabled: false,
-    fieldNameModifier: (fieldName: string) => fieldName
+    fieldNameModifierQuery: (fieldName: string) => fieldName,
+    fieldNameModifierAggs: (fieldName: string) => fieldName
 };
 
 export interface IConfig extends BaseFilterConfig {
@@ -33,7 +34,8 @@ export interface IConfig extends BaseFilterConfig {
     defaultFilterInclusion?: 'include' | 'exclude';
     getCount?: boolean;
     aggsEnabled?: boolean;
-    fieldNameModifier?: FieldNameModifier;
+    fieldNameModifierQuery?: FieldNameModifier;
+    fieldNameModifierAggs?: FieldNameModifier;
 }
 
 export type IConfigs<Fields extends string> = {
@@ -309,7 +311,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                 throw new Error(`kind is not set for multi-select filter type ${fieldName}`);
             }
 
-            const fieldNameModifier = config.fieldNameModifier;
+            const fieldNameModifier = config.fieldNameModifierQuery;
 
             if (filter) {
                 return objKeys(filter as MultiSelectFieldFilter).reduce(
@@ -364,7 +366,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                 return acc;
             }
 
-            const fieldNameModifier = config.fieldNameModifier;
+            const fieldNameModifier = config.fieldNameModifierAggs;
 
             const filter = this.fieldFilters[fieldName];
             if (!filter) {

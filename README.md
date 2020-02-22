@@ -235,7 +235,8 @@ const defaultMultiSelectFilterConfig = {
     defaultFilterInclusion: 'include',
     getCount: true,
     aggsEnabled: false,
-    fieldNameModifier: (fieldName: string) => `${fieldName}.keyword`
+    fieldNameModifierQuery: (fieldName: string) => `${fieldName}`
+    fieldNameModifierAggs: (fieldName: string) => `${fieldName}.keyword`
 };
 
 
@@ -882,7 +883,8 @@ type DefaultConfig = {
     defaultFilterInclusion: 'include',
     getCount: true,
     aggsEnabled: false,
-    fieldNameModifier: (fieldName: string) => fieldName
+    fieldNameModifierQuery: (fieldName: string) => fieldName
+    fieldNameModifierAggs: (fieldName: string) => fieldName
 };
 ```
 
@@ -899,7 +901,8 @@ type MultiSelectConfig = {
     defaultFilterInclusion?: 'include' | 'exclude';
     getCount?: boolean;
     aggsEnabled?: boolean;
-    fieldNameModifier?: (fieldName: string) => string
+    fieldNameModifierQuery?: (fieldName: string) => string
+    fieldNameModifierAggs?: (fieldName: string) => string
 };
 ```
 
@@ -943,16 +946,21 @@ The `defaultConfig` looks like:
 {
     defaultSuggestionKind: 'should',
     enabled: false,
-    fieldNameModifier: (fieldName: string) => fieldName
+    fieldNameModifierQuery: (fieldName: string) => fieldName,
+    fieldNameModifierAggs: (fieldName: string) => fieldName
 }
 ```
 
 The typings for the specific config object looks like:
+
 ```typescript
+{
     field: string;
     defaultSuggestionKind?: 'should' | 'must';
     enabled?: boolean;
-    fieldNameModifier?: FieldNameModifier;
+    fieldNameModifierQuery?: FieldNameModifier;
+    fieldNameModifierAggs?: FieldNameModifier;
+}
 ```
 
 #### Methods

@@ -20,14 +20,16 @@ import utils from './utils';
 const CONFIG_DEFAULT = {
     defaultSuggestionKind: 'should',
     enabled: false,
-    fieldNameModifier: (fieldName: string) => fieldName
+    fieldNameModifierQuery: (fieldName: string) => fieldName,
+    fieldNameModifierAggs: (fieldName: string) => fieldName
 };
 
 export interface IConfig extends BaseSuggestionConfig {
     field: string;
     defaultSuggestionKind?: 'should' | 'must';
     enabled?: boolean;
-    fieldNameModifier?: FieldNameModifier;
+    fieldNameModifierQuery?: FieldNameModifier;
+    fieldNameModifierAggs?: FieldNameModifier;
 }
 
 export type Configs<Fields extends string> = {
@@ -119,7 +121,7 @@ class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, ICo
         }
         const config = this.fieldConfigs[fieldName];
         const esFieldName = config.field;
-        const fieldNameModifier = config.fieldNameModifier;
+        const fieldNameModifier = config.fieldNameModifierQuery;
 
         const searchTerm = this.fieldSearches[fieldName];
         if (!searchTerm) {
@@ -160,7 +162,7 @@ class PrefixSuggestion<Fields extends string> extends BaseSuggestion<Fields, ICo
     public _addAggsToESRequest = (request: ESRequest, fieldName: Fields): ESRequest => {
         const config = this.fieldConfigs[fieldName];
         const esFieldName = config.field;
-        const fieldNameModifier = config.fieldNameModifier;
+        const fieldNameModifier = config.fieldNameModifierAggs;
 
         if (!config || !config.enabled) {
             return request;
