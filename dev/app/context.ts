@@ -4,7 +4,15 @@ import gql from 'graphql-tag';
 import {GqlClient} from '@social-native/snpkg-client-graphql-client';
 import {ExampleForm} from './state';
 const gqlClient = new GqlClient({enablePersistance: true});
-import {Manager, AxiosESClient, IClient, ESRequest, ESResponse, ESMappingType} from '../../src';
+import {
+    Manager,
+    AxiosESClient,
+    IClient,
+    ESRequest,
+    ESResponse,
+    ESMappingType,
+    FuzzySuggestion
+} from '../../src';
 import {toJS} from 'mobx';
 
 const exampleFormInstance = new ExampleForm();
@@ -47,12 +55,22 @@ class CreatorIndexGQLClient<Source extends object = object> implements IClient {
     };
 }
 
+const customFuzzySuggestion = new FuzzySuggestion({
+    defaultSuggestionKind: 'should',
+    enabled: false,
+    fieldNameModifierQuery: (fieldName: string) => fieldName,
+    fieldNameModifierAggs: (fieldName: string) => `${fieldName}.keyword`
+});
+
 const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
 // const client = new CreatorIndexGQLClient(gqlClient);
 const creatorCRM = new Manager(client, {
     pageSize: 10,
     queryThrottleInMS: 350,
-    fieldBlackList: ['youtube', 'twitter', 'snapchat']
+    fieldBlackList: ['youtube', 'twitter', 'snapchat'],
+    suggestions: {
+        fuzzy: customFuzzySuggestion
+    }
 });
 
 gqlClient.createClient().then(() => {
