@@ -161,6 +161,8 @@ export type FieldSuggestionSubscribers<Fields extends string> = (
  * ***********************************
  */
 
+export type FieldNameModifier = (fieldName: string) => string;
+
 export type ShouldUseFieldFn = (fieldName: string, fieldType: ESMappingType) => boolean;
 
 export type IBaseOptions = {

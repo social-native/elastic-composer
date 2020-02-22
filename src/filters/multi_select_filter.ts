@@ -10,7 +10,8 @@ import {
     MultiSelectSubFieldFilterValue,
     MultiSelectFieldFilter,
     RawMultiSelectAggs,
-    FieldFilters
+    FieldFilters,
+    FieldNameModifier
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -22,7 +23,8 @@ const CONFIG_DEFAULT = {
     defaultFilterKind: 'should',
     defaultFilterInclusion: 'include',
     getCount: true,
-    aggsEnabled: false
+    aggsEnabled: false,
+    fieldNameModifier: (fieldName: string) => fieldName
 };
 
 export interface IConfig extends BaseFilterConfig {
@@ -31,6 +33,7 @@ export interface IConfig extends BaseFilterConfig {
     defaultFilterInclusion?: 'include' | 'exclude';
     getCount?: boolean;
     aggsEnabled?: boolean;
+    fieldNameModifier?: FieldNameModifier;
 }
 
 export type IConfigs<Fields extends string> = {
@@ -306,14 +309,22 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                 throw new Error(`kind is not set for multi-select filter type ${fieldName}`);
             }
 
+            const fieldNameModifier = config.fieldNameModifier;
+
             if (filter) {
                 return objKeys(filter as MultiSelectFieldFilter).reduce(
                     (newQuery, selectedValue) => {
                         const selectedValueFilter = filter[selectedValue];
                         const newFilter =
                             selectedValueFilter.inclusion === 'include'
-                                ? {match: {[name]: selectedValue}}
-                                : {bool: {must_not: {match: {[name]: selectedValue}}}};
+                                ? {match: {[fieldNameModifier(name)]: selectedValue}}
+                                : {
+                                      bool: {
+                                          must_not: {
+                                              match: {[fieldNameModifier(name)]: selectedValue}
+                                          }
+                                      }
+                                  };
                         const kindForSelectedValue = selectedValueFilter.kind || kind;
                         const existingFiltersForKind =
                             newQuery.query.bool[kindForSelectedValue as FilterKind] || [];
@@ -353,6 +364,8 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                 return acc;
             }
 
+            const fieldNameModifier = config.fieldNameModifier;
+
             const filter = this.fieldFilters[fieldName];
             if (!filter) {
                 return acc;
@@ -364,7 +377,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                     ...aggFilters,
                     [value]: {
                         match: {
-                            [name]: value
+                            [fieldNameModifier(name)]: value
                         }
                     }
                 };

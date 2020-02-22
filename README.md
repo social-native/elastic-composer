@@ -14,6 +14,7 @@ A high-level Elasticsearch query manager and executor. Filter fields, find searc
   - [Quick Examples](#quick-examples)
     - [Instantiate a manager](#instantiate-a-manager)
     - [Instantiate a manager with specific config options for a range filter](#instantiate-a-manager-with-specific-config-options-for-a-range-filter)
+    - [Setting the fieldNameModifier for all fields in a filter](#setting-the-fieldnamemodifier-for-all-fields-in-a-filter)
     - [Add a custom filter during manager instantiation](#add-a-custom-filter-during-manager-instantiation)
     - [Add a custom suggestion during manager instantiation](#add-a-custom-suggestion-during-manager-instantiation)
     - [Adding a custom client to the manager](#adding-a-custom-client-to-the-manager)
@@ -42,7 +43,7 @@ A high-level Elasticsearch query manager and executor. Filter fields, find searc
     - [Clearing all suggestions](#clearing-all-suggestions)
     - [Looking at all active suggestions](#looking-at-all-active-suggestions)
     - [Looking at all active filters](#looking-at-all-active-filters)
-    - [Looking at all the Filter and Suggestion instances available for a field](#looking-at-all-the-filter-and-suggestion-instances-available-for-a-filed)
+    - [Looking at all the Filter and Suggestion instances available for a filed](#looking-at-all-the-filter-and-suggestion-instances-available-for-a-filed)
   - [API](#api)
     - [Manager](#manager)
       - [Initialization](#initialization)
@@ -211,6 +212,41 @@ const options = {
     queryThrottleInMS: 350,
     fieldBlackList: ['id'],
     filters: {range: rangeFilter}
+};
+
+const manager = new Manager(client, options);
+```
+
+### Setting the fieldNameModifier for all fields in a filter
+
+The `fieldNameModifier` can be used to modify what the field name sent to Elasticsearch looks like. This is useful if you want to take a field name such as `tags` and turn it into `tags.keyword` for matching purposes.
+
+The modifier is a function with the signature `(fieldName: string) => string`
+
+```typescript
+import {AxiosESClient, Manager, MultiSelectFilter} from '@social-native/snpkg-client-elasticsearch';
+
+// set the default config all filters will have if not explicitly set
+// by default we don't want aggs enabled unless we know the filter is being shown in the UI. So,
+// we use lifecycle methods in react to toggle this config attribute and set the default to `false`.
+
+const defaultMultiSelectFilterConfig = {
+    defaultFilterKind: 'should',
+    defaultFilterInclusion: 'include',
+    getCount: true,
+    aggsEnabled: false,
+    fieldNameModifier: (fieldName: string) => `${fieldName}.keyword`
+};
+
+
+// instantiate a range filter
+const multiselectFilter = new MultiSelectFilter(defaultMultiSelectFilterConfig);
+
+const options = {
+    pageSize: 100,
+    queryThrottleInMS: 350,
+    fieldBlackList: ['id'],
+    filters: {multiselect: multiselectFilter}
 };
 
 const manager = new Manager(client, options);
@@ -698,9 +734,9 @@ The configuration that each field will acquire if an override is not specificall
 
 ```typescript
 type DefaultConfig = {
-    defaultFilterKind: 'should' or 'must';
-    getCount: boolean;
-    aggsEnabled: boolean;
+    defaultFilterKind: 'should',
+    getCount: true,
+    aggsEnabled: false
 };
 ```
 
@@ -744,11 +780,11 @@ The configuration that each field will acquire if an override is not specificall
 
 ```typescript
 type RangeConfig = {
-    defaultFilterKind: 'should' or 'must';
-    getDistribution: boolean;
-    getRangeBounds: boolean;
-    rangeInterval: number;
-    aggsEnabled: boolean;
+    defaultFilterKind: 'should',
+    getDistribution: true,
+    getRangeBounds: true,
+    rangeInterval: 1,
+    aggsEnabled: false
 };
 ```
 
@@ -796,9 +832,9 @@ The configuration that each field will acquire if an override is not specificall
 
 ```typescript
 type DefaultConfig = {
-    defaultFilterKind: 'should' or 'must';
-    getCount: boolean;
-    aggsEnabled: boolean;
+   defaultFilterKind: 'should',
+   getCount: true,
+   aggsEnabled: false
 };
 ```
 
@@ -842,10 +878,11 @@ The configuration that each field will acquire if an override is not specificall
 
 ```typescript
 type DefaultConfig = {
-    defaultFilterKind: 'should' or 'must';
-    defaultFilterInclusion?: 'include' | 'exclude';
-    getCount: boolean;
-    aggsEnabled: boolean;
+    defaultFilterKind: 'should',
+    defaultFilterInclusion: 'include',
+    getCount: true,
+    aggsEnabled: false,
+    fieldNameModifier: (fieldName: string) => fieldName
 };
 ```
 
@@ -862,6 +899,7 @@ type MultiSelectConfig = {
     defaultFilterInclusion?: 'include' | 'exclude';
     getCount?: boolean;
     aggsEnabled?: boolean;
+    fieldNameModifier?: (fieldName: string) => string
 };
 ```
 
@@ -898,6 +936,24 @@ The suggestions that ship with this package all have the same public interface (
 All filter constructors have the signature `(defaultConfig, specificConfig) => SuggestionTypeInstance`
 
 `defaultConfig` and `specificConfig` are specific to each suggestion class type.
+
+The `defaultConfig` looks like:
+
+```typescript
+{
+    defaultSuggestionKind: 'should',
+    enabled: false,
+    fieldNameModifier: (fieldName: string) => fieldName
+}
+```
+
+The typings for the specific config object looks like:
+```typescript
+    field: string;
+    defaultSuggestionKind?: 'should' | 'must';
+    enabled?: boolean;
+    fieldNameModifier?: FieldNameModifier;
+```
 
 #### Methods
 
