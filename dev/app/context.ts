@@ -7,53 +7,55 @@ const gqlClient = new GqlClient({enablePersistance: true});
 import {
     Manager,
     AxiosESClient,
-    IClient,
-    ESRequest,
-    ESResponse,
-    ESMappingType,
-    FuzzySuggestion
+    // IClient,
+    // ESRequest,
+    // ESResponse,
+    // ESMappingType,
+    FuzzySuggestion,
+    RangeFilter
 } from '../../src';
-import {toJS} from 'mobx';
+import {IRangeConfig} from '../../src/filters/range_filter';
+// import {toJS} from 'mobx';
 
 const exampleFormInstance = new ExampleForm();
 
-class CreatorIndexGQLClient<Source extends object = object> implements IClient {
-    public graphqlClient: GqlClient;
+// class CreatorIndexGQLClient<Source extends object = object> implements IClient {
+//     public graphqlClient: GqlClient;
 
-    constructor(graphqlClient: GqlClient) {
-        if (graphqlClient === undefined) {
-            throw new Error(
-                'GraphqlQL client is undefined. Please instantiate this class with a GqlClient instance'
-            );
-        }
-        this.graphqlClient = graphqlClient;
-    }
+//     constructor(graphqlClient: GqlClient) {
+//         if (graphqlClient === undefined) {
+//             throw new Error(
+//                 'GraphqlQL client is undefined. Please instantiate this class with a GqlClient instance'
+//             );
+//         }
+//         this.graphqlClient = graphqlClient;
+//     }
 
-    public search = async (search: ESRequest): Promise<ESResponse<Source>> => {
-        const {data} = await this.graphqlClient.client.query({
-            query: gql`
-                query CreatorCRMSearch($search: JSON) {
-                    creatorCRMSearch(search: $search)
-                }
-            `,
-            fetchPolicy: 'no-cache',
-            variables: {search: JSON.stringify(search)}
-        });
-        return JSON.parse(data.creatorCRMSearch);
-    };
+//     public search = async (search: ESRequest): Promise<ESResponse<Source>> => {
+//         const {data} = await this.graphqlClient.client.query({
+//             query: gql`
+//                 query CreatorCRMSearch($search: JSON) {
+//                     creatorCRMSearch(search: $search)
+//                 }
+//             `,
+//             fetchPolicy: 'no-cache',
+//             variables: {search: JSON.stringify(search)}
+//         });
+//         return JSON.parse(data.creatorCRMSearch);
+//     };
 
-    public mapping = async (): Promise<Record<string, ESMappingType>> => {
-        const {data} = (await this.graphqlClient.client.query({
-            query: gql`
-                query CreatorCRMFields {
-                    creatorCRMFields
-                }
-            `,
-            fetchPolicy: 'no-cache'
-        })) as any;
-        return JSON.parse(data.creatorCRMFields);
-    };
-}
+//     public mapping = async (): Promise<Record<string, ESMappingType>> => {
+//         const {data} = (await this.graphqlClient.client.query({
+//             query: gql`
+//                 query CreatorCRMFields {
+//                     creatorCRMFields
+//                 }
+//             `,
+//             fetchPolicy: 'no-cache'
+//         })) as any;
+//         return JSON.parse(data.creatorCRMFields);
+//     };
+// }
 
 const customFuzzySuggestion = new FuzzySuggestion({
     defaultSuggestionKind: 'should',
@@ -62,12 +64,38 @@ const customFuzzySuggestion = new FuzzySuggestion({
     fieldNameModifierAggs: (fieldName: string) => `${fieldName}.keyword`
 });
 
+const defaultRangeFilterConfig: IRangeConfig = {
+    field: '',
+    aggsEnabled: false,
+    defaultFilterKind: 'should',
+    getDistribution: true,
+    getRangeBounds: true,
+    rangeInterval: 100
+};
+// explicitly set the config for certain fields
+const customRangeFilterConfig = {
+    'user.age': {
+        field: 'user.age',
+        rangeInterval: 10
+    },
+    'user_profile.age': {
+        field: 'user_profile.age',
+        rangeInterval: 1
+    }
+};
+
+const customRangeFilter = new RangeFilter(defaultRangeFilterConfig as any, customRangeFilterConfig);
+
 const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
 // const client = new CreatorIndexGQLClient(gqlClient);
 const creatorCRM = new Manager(client, {
-    pageSize: 10,
+    pageSize: 100,
     queryThrottleInMS: 350,
-    fieldBlackList: ['youtube', 'twitter', 'snapchat'],
+    fieldWhiteList: ['user.age', 'user_profile.age'],
+    // fieldBlackList: ['youtube', 'twitter', 'snapchat'],
+    filters: {
+        range: customRangeFilter
+    },
     suggestions: {
         fuzzy: customFuzzySuggestion
     }

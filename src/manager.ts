@@ -667,7 +667,7 @@ class Manager<
      * The results contain the documents found in the query that match the filters
      */
     public _saveQueryResults = (response: ESResponse<ESDocSource>) => {
-        if (response.timed_out === false && response.hits.total > 0) {
+        if (response.timed_out === false && response.hits.total >= 0) {
             runInAction(() => {
                 if (response && response.hits && response.hits.hits) {
                     this.results = response.hits.hits;
