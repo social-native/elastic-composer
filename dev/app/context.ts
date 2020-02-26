@@ -11,7 +11,7 @@ import {
     ESRequest,
     ESResponse,
     ESMappingType,
-    FuzzySuggestion,
+    PrefixSuggestion,
     RangeFilter
 } from '../../src';
 import {IRangeConfig} from '../../src/filters/range_filter';
@@ -57,7 +57,7 @@ class CreatorIndexGQLClient<Source extends object = object> implements IClient {
     };
 }
 
-const customFuzzySuggestion = new FuzzySuggestion({
+const customPrefixSuggestion = new PrefixSuggestion({
     defaultSuggestionKind: 'should',
     enabled: false,
     fieldNameModifierQuery: (fieldName: string) => fieldName,
@@ -91,13 +91,13 @@ const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
 const creatorCRM = new Manager(client, {
     pageSize: 100,
     queryThrottleInMS: 350,
-    fieldWhiteList: ['user.age', 'user_profile.age'],
-    // fieldBlackList: ['youtube', 'twitter', 'snapchat'],
+    // fieldWhiteList: ['user.age', 'user_profile.age'],
+    fieldBlackList: ['youtube', 'twitter', 'snapchat'],
     filters: {
         range: customRangeFilter
     },
     suggestions: {
-        fuzzy: customFuzzySuggestion
+        prefix: customPrefixSuggestion
     }
 });
 
