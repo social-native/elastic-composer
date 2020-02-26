@@ -29,7 +29,7 @@ const SuggestionResults = styled.div`
     overflow-y: scroll;
 `;
 
-const Result = styled.div`    
+const Result = styled.div`
     padding: 3px;
     border: 1px solid black;
     margin: 5px;
@@ -60,26 +60,29 @@ const Button = styled.div`
 
 interface IProps {
     fieldName: string;
-    children(suggestionsToUse: MultiSelectFieldFilter, removeSubFieldValueFromFilter: (value: string)=> void): ReactElement;
+    suggestionType: 'prefix' | 'suggestion'
+    children(
+        suggestionsToUse: MultiSelectFieldFilter,
+        removeSubFieldValueFromFilter: (value: string) => void
+    ): ReactElement;
 }
 
-const Suggestion: React.FunctionComponent<IProps> = observer(({children, fieldName}) => {
+const Suggestion: React.FunctionComponent<IProps> = observer(({children, fieldName, suggestionType}) => {
     const [suggestionsToUse, setSuggestionToUse] = useState<MultiSelectFieldFilter>({});
     const [inclusionForSubField, setInclusionForSubField] = useState({});
     const [kindForSubField, setKindForSubField] = useState({});
 
     const creatorCRM = useContext(Context.creatorCRM);
-    const suggester = creatorCRM.suggestions.fuzzy;
+    const suggester = creatorCRM.suggestions[suggestionType];
 
     if (!suggester) {
         return null;
     }
 
     const removeSubFieldValueFromFilter = (subfieldValue: string) => {
-        console.log('removing: ', subfieldValue, suggestionsToUse)
-        delete suggestionsToUse[subfieldValue]
-        setSuggestionToUse({...suggestionsToUse})
-    }
+        delete suggestionsToUse[subfieldValue];
+        setSuggestionToUse({...suggestionsToUse});
+    };
     const search = suggester.fieldSearches[fieldName];
 
     return (
@@ -87,7 +90,9 @@ const Suggestion: React.FunctionComponent<IProps> = observer(({children, fieldNa
             <Search
                 type="text"
                 value={search}
-                onChange={c => suggester.setSearch(fieldName, c.target.value)}
+                onChange={c => {
+                        suggester.setSearch(fieldName, c.target.value);
+                }}
             />
             <SuggestionResults>
                 {(suggester.fieldSuggestions[fieldName] || []).map((n, i) => (
@@ -96,11 +101,15 @@ const Suggestion: React.FunctionComponent<IProps> = observer(({children, fieldNa
                         <ButtonContainer>
                             <Button
                                 onClick={() => {
-                                    const filters = ({...suggestionsToUse, [n.suggestion]: ({
-                                        inclusion: inclusionForSubField[n.suggestion] || 'include',
-                                        kind: kindForSubField[n.suggestion]
-                                    }) as MultiSelectSubFieldFilterValue });
-                                    setSuggestionToUse(filters)
+                                    const filters = {
+                                        ...suggestionsToUse,
+                                        [n.suggestion]: {
+                                            inclusion:
+                                                inclusionForSubField[n.suggestion] || 'include',
+                                            kind: kindForSubField[n.suggestion]
+                                        } as MultiSelectSubFieldFilterValue
+                                    };
+                                    setSuggestionToUse(filters);
                                 }}
                             >
                                 Add

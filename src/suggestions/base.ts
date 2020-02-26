@@ -218,6 +218,7 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
             });
         });
         const fieldConfig = this._findConfigForField(field);
+
         if (!fieldConfig || !fieldConfig.enabled) {
             return;
         }

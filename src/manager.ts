@@ -842,7 +842,9 @@ class Manager<
         }, requestWithSuggestion);
         // We want:
         // - no results
-        return this._addZeroPageSizeToQuery(this._requestMiddleware(effectRequest, fullRequest));
+        return this._addSortToQuery(
+            this._addZeroPageSizeToQuery(this._requestMiddleware(effectRequest, fullRequest))
+        );
     };
 
     public _createSearchSuggestionRequest = (
@@ -872,7 +874,9 @@ class Manager<
         }, requestWithSuggestion);
         // We want:
         // - no results
-        return this._addZeroPageSizeToQuery(this._requestMiddleware(effectRequest, fullRequest));
+        return this._addSortToQuery(
+            this._addZeroPageSizeToQuery(this._requestMiddleware(effectRequest, fullRequest))
+        );
     };
 
     public _createUnfilteredQueryAndAggsRequest = (
