@@ -7,10 +7,10 @@ const gqlClient = new GqlClient({enablePersistance: true});
 import {
     Manager,
     AxiosESClient,
-    // IClient,
-    // ESRequest,
-    // ESResponse,
-    // ESMappingType,
+    IClient,
+    ESRequest,
+    ESResponse,
+    ESMappingType,
     FuzzySuggestion,
     RangeFilter
 } from '../../src';
@@ -19,43 +19,43 @@ import {IRangeConfig} from '../../src/filters/range_filter';
 
 const exampleFormInstance = new ExampleForm();
 
-// class CreatorIndexGQLClient<Source extends object = object> implements IClient {
-//     public graphqlClient: GqlClient;
+class CreatorIndexGQLClient<Source extends object = object> implements IClient {
+    public graphqlClient: GqlClient;
 
-//     constructor(graphqlClient: GqlClient) {
-//         if (graphqlClient === undefined) {
-//             throw new Error(
-//                 'GraphqlQL client is undefined. Please instantiate this class with a GqlClient instance'
-//             );
-//         }
-//         this.graphqlClient = graphqlClient;
-//     }
+    constructor(graphqlClient: GqlClient) {
+        if (graphqlClient === undefined) {
+            throw new Error(
+                'GraphqlQL client is undefined. Please instantiate this class with a GqlClient instance'
+            );
+        }
+        this.graphqlClient = graphqlClient;
+    }
 
-//     public search = async (search: ESRequest): Promise<ESResponse<Source>> => {
-//         const {data} = await this.graphqlClient.client.query({
-//             query: gql`
-//                 query CreatorCRMSearch($search: JSON) {
-//                     creatorCRMSearch(search: $search)
-//                 }
-//             `,
-//             fetchPolicy: 'no-cache',
-//             variables: {search: JSON.stringify(search)}
-//         });
-//         return JSON.parse(data.creatorCRMSearch);
-//     };
+    public search = async (search: ESRequest): Promise<ESResponse<Source>> => {
+        const {data} = await this.graphqlClient.client.query({
+            query: gql`
+                query CreatorCRMSearch($search: JSON) {
+                    creatorCRMSearch(search: $search)
+                }
+            `,
+            fetchPolicy: 'no-cache',
+            variables: {search: JSON.stringify(search)}
+        });
+        return JSON.parse(data.creatorCRMSearch);
+    };
 
-//     public mapping = async (): Promise<Record<string, ESMappingType>> => {
-//         const {data} = (await this.graphqlClient.client.query({
-//             query: gql`
-//                 query CreatorCRMFields {
-//                     creatorCRMFields
-//                 }
-//             `,
-//             fetchPolicy: 'no-cache'
-//         })) as any;
-//         return JSON.parse(data.creatorCRMFields);
-//     };
-// }
+    public mapping = async (): Promise<Record<string, ESMappingType>> => {
+        const {data} = (await this.graphqlClient.client.query({
+            query: gql`
+                query CreatorCRMFields {
+                    creatorCRMFields
+                }
+            `,
+            fetchPolicy: 'no-cache'
+        })) as any;
+        return JSON.parse(data.creatorCRMFields);
+    };
+}
 
 const customFuzzySuggestion = new FuzzySuggestion({
     defaultSuggestionKind: 'should',
