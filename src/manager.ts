@@ -1263,7 +1263,7 @@ class Manager<
     };
 
     public _addSortToQuery = (request: ESRequest): ESRequest => {
-        return {...request, sort: ['_doc', '_score']};
+        return {...request, sort: ['_score', '_doc']};
     };
 
     public _addZeroPageSizeToQuery = (request: ESRequest): ESRequest => {
