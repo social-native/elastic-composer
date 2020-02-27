@@ -76,7 +76,14 @@ export interface IClient<Source extends object = object> {
  * ***********************************
  */
 
-export type ESMappingType = 'long' | 'double' | 'integer' | 'keyword' | 'text' | 'boolean';
+export type ESMappingType =
+    | 'long'
+    | 'double'
+    | 'integer'
+    | 'keyword'
+    | 'text'
+    | 'boolean'
+    | 'float';
 
 /**
  * ***********************************
