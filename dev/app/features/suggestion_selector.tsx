@@ -1,6 +1,5 @@
 import React, {useContext, useState, ReactElement} from 'react';
 import {observer} from 'mobx-react';
-import {toJS} from 'mobx';
 import styled from 'styled-components';
 import Dropdown from 'react-dropdown-now';
 import Context from '../context';
@@ -27,7 +26,7 @@ const DropDownFilterSelect = styled.div`
 
 interface IProps {
     defaultFieldName: string;
-    suggestionType: 'fuzzy';
+    suggestionType: 'fuzzy' | 'prefix';
     children(suggestionFieldName: string): ReactElement;
 }
 // tslint:disable-next-line

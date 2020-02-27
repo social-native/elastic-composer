@@ -11,7 +11,7 @@ import {
     ESRequest,
     ESResponse,
     ESMappingType,
-    FuzzySuggestion,
+    PrefixSuggestion,
     RangeFilter
 } from '../../src';
 import {IRangeConfig} from '../../src/filters/range_filter';
@@ -57,7 +57,7 @@ class CreatorIndexGQLClient<Source extends object = object> implements IClient {
     };
 }
 
-const customFuzzySuggestion = new FuzzySuggestion({
+const customPrefixSuggestion = new PrefixSuggestion({
     defaultSuggestionKind: 'should',
     enabled: false,
     fieldNameModifierQuery: (fieldName: string) => fieldName,
@@ -97,7 +97,7 @@ const creatorCRM = new Manager(client, {
         range: customRangeFilter
     },
     suggestions: {
-        fuzzy: customFuzzySuggestion
+        prefix: customPrefixSuggestion
     }
 });
 

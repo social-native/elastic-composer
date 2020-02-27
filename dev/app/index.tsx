@@ -37,9 +37,9 @@ export default () => (
         <ApiAccessToken />
         <CustomQuery />
         <HorizontalLayout>
-            <SuggestionSelector suggestionType={'fuzzy'} defaultFieldName={'tags'}>
+            <SuggestionSelector suggestionType={'prefix'} defaultFieldName={'tags'}>
                 {fieldName => (
-                    <Suggestion fieldName={fieldName}>
+                    <Suggestion fieldName={fieldName} suggestionType={'prefix'}>
                         {(multiSelectFieldFilters, removeSubFieldValueFromFilter) => (
                             <MultiSelectFilter
                                 fieldName={fieldName}
