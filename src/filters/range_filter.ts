@@ -146,7 +146,10 @@ export type RangeBoundResults<RangeFields extends string> = {
 };
 
 export const rangeShouldUseFieldFn = (_fieldName: string, fieldType: ESMappingType) =>
-    fieldType === 'long' || fieldType === 'double' || fieldType === 'integer';
+    fieldType === 'long' ||
+    fieldType === 'double' ||
+    fieldType === 'integer' ||
+    fieldType === 'float';
 
 class RangeFilterClass<RangeFields extends string> extends BaseFilter<
     RangeFields,

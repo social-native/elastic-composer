@@ -91,8 +91,8 @@ const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
 const creatorCRM = new Manager(client, {
     pageSize: 100,
     queryThrottleInMS: 350,
-    fieldWhiteList: ['user.age', 'user_profile.age'],
-    // fieldBlackList: ['youtube', 'twitter', 'snapchat'],
+    // fieldWhiteList: ['user.age', 'user_profile.age'],
+    fieldBlackList: ['youtube', 'twitter', 'snapchat'],
     filters: {
         range: customRangeFilter
     },
