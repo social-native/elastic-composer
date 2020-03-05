@@ -197,7 +197,21 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
      * Changes to this state is tracked by the manager so that it knows when to run a new filter query
      */
     public get _shouldRunFilteredQueryAndAggs(): object {
-        return {filters: {...this.fieldFilters}, kinds: {...this.fieldKinds}};
+        const fieldFilters = objKeys(this.fieldFilters).reduce((acc, fieldName) => {
+            const subFields = this.fieldFilters[fieldName] as MultiSelectFieldFilter;
+            if (!subFields) {
+                return {...acc};
+            }
+            // access sub field filters so those changes are tracked too
+            const subFieldFilters = Object.keys(subFields).reduce((accc, subFieldName) => {
+                return {
+                    ...accc,
+                    [`_$_${fieldName}-${subFieldName}`]: subFields[subFieldName]
+                };
+            }, {} as MultiSelectFieldFilter);
+            return {...acc, ...subFieldFilters};
+        }, {});
+        return {filters: {...fieldFilters}, kinds: {...this.fieldKinds}};
     }
 
     /**
