@@ -2,6 +2,7 @@ import {configure} from 'mobx';
 
 export {default as Manager} from './manager';
 export {default as MappingParser} from './mapping_parser';
+export {default as History} from './history';
 
 export * from './types';
 export * from './filters';

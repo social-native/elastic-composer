@@ -12,7 +12,8 @@ import {
     ESResponse,
     ESMappingType,
     PrefixSuggestion,
-    RangeFilter
+    RangeFilter,
+    History
 } from '../../src';
 import {IRangeConfig} from '../../src/filters/range_filter';
 // import {toJS} from 'mobx';
@@ -107,6 +108,28 @@ gqlClient.createClient().then(() => {
     });
     // setTimeout(() => console.log('hur', toJS(creatorCRM.fieldsWithFiltersAndSuggestions)), 3000);
 });
+
+// setTimeout(() => {
+//     creatorCRM.filters.multiselect.setAggsEnabledToTrue('tags');
+//     creatorCRM.filters.multiselect.setFilter('tags', {
+//         allow_boost: {inclusion: 'include', kind: undefined},
+//         auto: {inclusion: 'include', kind: undefined}
+//     });
+// }, 10000);
+
+// setTimeout(() => {
+//     creatorCRM.filters.multiselect.removeFromFilter('tags', 'allow_boost');
+// }, 20000);
+const history = new History(creatorCRM);
+
+setTimeout(() => {
+    history.goToHistoryLocation(
+        JSON.parse(
+            '{"filters":{"multiselect":{"fieldKinds":{"tags":"should"},"fieldFilters":{"tags":{}}},"range":{"fieldKinds":{"user_profile.age":"must"},"fieldFilters":{"user_profile.age":{"lessThan":76,"greaterThan":25}}}}}'
+        )
+    );
+}, 5000);
+// console.log(history);
 
 export default {
     gqlClient: React.createContext(gqlClient),

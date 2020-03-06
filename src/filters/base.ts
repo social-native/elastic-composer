@@ -89,6 +89,49 @@ class BaseFilter<Fields extends string, Config extends BaseFilterConfig, Filter 
         throw new Error('activeFields is not defined');
     }
 
+    public userState(): {
+        fieldKinds?: FieldKinds<Fields>;
+        fieldFilters?: FieldFilters<Fields, Filter>;
+    } | void {
+        const kinds = Object.keys(this.fieldFilters).reduce((fieldKinds, fieldName) => {
+            return {
+                ...fieldKinds,
+                [fieldName]: this.kindForField(fieldName as Fields)
+            };
+        }, {} as FieldKinds<Fields>);
+
+        if (Object.keys(kinds).length > 0 && Object.keys(this.fieldFilters).length > 0) {
+            return {
+                fieldKinds: kinds,
+                fieldFilters: this.fieldFilters
+            };
+        } else if (Object.keys(kinds).length > 0) {
+            return {
+                fieldKinds: kinds
+            };
+        } else if (Object.keys(this.fieldFilters).length > 0) {
+            return {
+                fieldFilters: this.fieldFilters
+            };
+        } else {
+            return;
+        }
+    }
+
+    public rehydrateFromUserState(userState: {
+        fieldKinds?: FieldKinds<Fields>;
+        fieldFilters?: FieldFilters<Fields, Filter>;
+    }) {
+        try {
+            runInAction(() => {
+                this.fieldKinds = userState.fieldKinds || ({} as FieldKinds<Fields>);
+                this.fieldFilters = userState.fieldFilters || ({} as FieldFilters<Fields, Filter>);
+            });
+        } catch (e) {
+            throw new Error(`Failed to rehydrate from user state`);
+        }
+    }
+
     public clearAllFieldFilters() {
         throw new Error('clearAllFieldFilters is not defined');
     }
