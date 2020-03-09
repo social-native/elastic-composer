@@ -48,7 +48,7 @@ class History {
 
         this.currentLocationStore.subscribeToStateChanges(this.currentStateSubscriber);
 
-        const debounceHistoryChange = debounce(this._recordHistoryChange, 500);
+        const debounceHistoryChange = debounce(this._recordHistoryChange, 300);
 
         reaction(() => {
             return Object.keys(this.manager.filters).reduce((acc, filterName) => {
@@ -65,10 +65,6 @@ class History {
             const suggester = this.manager.suggestions[suggesterName];
             suggester._subscribeToShouldRunSuggestionSearch(debounceHistoryChange);
         });
-        // reaction(
-        //     () => JSON.stringify(this.history),
-        //     history => console.log('HISTORY', toJS(history))
-        // );
     }
 
     // tslint:disable-next-line
@@ -107,48 +103,33 @@ class History {
         const existingLocationString = JSON.stringify(
             this.history[this.currentLocationInHistoryCursor]
         );
-        console.log(
-            'CHECKING IF NEW INTERNAL STATE',
-            '\n-------------\n',
-            newLocationString,
-            '\n-------------\n',
-            existingLocationString,
-            '\n-------------\n',
-            this.currentLocationInHistoryCursor
-        );
+
         if (newLocationString !== existingLocationString) {
-            console.log(
-                'NEW INTERNAL STATE DETECTED',
-                '\n-------------\n',
-                newLocationString,
-                '\n-------------\n',
-                existingLocationString,
-                '\n-------------\n',
-                this.currentLocationInHistoryCursor
-            );
             this.addToHistory({...newHistoryLocation});
             this.currentLocationStore.setState({...newHistoryLocation});
         }
     };
 
     public currentStateSubscriber = (newHistoryLocation: HistoryLocation | undefined) => {
-        console.log('url location update');
-
         if (
             JSON.stringify(newHistoryLocation) !==
             JSON.stringify(this.history[this.currentLocationInHistoryCursor])
         ) {
-            console.log('found new location, rehydrating store');
-
             this.addToHistory({...newHistoryLocation});
             this._rehydrateFromLocation({...newHistoryLocation});
         }
     };
 
+    public _deepCopy = (location: HistoryLocation): HistoryLocation =>
+        JSON.parse(JSON.stringify(location));
+
     public addToHistory = (location: HistoryLocation | undefined) => {
         runInAction(() => {
+            this.history = [
+                this._deepCopy(location as HistoryLocation),
+                ...this.history.slice(this.currentLocationInHistoryCursor)
+            ];
             this.currentLocationInHistoryCursor = 0;
-            this.history = [{...toJS(location)}, ...this.history];
         });
     };
 
@@ -216,7 +197,9 @@ class History {
                 this.currentLocationInHistoryCursor = this.history.length - 1;
             }
 
-            const newHistoryLocation = this.history[this.currentLocationInHistoryCursor];
+            const newHistoryLocation = this._deepCopy(
+                this.history[this.currentLocationInHistoryCursor] as HistoryLocation
+            );
             this.currentLocationStore.setState(newHistoryLocation);
             this._rehydrateFromLocation(newHistoryLocation);
         });
