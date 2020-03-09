@@ -9,3 +9,4 @@ export {default as Suggestion} from './suggestion';
 export {default as CustomQuery} from './custom_query';
 export {default as ExistsFilter} from './exists_filter';
 export {default as MultiSelectFilter} from './multi_select_filter';
+export {default as HistoryNav} from './history_nav';

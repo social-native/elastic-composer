@@ -120,19 +120,20 @@ gqlClient.createClient().then(() => {
 // setTimeout(() => {
 //     creatorCRM.filters.multiselect.removeFromFilter('tags', 'allow_boost');
 // }, 20000);
-const history = new History(creatorCRM);
+const creatorCRMHistory = new History(creatorCRM, 'influencer_crm');
 
-setTimeout(() => {
-    history.goToHistoryLocation(
-        JSON.parse(
-            '{"filters":{"multiselect":{"fieldKinds":{"tags":"should"},"fieldFilters":{"tags":{}}},"range":{"fieldKinds":{"user_profile.age":"must"},"fieldFilters":{"user_profile.age":{"lessThan":76,"greaterThan":25}}}}}'
-        )
-    );
-}, 5000);
+// setTimeout(() => {
+//     creatorCRMHistory.setCurrentState(
+//         JSON.parse(
+//             '{"filters":{"multiselect":{"fieldKinds":{"tags":"should"},"fieldFilters":{"tags":{"carolsdaugther":{"inclusion":"include"}}}},"exists":{"fieldKinds":{"instagram.id":"must"},"fieldFilters":{"instagram.id":{"exists":true}}},"range":{"fieldKinds":{"user_profile.age":"must"},"fieldFilters":{"user_profile.age":{"lessThan":68,"greaterThan":35}}}},"suggestions":{"prefix":{"fieldKinds":{"tags":"should"},"fieldSearches":{"tags":"car"}}}}'
+//         )
+//     );
+// }, 5000);
 // console.log(history);
 
 export default {
     gqlClient: React.createContext(gqlClient),
     exampleForm: React.createContext(exampleFormInstance),
-    creatorCRM: React.createContext(creatorCRM)
+    creatorCRM: React.createContext(creatorCRM),
+    creatorCRMHistory: React.createContext(creatorCRMHistory)
 };

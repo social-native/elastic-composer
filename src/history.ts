@@ -2,6 +2,8 @@ import Manager from './manager';
 import {FieldKinds, FieldFilters, FieldSearches} from './types';
 import {reaction, toJS, runInAction, decorate, observable} from 'mobx';
 import debounce from 'lodash.debounce';
+import UrlStore from 'query-params-data';
+
 type FilterHistoryPlace = {
     fieldKinds?: FieldKinds<any>;
     fieldFilters?: FieldFilters<any, any>;
@@ -17,17 +19,34 @@ type HistoryLocation = {
     suggestions?: Record<string, SuggestionHistoryPlace>;
 };
 
-class History {
-    public manager: Manager;
-    public history: HistoryLocation[];
-    public currentLocationInHistory: number;
+interface IHistoryOptions<State> {
+    historySize: number;
+    currentLocationStore: UrlStore<State>;
+}
 
-    constructor(manager: Manager) {
+class History {
+    public historySize: number;
+    public manager: Manager;
+    public history: Array<HistoryLocation | undefined>;
+    public currentLocationInHistoryCursor: number;
+    public currentLocationStore: UrlStore<HistoryLocation>;
+
+    constructor(
+        manager: Manager,
+        queryParamKey: string,
+        options?: IHistoryOptions<HistoryLocation>
+    ) {
         runInAction(() => {
             this.manager = manager;
-            this.currentLocationInHistory = 0;
+            this.historySize = (options && options.historySize) || 100;
+            this.currentLocationStore =
+                (options && options.currentLocationStore) ||
+                new UrlStore<HistoryLocation>(queryParamKey);
+            this.currentLocationInHistoryCursor = 0;
             this.history = [];
         });
+
+        this.currentLocationStore.subscribeToStateChanges(this.currentStateSubscriber);
 
         const debounceHistoryChange = debounce(this._recordHistoryChange, 500);
 
@@ -44,31 +63,30 @@ class History {
 
         Object.keys(this.manager.suggestions).forEach(suggesterName => {
             const suggester = this.manager.suggestions[suggesterName];
-            // suggester._subscribeToShouldRunSuggestionSearch(this._recordHistoryChange);
             suggester._subscribeToShouldRunSuggestionSearch(debounceHistoryChange);
         });
-        reaction(
-            () => this.history,
-            history => console.log('HISTORY', toJS(history))
-        );
+        // reaction(
+        //     () => JSON.stringify(this.history),
+        //     history => console.log('HISTORY', toJS(history))
+        // );
     }
 
     // tslint:disable-next-line
     public _recordHistoryChange = () => {
         const filters = Object.keys(this.manager.filters).reduce((acc, filterName) => {
             const filter = this.manager.filters[filterName];
-            const serializedState = filter.userState();
-            if (serializedState) {
-                return {...acc, [filterName]: serializedState};
+            const filterUserState = filter.userState();
+            if (filterUserState) {
+                return {...acc, [filterName]: filterUserState};
             } else {
                 return acc;
             }
         }, {} as Record<string, FilterHistoryPlace>);
         const suggestions = Object.keys(this.manager.suggestions).reduce((acc, suggestionName) => {
             const filter = this.manager.suggestions[suggestionName];
-            const serializedState = filter.userState();
-            if (serializedState) {
-                return {...acc, [suggestionName]: serializedState};
+            const suggestionUserState = filter.userState();
+            if (suggestionUserState) {
+                return {...acc, [suggestionName]: suggestionUserState};
             } else {
                 return acc;
             }
@@ -85,28 +103,60 @@ class History {
             newHistoryLocation = undefined;
         }
 
+        const newLocationString = JSON.stringify(newHistoryLocation);
+        const existingLocationString = JSON.stringify(
+            this.history[this.currentLocationInHistoryCursor]
+        );
+        console.log(
+            'CHECKING IF NEW INTERNAL STATE',
+            '\n-------------\n',
+            newLocationString,
+            '\n-------------\n',
+            existingLocationString,
+            '\n-------------\n',
+            this.currentLocationInHistoryCursor
+        );
+        if (newLocationString !== existingLocationString) {
+            console.log(
+                'NEW INTERNAL STATE DETECTED',
+                '\n-------------\n',
+                newLocationString,
+                '\n-------------\n',
+                existingLocationString,
+                '\n-------------\n',
+                this.currentLocationInHistoryCursor
+            );
+            this.addToHistory({...newHistoryLocation});
+            this.currentLocationStore.setState({...newHistoryLocation});
+        }
+    };
+
+    public currentStateSubscriber = (newHistoryLocation: HistoryLocation | undefined) => {
+        console.log('url location update');
+
         if (
-            newHistoryLocation &&
-            JSON.stringify(newHistoryLocation) !== JSON.stringify(this.history[0])
+            JSON.stringify(newHistoryLocation) !==
+            JSON.stringify(this.history[this.currentLocationInHistoryCursor])
         ) {
-            this.goToHistoryLocation(newHistoryLocation, false);
+            console.log('found new location, rehydrating store');
+
+            this.addToHistory({...newHistoryLocation});
+            this._rehydrateFromLocation({...newHistoryLocation});
         }
     };
 
-    public goToHistoryLocation = (
-        location: HistoryLocation,
-        rehydrateFromLocation: boolean | undefined = true
-    ) => {
+    public addToHistory = (location: HistoryLocation | undefined) => {
         runInAction(() => {
-            this.history = [location, ...this.history];
-            this.currentLocationInHistory = 0;
+            this.currentLocationInHistoryCursor = 0;
+            this.history = [{...toJS(location)}, ...this.history];
         });
-        if (rehydrateFromLocation) {
-            this._rehydrateFromLocation(location);
-        }
     };
 
-    public _rehydrateFromLocation = (location: HistoryLocation) => {
+    public setCurrentState = (location: HistoryLocation) => {
+        this.currentLocationStore.setState({...location});
+    };
+
+    public _rehydrateFromLocation = (location: HistoryLocation | undefined = {}) => {
         runInAction(() => {
             if (location.filters) {
                 Object.keys(location.filters).forEach(fieldName => {
@@ -130,7 +180,7 @@ class History {
     public clearHistory = (): void => {
         runInAction(() => {
             this.history = [];
-            this.currentLocationInHistory = 0;
+            this.currentLocationInHistoryCursor = 0;
         });
     };
 
@@ -150,31 +200,32 @@ class History {
         }
 
         // calculate request history location
-        const newLocation = this.currentLocationInHistory - historyChange;
+        const newLocation = this.currentLocationInHistoryCursor - historyChange;
 
         runInAction(() => {
             // if within the range of recorded history, set as the new history location
             if (newLocation + 1 <= this.history.length && newLocation >= 0) {
-                this.currentLocationInHistory = newLocation;
+                this.currentLocationInHistoryCursor = newLocation;
 
                 // if too far in the future, set as the most recent history
             } else if (newLocation + 1 <= this.history.length) {
-                this.currentLocationInHistory = 0;
+                this.currentLocationInHistoryCursor = 0;
 
                 // if too far in the past, set as the last recorded history
             } else if (newLocation >= 0) {
-                this.currentLocationInHistory = this.history.length - 1;
+                this.currentLocationInHistoryCursor = this.history.length - 1;
             }
 
-            const locationData = this.history[this.currentLocationInHistory];
-            this._rehydrateFromLocation(locationData);
+            const newHistoryLocation = this.history[this.currentLocationInHistoryCursor];
+            this.currentLocationStore.setState(newHistoryLocation);
+            this._rehydrateFromLocation(newHistoryLocation);
         });
     };
 }
 
 decorate(History, {
     history: observable,
-    currentLocationInHistory: observable
+    currentLocationInHistoryCursor: observable
 });
 
 export default History;

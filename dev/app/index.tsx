@@ -12,7 +12,8 @@ import {
     SuggestionSelector,
     Suggestion,
     ExistsFilter,
-    MultiSelectFilter
+    MultiSelectFilter,
+    HistoryNav
 } from './features';
 
 const Main = styled.div`
@@ -35,6 +36,7 @@ export default () => (
     <Main>
         <ApiUri />
         <ApiAccessToken />
+        <HistoryNav />
         <CustomQuery />
         <HorizontalLayout>
             <SuggestionSelector suggestionType={'prefix'} defaultFieldName={'tags'}>
