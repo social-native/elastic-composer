@@ -2,8 +2,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import {
-    ApiUri,
-    ApiAccessToken,
+    // ApiUri,
+    // ApiAccessToken,
     RangeFilter,
     ResultsTable,
     FilterSelector,
@@ -12,7 +12,8 @@ import {
     SuggestionSelector,
     Suggestion,
     ExistsFilter,
-    MultiSelectFilter
+    MultiSelectFilter,
+    HistoryNav
 } from './features';
 
 const Main = styled.div`
@@ -33,8 +34,8 @@ const HorizontalLayout = styled.div`
 
 export default () => (
     <Main>
-        <ApiUri />
-        <ApiAccessToken />
+
+        <HistoryNav />
         <CustomQuery />
         <HorizontalLayout>
             <SuggestionSelector suggestionType={'prefix'} defaultFieldName={'tags'}>

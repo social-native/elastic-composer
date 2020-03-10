@@ -72,8 +72,8 @@ const Range = createSliderWithTooltip(Slider.Range);
 export default observer(({filterName, maxRange}) => {
     const creatorCRM = useContext(Context.creatorCRM);
 
-    console.log('activeFilters', toJS(creatorCRM.activeFilters))
-    console.log('activeSuggestions', toJS(creatorCRM.activeSuggestions))
+    // console.log('activeFilters', toJS(creatorCRM.activeFilters))
+    // console.log('activeSuggestions', toJS(creatorCRM.activeSuggestions))
     // useEffect(() => {
 
     //     setInterval(() => {

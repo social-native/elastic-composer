@@ -65,6 +65,49 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
         this.clearAllFieldSuggestions = this.clearAllFieldSuggestions.bind(this);
     }
 
+    public userState(): {
+        fieldKinds?: FieldKinds<Fields>;
+        fieldSearches?: FieldSearches<Fields>;
+    } | void {
+        const kinds = Object.keys(this.fieldSearches).reduce((fieldKinds, fieldName) => {
+            return {
+                ...fieldKinds,
+                [fieldName]: this.kindForField(fieldName as Fields)
+            };
+        }, {} as FieldKinds<Fields>);
+
+        if (Object.keys(kinds).length > 0 && Object.keys(this.fieldSearches).length > 0) {
+            return {
+                fieldKinds: kinds,
+                fieldSearches: this.fieldSearches
+            };
+        } else if (Object.keys(kinds).length > 0) {
+            return {
+                fieldKinds: kinds
+            };
+        } else if (Object.keys(this.fieldSearches).length > 0) {
+            return {
+                fieldSearches: this.fieldSearches
+            };
+        } else {
+            return;
+        }
+    }
+
+    public rehydrateFromUserState(userState: {
+        fieldKinds?: FieldKinds<Fields>;
+        fieldSearches?: FieldSearches<Fields>;
+    }) {
+        try {
+            runInAction(() => {
+                this.fieldKinds = userState.fieldKinds || ({} as FieldKinds<Fields>);
+                this.fieldSearches = userState.fieldSearches || ({} as FieldSearches<Fields>);
+            });
+        } catch (e) {
+            throw new Error(`Failed to rehydrate from user state`);
+        }
+    }
+
     public _subscribeToShouldRunSuggestionSearch(subscriber: FieldSuggestionSubscribers<Fields>) {
         runInAction(() => {
             this._shouldRunSuggestionSearchSubscribers.push(subscriber);

@@ -11,7 +11,8 @@ import {
     MultiSelectFieldFilter,
     RawMultiSelectAggs,
     FieldFilters,
-    FieldNameModifier
+    FieldNameModifier,
+    FieldKinds
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -125,6 +126,47 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                 }
             }
         );
+    }
+
+    public userState(): {
+        fieldKinds?: FieldKinds<Fields>;
+        fieldFilters?: FieldFilters<Fields, MultiSelectFieldFilter>;
+    } | void {
+        const kinds = Object.keys(this.fieldFilters).reduce((fieldKinds, fieldName) => {
+            return {
+                ...fieldKinds,
+                [fieldName]: this.kindForField(fieldName as Fields)
+            };
+        }, {} as FieldKinds<Fields>);
+
+        const fieldFilters = Object.keys(this.fieldFilters).reduce((fieldFilterAcc, fieldName) => {
+            const filter = this.fieldFilters[fieldName as Fields] as MultiSelectFieldFilter;
+            if (filter && Object.keys(filter).length > 0) {
+                return {
+                    ...fieldFilterAcc,
+                    [fieldName]: filter
+                };
+            } else {
+                return fieldFilterAcc;
+            }
+        }, {} as FieldFilters<Fields, MultiSelectFieldFilter>);
+
+        if (Object.keys(kinds).length > 0 && Object.keys(fieldFilters).length > 0) {
+            return {
+                fieldKinds: kinds,
+                fieldFilters
+            };
+        } else if (Object.keys(kinds).length > 0) {
+            return {
+                fieldKinds: kinds
+            };
+        } else if (Object.keys(fieldFilters).length > 0) {
+            return {
+                fieldFilters
+            };
+        } else {
+            return;
+        }
     }
 
     /**

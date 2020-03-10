@@ -44,6 +44,7 @@ A high-level Elasticsearch query manager and executor. Filter fields, find searc
     - [Looking at all active suggestions](#looking-at-all-active-suggestions)
     - [Looking at all active filters](#looking-at-all-active-filters)
     - [Looking at all the Filter and Suggestion instances available for a filed](#looking-at-all-the-filter-and-suggestion-instances-available-for-a-filed)
+    - [Using the history API](#using-the-history-api)
   - [API](#api)
     - [Manager](#manager)
       - [Initialization](#initialization)
@@ -83,6 +84,10 @@ A high-level Elasticsearch query manager and executor. Filter fields, find searc
       - [Initialization](#initialization-6)
       - [Methods](#methods-6)
       - [Attributes](#attributes-6)
+    - [History API](#history-api)
+      - [Initialization](#initialization-7)
+      - [Methods](#methods-7)
+      - [Attributes](#attributes-7)
   - [Verbose Examples](#verbose-examples)
     - [Usage with React](#usage-with-react)
   - [Extending Filters and Suggestions](#extending-filters-and-suggestions)
@@ -104,6 +109,9 @@ This package requires that you also install:
         "axios": "^0.19.1", <------- only needed if using the AxiosESClient
         "lodash.chunk": "^4.2.0",
         "mobx": "^5.14.2"
+        "lodash.debounce": "^4.0.8", <------- only needed if using the History API
+        "query-string": "^6.11.1", <------- only needed if using the History API
+        "query-params-data": "^0.1.1", <------- only needed if using the History API
 }
 ```
 
@@ -124,6 +132,8 @@ You either: (A) define `Filters` for each field in the index that you want to qu
 Once a filter for a field is set (`setFieldFilter(<fieldName>, <filterObj>`), the Manager will: (1) react to the `Filter` change, (2) generate a valid Elasticsearch query using all active `Filters`, (3) enqueue the query (debouncing, throttling, and batching aggregations in the queries), and then (4) continually process off the queue - submitting queries, one by one, to Elasticsearch via specific clients that were provided to the manager. Furthermore, the manager stores the results of the most recent query (`manager.results`) and handles pagination among a result set (`manager.nextPage` & `manager.prevPage`).
 
 Additionally, similar to how Filters work, you can define `Suggestions` and use the specific API for each one to get search suggestions from Elasticsearch. These results can be used to inform configuration for different `Filters`.
+
+If you want to record the history of user interactions with filters and suggestions, serialize the current set of user selections to a URL query param, and/or save the history to local storage, you can use the `History` API. See the [API](#history-api) section for details.
 
 ### Available filters and suggestions
 
@@ -593,6 +603,15 @@ manager.fieldsWithFiltersAndSuggestions
 // { tags: { filters: [MultiSelectFilter, ExistsFilter] suggestions: [PrefixSuggestion, FuzzySuggestion]} }
 ```
 
+### Using the history API
+
+```typescript
+const userHistory = new History(manager, 'user', { // set the url's query param key to `user`
+    historyPersister: localStorageHistoryPersister('user'), // set the local storage suffix key to `user`
+    historySize: 4
+});
+```
+
 ## API
 
 ### Manager
@@ -672,8 +691,7 @@ const options = {suggestions: {fuzzy: fuzzyFilterInstance}};
 | nextPage              | paginates forward                                                                                                                                                                                 | `(): void`                                                                                                                                |
 | prevPage              | paginates backward                                                                                                                                                                                | `(): void`                                                                                                                                |
 | clearAllFilters | clears all active filters | `(): void` | 
-| clearAllSuggestions | clears all active suggestions | `(): void` | 
-
+| clearAllSuggestions | clears all active suggestions | `(): void` |
 | getFieldNamesAndTypes | runs an introspection query on the index mapping and generates an object of elasticsearch fields and the filter type they correspond to                                                           | `async (): void`                                                                                                                          |
 | runStartQuery         | runs the initial elasticsearch query that fetches unfiltered data                                                                                                                                 | `(): void`                                                                                                                                |
 | runCustomFilterQuery  | runs a custom query using the existing applied filters outside the side effect queue flow. white lists and black lists control which data is returned in the elasticsearch response source object | `async (options?: {fieldBlackList?: string[], fieldWhiteList?: string[], pageSize?: number }): Promise<ESResponse>`                       |
@@ -981,6 +999,56 @@ The typings for the specific config object looks like:
 | fieldSuggestions | the suggestions for a field, keyed by field name             | `{ [<names of fields>]: Array<{suggestion: string; count: number}> }` |
 | fieldSearches    | the searches for a field, keyed by field name                | `{ [<names of fields>]: string }`                                     |
 | fieldKinds       | the kind (`should or must`) for a field, keyed by field name | `{ [<names of fields>]: 'should' or 'must' }`                         |
+
+### History API
+
+The history API allows you to:
+
+- record history of user interactions with filters and suggestions
+- allow you to serialize the current state to a URL query param
+- allow you to save the history to local storage and rehydrate from this storage.
+
+
+#### Initialization
+
+All filter constructors have the signature `(manager: Manager, queryParamKey: string, options?: IHistoryOptions<HistoryLocation>) => SuggestionTypeInstance`
+
+
+The `options` looks like:
+
+```typescript
+{
+    historySize?: number;
+    currentLocationStore?: UrlStore<State>;
+    historyPersister?: IHistoryPersister;
+}
+```
+
+In turn, the historyPersister has the type:
+
+```typescript
+IHistoryPersister {
+    setHistory: (location: Array<HistoryLocation | undefined>) => void;
+    getHistory: () => HistoryLocation[];
+}
+
+```
+
+#### Methods
+
+| method            | description                                                | type                                                   |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
+| setCurrentState         | sets the current state of filters and suggestgions    | `(location: HistoryLocation): void`   |
+| back       | goes back in the history                              | `(): void`                       |
+| forward           | goes forward in the history                                | `(): void` |
+
+
+#### Attributes
+
+| attribute        | description                                                  | type                                                                  |
+| ---------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| history     | the recorded history                  | `Array<HistoryLocation | undefined>`     |
+| currentLocationInHistoryCursor | the location in history, changed by going 'back' or 'forward'             | `number` |
 
 ## Verbose Examples
 

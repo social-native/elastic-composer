@@ -22,7 +22,10 @@
         "babel-core",
         "babel-plugin-transform-runtime",
         "babel-runtime",
-        "parcel-bundler"
+        "parcel-bundler",
+        "query-string",
+        "@social-native/snpkg-client-graphql-client",
+        "graphql-tag"
     ],
     "specials": []
 }
