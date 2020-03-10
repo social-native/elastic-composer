@@ -23,17 +23,17 @@ export type HistoryLocation = {
 export interface IHistoryOptions<State> {
     historySize?: number;
     currentLocationStore?: UrlStore<State>;
-    historyPersistor?: IHistoryPersistor;
+    historyPersister?: IHistoryPersister;
 }
 
-export interface IHistoryPersistor {
+export interface IHistoryPersister {
     setHistory: (location: Array<HistoryLocation | undefined>) => void;
     getHistory: () => HistoryLocation[];
 }
 
 const LOCAL_STORAGE_KEY = `${pkg.name}/history`;
 
-export const localStorageHistoryPersistor = (localStorageSuffix: string): IHistoryPersistor => ({
+export const localStorageHistoryPersister = (localStorageSuffix: string): IHistoryPersister => ({
     setHistory: (location: Array<HistoryLocation | undefined>) => {
         localStorage.setItem(
             `${LOCAL_STORAGE_KEY}/${localStorageSuffix}`,
@@ -60,7 +60,7 @@ class History {
     public history: Array<HistoryLocation | undefined>;
     public currentLocationInHistoryCursor: number;
     public currentLocationStore: UrlStore<HistoryLocation>;
-    public historyPersistor: IHistoryPersistor | undefined;
+    public historyPersister: IHistoryPersister | undefined;
 
     constructor(
         manager: Manager,
@@ -76,9 +76,9 @@ class History {
                 new UrlStore<HistoryLocation>(queryParamKey);
             this.currentLocationInHistoryCursor = 0;
             this.history = [];
-            this.historyPersistor = options && options.historyPersistor;
-            if (this.historyPersistor) {
-                this.history = this.historyPersistor.getHistory();
+            this.historyPersister = options && options.historyPersister;
+            if (this.historyPersister) {
+                this.history = this.historyPersister.getHistory();
                 if (this.history.length > 0) {
                     const existingStateFromUrl = this.currentLocationStore.getState();
                     if (!existingStateFromUrl) {
@@ -120,8 +120,8 @@ class History {
                 };
             },
             () => {
-                if (this.historyPersistor) {
-                    this.historyPersistor.setHistory(this.history);
+                if (this.historyPersister) {
+                    this.historyPersister.setHistory(this.history);
                 }
             },
             {fireImmediately: true}

@@ -14,7 +14,7 @@ import {
     PrefixSuggestion,
     RangeFilter,
     History,
-    localStorageHistoryPersistor
+    localStorageHistoryPersister
 } from '../../src';
 import {IRangeConfig} from '../../src/filters/range_filter';
 // import {toJS} from 'mobx';
@@ -122,7 +122,7 @@ creatorCRM.getFieldNamesAndTypes().then(() => {
 //     creatorCRM.filters.multiselect.removeFromFilter('tags', 'allow_boost');
 // }, 20000);
 const creatorCRMHistory = new History(creatorCRM, 'influencer_crm', {
-    historyPersistor: localStorageHistoryPersistor('influencer_crm'),
+    historyPersister: localStorageHistoryPersister('influencer_crm'),
     historySize: 4
 });
 

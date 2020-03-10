@@ -607,7 +607,7 @@ manager.fieldsWithFiltersAndSuggestions
 
 ```typescript
 const userHistory = new History(manager, 'user', { // set the url's query param key to `user`
-    historyPersistor: localStorageHistoryPersistor('user'), // set the local storage suffix key to `user`
+    historyPersister: localStorageHistoryPersister('user'), // set the local storage suffix key to `user`
     historySize: 4
 });
 ```
@@ -1020,14 +1020,14 @@ The `options` looks like:
 {
     historySize?: number;
     currentLocationStore?: UrlStore<State>;
-    historyPersistor?: IHistoryPersistor;
+    historyPersister?: IHistoryPersister;
 }
 ```
 
-In turn, the historyPersistor has the type:
+In turn, the historyPersister has the type:
 
 ```typescript
-IHistoryPersistor {
+IHistoryPersister {
     setHistory: (location: Array<HistoryLocation | undefined>) => void;
     getHistory: () => HistoryLocation[];
 }
