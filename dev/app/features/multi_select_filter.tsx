@@ -45,7 +45,9 @@ const MultiSelect: React.FunctionComponent<IProps> = observer(
         const creatorCRM = useContext(Context.creatorCRM);
         const multiselect = creatorCRM.filters.multiselect;
         useEffect(() => {
-            multiselect.setFilter(fieldName, multiSelectFieldFilters);
+            if (Object.keys(multiSelectFieldFilters).length > 0) {
+                multiselect.setFilter(fieldName, multiSelectFieldFilters);
+            }
         }, [JSON.stringify(multiSelectFieldFilters)]);
 
         const filters = multiselect.fieldFilters[fieldName] || {};

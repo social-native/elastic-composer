@@ -2,8 +2,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import {
-    ApiUri,
-    ApiAccessToken,
+    // ApiUri,
+    // ApiAccessToken,
     RangeFilter,
     ResultsTable,
     FilterSelector,
@@ -34,8 +34,7 @@ const HorizontalLayout = styled.div`
 
 export default () => (
     <Main>
-        <ApiUri />
-        <ApiAccessToken />
+
         <HistoryNav />
         <CustomQuery />
         <HorizontalLayout>

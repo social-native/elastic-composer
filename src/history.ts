@@ -3,26 +3,56 @@ import {FieldKinds, FieldFilters, FieldSearches} from './types';
 import {reaction, toJS, runInAction, decorate, observable} from 'mobx';
 import debounce from 'lodash.debounce';
 import UrlStore from 'query-params-data';
+import pkg from '../package.json';
 
-type FilterHistoryPlace = {
+export type FilterHistoryPlace = {
     fieldKinds?: FieldKinds<any>;
     fieldFilters?: FieldFilters<any, any>;
 };
 
-type SuggestionHistoryPlace = {
+export type SuggestionHistoryPlace = {
     fieldKinds?: FieldKinds<any>;
     fieldSearches?: FieldSearches<any>;
 };
 
-type HistoryLocation = {
+export type HistoryLocation = {
     filters?: Record<string, FilterHistoryPlace>;
     suggestions?: Record<string, SuggestionHistoryPlace>;
 };
 
-interface IHistoryOptions<State> {
-    historySize: number;
-    currentLocationStore: UrlStore<State>;
+export interface IHistoryOptions<State> {
+    historySize?: number;
+    currentLocationStore?: UrlStore<State>;
+    historyPersistor?: IHistoryPersistor;
 }
+
+export interface IHistoryPersistor {
+    setHistory: (location: Array<HistoryLocation | undefined>) => void;
+    getHistory: () => HistoryLocation[];
+}
+
+const LOCAL_STORAGE_KEY = `${pkg.name}/history`;
+
+export const localStorageHistoryPersistor = (localStorageSuffix: string): IHistoryPersistor => ({
+    setHistory: (location: Array<HistoryLocation | undefined>) => {
+        localStorage.setItem(
+            `${LOCAL_STORAGE_KEY}/${localStorageSuffix}`,
+            JSON.stringify(location)
+        );
+    },
+    getHistory: () => {
+        const existingHistory = localStorage.getItem(`${LOCAL_STORAGE_KEY}/${localStorageSuffix}`);
+        if (existingHistory) {
+            try {
+                return JSON.parse(existingHistory);
+            } catch {
+                return [];
+            }
+        } else {
+            return [];
+        }
+    }
+});
 
 class History {
     public historySize: number;
@@ -30,12 +60,14 @@ class History {
     public history: Array<HistoryLocation | undefined>;
     public currentLocationInHistoryCursor: number;
     public currentLocationStore: UrlStore<HistoryLocation>;
+    public historyPersistor: IHistoryPersistor | undefined;
 
     constructor(
         manager: Manager,
         queryParamKey: string,
         options?: IHistoryOptions<HistoryLocation>
     ) {
+        // tslint:disable-next-line
         runInAction(() => {
             this.manager = manager;
             this.historySize = (options && options.historySize) || 100;
@@ -44,6 +76,20 @@ class History {
                 new UrlStore<HistoryLocation>(queryParamKey);
             this.currentLocationInHistoryCursor = 0;
             this.history = [];
+            this.historyPersistor = options && options.historyPersistor;
+            if (this.historyPersistor) {
+                this.history = this.historyPersistor.getHistory();
+                if (this.history.length > 0) {
+                    const existingStateFromUrl = this.currentLocationStore.getState();
+                    if (!existingStateFromUrl) {
+                        const newHistoryLocation = this._deepCopy(
+                            this.history[0] as HistoryLocation
+                        );
+                        this.currentLocationStore.setState(newHistoryLocation);
+                        this._rehydrateFromLocation(newHistoryLocation);
+                    }
+                }
+            }
         });
 
         this.currentLocationStore.subscribeToStateChanges(this.currentStateSubscriber);
@@ -65,6 +111,21 @@ class History {
             const suggester = this.manager.suggestions[suggesterName];
             suggester._subscribeToShouldRunSuggestionSearch(debounceHistoryChange);
         });
+
+        reaction(
+            () => {
+                return {
+                    mostRecentLocation: this._deepCopy(this.history[0] || {}),
+                    historyLength: this.history.length
+                };
+            },
+            () => {
+                if (this.historyPersistor) {
+                    this.historyPersistor.setHistory(this.history);
+                }
+            },
+            {fireImmediately: true}
+        );
     }
 
     // tslint:disable-next-line
@@ -112,8 +173,9 @@ class History {
 
     public currentStateSubscriber = (newHistoryLocation: HistoryLocation | undefined) => {
         if (
+            newHistoryLocation &&
             JSON.stringify(newHistoryLocation) !==
-            JSON.stringify(this.history[this.currentLocationInHistoryCursor])
+                JSON.stringify(this.history[this.currentLocationInHistoryCursor])
         ) {
             this.addToHistory({...newHistoryLocation});
             this._rehydrateFromLocation({...newHistoryLocation});
