@@ -109,6 +109,9 @@ This package requires that you also install:
         "axios": "^0.19.1", <------- only needed if using the AxiosESClient
         "lodash.chunk": "^4.2.0",
         "mobx": "^5.14.2"
+        "lodash.debounce": "^4.0.8", <------- only needed if using the History API
+        "query-string": "^6.11.1", <------- only needed if using the History API
+        "query-params-data": "^0.1.1", <------- only needed if using the History API
 }
 ```
 

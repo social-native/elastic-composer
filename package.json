@@ -45,17 +45,19 @@
         "mobx": "^5.14.2",
         "mobx-react": "^6.1.4",
         "query-params-data": "^0.1.1",
-        "query-string": "^6.11.1",
-        "utils": "^0.3.1"
+        "query-string": "^6.11.1"
     },
     "peerDependencies": {
         "await-timeout": "^1.1.1",
         "axios": "^0.19.1",
         "mobx": "^5.14.2",
         "lodash.chunk": "^4.2.0",
-        "lodash.debounce": "^4.0.8"
+        "lodash.debounce": "^4.0.8",
+        "query-string": "^6.11.1",
+        "query-params-data": "^0.1.1"
     },
     "devDependencies": {
+        "@rollup/plugin-json": "^4.0.2",
         "@social-native/snpkg-client-graphql-client": "^0.2.1",
         "@social-native/snpkg-dependency-check": "^0.1.0",
         "@social-native/snpkg-package-version-validation": "^3.1.0",
