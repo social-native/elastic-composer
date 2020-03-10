@@ -122,7 +122,8 @@ creatorCRM.getFieldNamesAndTypes().then(() => {
 //     creatorCRM.filters.multiselect.removeFromFilter('tags', 'allow_boost');
 // }, 20000);
 const creatorCRMHistory = new History(creatorCRM, 'influencer_crm', {
-    historyPersistor: localStorageHistoryPersistor('influencer_crm')
+    historyPersistor: localStorageHistoryPersistor('influencer_crm'),
+    historySize: 4
 });
 
 // setTimeout(() => {

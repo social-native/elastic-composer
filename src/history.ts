@@ -70,7 +70,7 @@ class History {
         // tslint:disable-next-line
         runInAction(() => {
             this.manager = manager;
-            this.historySize = (options && options.historySize) || 100;
+            this.historySize = (options && options.historySize) || 30;
             this.currentLocationStore =
                 (options && options.currentLocationStore) ||
                 new UrlStore<HistoryLocation>(queryParamKey);
@@ -189,7 +189,7 @@ class History {
         runInAction(() => {
             this.history = [
                 this._deepCopy(location as HistoryLocation),
-                ...this.history.slice(this.currentLocationInHistoryCursor)
+                ...this.history.slice(this.currentLocationInHistoryCursor, this.historySize - 1)
             ];
             this.currentLocationInHistoryCursor = 0;
         });
