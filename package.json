@@ -1,10 +1,10 @@
 {
     "name": "@social-native/snpkg-client-elasticsearch",
-    "version": "3.3.0",
+    "version": "3.3.1",
     "description": "",
     "main": "dist/index.cjs.js",
     "module": "dist/index.es.js",
-    "types": "dist/index.d.ts",
+    "types": "dist/src/index.d.ts",
     "files": [
         "dist"
     ],
