@@ -92,7 +92,7 @@ class History {
             }
         });
 
-        this.currentLocationStore.subscribeToStateChanges(this.currentStateSubscriber);
+        this.currentLocationStore.subscribeToStateChanges(this._currentStateSubscriber);
 
         const debounceHistoryChange = debounce(this._recordHistoryChange, 300);
 
@@ -171,7 +171,7 @@ class History {
         }
     };
 
-    public currentStateSubscriber = (newHistoryLocation: HistoryLocation | undefined) => {
+    public _currentStateSubscriber = (newHistoryLocation: HistoryLocation | undefined) => {
         if (
             newHistoryLocation &&
             JSON.stringify(newHistoryLocation) !==
@@ -195,7 +195,7 @@ class History {
         });
     };
 
-    public setCurrentState = (location: HistoryLocation) => {
+    public setCurrentState = (location: HistoryLocation): void => {
         this.currentLocationStore.setState({...location});
     };
 
