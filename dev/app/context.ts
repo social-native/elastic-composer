@@ -128,13 +128,14 @@ const creatorCRMHistory = new History(creatorCRM, 'influencer_crm', {
 
 (global as any).crmHistory = creatorCRMHistory;
 (global as any).crm = creatorCRM;
-// setTimeout(() => {
-//     creatorCRMHistory.setCurrentState(
-//         JSON.parse(
-//             '{"filters":{"multiselect":{"fieldKinds":{"tags":"should"},"fieldFilters":{"tags":{"carolsdaugther":{"inclusion":"include"}}}},"exists":{"fieldKinds":{"instagram.id":"must"},"fieldFilters":{"instagram.id":{"exists":true}}},"range":{"fieldKinds":{"user_profile.age":"must"},"fieldFilters":{"user_profile.age":{"lessThan":68,"greaterThan":35}}}},"suggestions":{"prefix":{"fieldKinds":{"tags":"should"},"fieldSearches":{"tags":"car"}}}}'
-//         )
-//     );
-// }, 5000);
+setTimeout(() => {
+    //     creatorCRMHistory.setCurrentState(
+    //         JSON.parse(
+    //             '{"filters":{"multiselect":{"fieldKinds":{"tags":"should"},"fieldFilters":{"tags":{"carolsdaugther":{"inclusion":"include"}}}},"exists":{"fieldKinds":{"instagram.id":"must"},"fieldFilters":{"instagram.id":{"exists":true}}},"range":{"fieldKinds":{"user_profile.age":"must"},"fieldFilters":{"user_profile.age":{"lessThan":68,"greaterThan":35}}}},"suggestions":{"prefix":{"fieldKinds":{"tags":"should"},"fieldSearches":{"tags":"car"}}}}'
+    //         )
+    //     );
+    creatorCRMHistory.rehydrate();
+}, 5000);
 // console.log(history);
 
 export default {

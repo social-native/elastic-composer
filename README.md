@@ -1021,6 +1021,7 @@ The `options` looks like:
     historySize?: number;
     currentLocationStore?: UrlStore<State>;
     historyPersister?: IHistoryPersister;
+    rehydrateOnStart?: boolean; // whether to run the `rehydrate` method in the constructor
 }
 ```
 
@@ -1041,7 +1042,7 @@ IHistoryPersister {
 | setCurrentState         | sets the current state of filters and suggestgions    | `(location: HistoryLocation): void`   |
 | back       | goes back in the history                              | `(): void`                       |
 | forward           | goes forward in the history                                | `(): void` |
-
+| rehydrate | rehydrates from URL or persistent storage | `(): void` |
 
 #### Attributes
 

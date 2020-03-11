@@ -24,6 +24,7 @@ export interface IHistoryOptions<State> {
     historySize?: number;
     currentLocationStore?: ICurrentLocationStore<State>;
     historyPersister?: IHistoryPersister;
+    rehydrateOnStart?: boolean;
 }
 
 export type CurrentLocationStateObserver<State> = (newState: State | undefined) => any;
@@ -36,7 +37,10 @@ export interface ICurrentLocationStore<State> {
         }
     ) => void;
     getState: () => State | undefined | void;
-    subscribeToStateChanges: (observer: CurrentLocationStateObserver<State>) => void;
+    subscribeToStateChanges: (
+        observer: CurrentLocationStateObserver<State>,
+        options?: {getCurrentState: boolean}
+    ) => void;
 }
 
 export interface IHistoryPersister {
@@ -90,25 +94,14 @@ class History {
             this.currentLocationInHistoryCursor = 0;
             this.history = [];
             this.historyPersister = options && options.historyPersister;
-            if (this.historyPersister) {
-                const persistedHistory = this.historyPersister.getHistory();
-                this.history = persistedHistory;
-                if (persistedHistory.length > 0) {
-                    const existingStateFromUrl = this.currentLocationStore.getState();
-                    if (!existingStateFromUrl) {
-                        const newHistoryLocation = this._deepCopy(
-                            persistedHistory[0] as HistoryLocation
-                        );
-                        this.currentLocationStore.setState(newHistoryLocation);
-                        this._rehydrateFromLocation(newHistoryLocation);
-                    } else {
-                        this._rehydrateFromLocation(existingStateFromUrl);
-                    }
-                }
+            if (options && options.rehydrateOnStart) {
+                this.rehydrate();
             }
         });
 
-        this.currentLocationStore.subscribeToStateChanges(this._currentStateSubscriber);
+        this.currentLocationStore.subscribeToStateChanges(this._currentStateSubscriber, {
+            getCurrentState: false
+        });
 
         const debounceHistoryChange = debounce(this._recordHistoryChange, 300);
 
@@ -143,6 +136,36 @@ class History {
             {fireImmediately: true}
         );
     }
+
+    /**
+     * Rehydrates state from current state store (URL) or persistent storage (localStorage)
+     */
+    public rehydrate = () => {
+        runInAction(() => {
+            if (this.historyPersister) {
+                const persistedHistory = this.historyPersister.getHistory();
+                this.history = persistedHistory;
+                if (persistedHistory.length > 0) {
+                    const existingStateFromUrl = this.currentLocationStore.getState();
+                    if (!existingStateFromUrl) {
+                        const newHistoryLocation = this._deepCopy(
+                            persistedHistory[0] as HistoryLocation
+                        );
+                        this.currentLocationStore.setState(newHistoryLocation);
+
+                        this._rehydrateFromLocation(newHistoryLocation);
+                    } else {
+                        this._rehydrateFromLocation(existingStateFromUrl);
+                    }
+                } else {
+                    const existingStateFromUrl = this.currentLocationStore.getState();
+                    if (existingStateFromUrl) {
+                        this._rehydrateFromLocation(existingStateFromUrl);
+                    }
+                }
+            }
+        });
+    };
 
     // tslint:disable-next-line
     public _recordHistoryChange = () => {
