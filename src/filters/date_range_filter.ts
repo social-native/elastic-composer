@@ -161,10 +161,7 @@ export type RangeBoundResults<DateRangeFields extends string> = {
 };
 
 export const rangeShouldUseFieldFn = (_fieldName: string, fieldType: ESMappingType) =>
-    fieldType === 'long' ||
-    fieldType === 'double' ||
-    fieldType === 'integer' ||
-    fieldType === 'float';
+    fieldType === 'date'
 
 class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
     DateRangeFields,
