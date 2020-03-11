@@ -22,8 +22,21 @@ export type HistoryLocation = {
 
 export interface IHistoryOptions<State> {
     historySize?: number;
-    currentLocationStore?: UrlStore<State>;
+    currentLocationStore?: ICurrentLocationStore<State>;
     historyPersister?: IHistoryPersister;
+}
+
+export type CurrentLocationStateObserver<State> = (newState: State | undefined) => any;
+
+export interface ICurrentLocationStore<State> {
+    setState: (
+        location: State | undefined,
+        options?: {
+            replaceLocation: boolean;
+        }
+    ) => void;
+    getState: () => State | undefined | void;
+    subscribeToStateChanges: (observer: CurrentLocationStateObserver<State>) => void;
 }
 
 export interface IHistoryPersister {
@@ -59,7 +72,7 @@ class History {
     public manager: Manager;
     public history: Array<HistoryLocation | undefined>;
     public currentLocationInHistoryCursor: number;
-    public currentLocationStore: UrlStore<HistoryLocation>;
+    public currentLocationStore: ICurrentLocationStore<HistoryLocation>;
     public historyPersister: IHistoryPersister | undefined;
 
     constructor(
