@@ -126,6 +126,8 @@ const creatorCRMHistory = new History(creatorCRM, 'influencer_crm', {
     historySize: 4
 });
 
+(global as any).crmHistory = creatorCRMHistory;
+(global as any).crm = creatorCRM;
 // setTimeout(() => {
 //     creatorCRMHistory.setCurrentState(
 //         JSON.parse(

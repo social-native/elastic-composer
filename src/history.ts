@@ -78,15 +78,18 @@ class History {
             this.history = [];
             this.historyPersister = options && options.historyPersister;
             if (this.historyPersister) {
-                this.history = this.historyPersister.getHistory();
-                if (this.history.length > 0) {
+                const persistedHistory = this.historyPersister.getHistory();
+                this.history = persistedHistory;
+                if (persistedHistory.length > 0) {
                     const existingStateFromUrl = this.currentLocationStore.getState();
                     if (!existingStateFromUrl) {
                         const newHistoryLocation = this._deepCopy(
-                            this.history[0] as HistoryLocation
+                            persistedHistory[0] as HistoryLocation
                         );
                         this.currentLocationStore.setState(newHistoryLocation);
                         this._rehydrateFromLocation(newHistoryLocation);
+                    } else {
+                        this._rehydrateFromLocation(existingStateFromUrl);
                     }
                 }
             }
