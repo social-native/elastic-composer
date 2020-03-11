@@ -1,5 +1,5 @@
 import PrefixSuggestion, {RawPrefixSuggestionResult} from './suggestions/prefix_suggestion';
-import {RangeFilter, BooleanFilter, BaseFilter, ExistsFilter, MultiSelectFilter} from './filters';
+import {RangeFilter, BooleanFilter, BaseFilter, ExistsFilter, MultiSelectFilter, DateRangeFilter} from './filters';
 import {FuzzySuggestion, BaseSuggestion} from './suggestions';
 /**
  * ***********************************
@@ -250,6 +250,7 @@ export type ManagerOptions = {
 
 export interface IFiltersOptions {
     multiselect?: MultiSelectFilter<any>;
+    dateRange?: DateRangeFilter<any>;
     range?: RangeFilter<any>;
     boolean?: BooleanFilter<any>;
     exists?: ExistsFilter<any>;
@@ -264,6 +265,7 @@ export interface ISuggestionsOptions {
 
 export interface IFilters {
     multiselect: MultiSelectFilter<any>;
+    dateRange: DateRangeFilter<any>;
     range: RangeFilter<any>;
     boolean: BooleanFilter<any>;
     exists: ExistsFilter<any>;
