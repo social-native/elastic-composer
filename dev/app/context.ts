@@ -17,6 +17,7 @@ import {
     localStorageHistoryPersister
 } from '../../src';
 import {IRangeConfig} from '../../src/filters/range_filter';
+import {reaction} from 'mobx';
 // import {toJS} from 'mobx';
 
 const exampleFormInstance = new ExampleForm();
@@ -104,9 +105,9 @@ const creatorCRM = new Manager(client, {
 });
 
 // gqlClient.createClient().then(() => {
-creatorCRM.getFieldNamesAndTypes().then(() => {
-    creatorCRM.runStartQuery();
-});
+// creatorCRM.getFieldNamesAndTypes().then(() => {
+//     creatorCRM.runStartQuery();
+// });
 // setTimeout(() => console.log('hur', toJS(creatorCRM.fieldsWithFiltersAndSuggestions)), 3000);
 // });
 
@@ -128,14 +129,20 @@ const creatorCRMHistory = new History(creatorCRM, 'influencer_crm', {
 
 (global as any).crmHistory = creatorCRMHistory;
 (global as any).crm = creatorCRM;
-setTimeout(() => {
-    //     creatorCRMHistory.setCurrentState(
-    //         JSON.parse(
-    //             '{"filters":{"multiselect":{"fieldKinds":{"tags":"should"},"fieldFilters":{"tags":{"carolsdaugther":{"inclusion":"include"}}}},"exists":{"fieldKinds":{"instagram.id":"must"},"fieldFilters":{"instagram.id":{"exists":true}}},"range":{"fieldKinds":{"user_profile.age":"must"},"fieldFilters":{"user_profile.age":{"lessThan":68,"greaterThan":35}}}},"suggestions":{"prefix":{"fieldKinds":{"tags":"should"},"fieldSearches":{"tags":"car"}}}}'
-    //         )
-    //     );
+// setTimeout(() => {
+//     creatorCRMHistory.setCurrentState(
+//         JSON.parse(
+//             '{"filters":{"multiselect":{"fieldKinds":{"tags":"should"},"fieldFilters":{"tags":{"carolsdaugther":{"inclusion":"include"}}}},"exists":{"fieldKinds":{"instagram.id":"must"},"fieldFilters":{"instagram.id":{"exists":true}}},"range":{"fieldKinds":{"user_profile.age":"must"},"fieldFilters":{"user_profile.age":{"lessThan":68,"greaterThan":35}}}},"suggestions":{"prefix":{"fieldKinds":{"tags":"should"},"fieldSearches":{"tags":"car"}}}}'
+//         )
+//     );
+
+creatorCRM.getFieldNamesAndTypes().then(() => {
     creatorCRMHistory.rehydrate();
-}, 5000);
+    if (!creatorCRMHistory.hasRehydratedLocation) {
+        creatorCRM.runStartQuery();
+    }
+});
+// }, 5000);
 // console.log(history);
 
 export default {
@@ -144,3 +151,13 @@ export default {
     creatorCRM: React.createContext(creatorCRM),
     creatorCRMHistory: React.createContext(creatorCRMHistory)
 };
+
+reaction(
+    () => ({
+        queue: [...creatorCRM._sideEffectQueue],
+        isSideEffectRunning: !!creatorCRM.isSideEffectRunning
+    }),
+    data => {
+        console.log(creatorCRM._sideEffectQueue.map(k => k.kind));
+    }
+);
