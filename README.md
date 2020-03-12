@@ -127,13 +127,23 @@ This library is written in MobX, which makes it reactive. If you don't want to u
 
 The general paradigm is as follows:
 
-You either: (A) define `Filters` for each field in the index that you want to query or (B) use the package's introspection abilities to generate `Filters` for all the fields in the index. Once `Filters` have been defined, you can use a specific one's API to do unique and compound filtering with field level granularity. 
+There are 4 API's:
 
-Once a filter for a field is set (`setFieldFilter(<fieldName>, <filterObj>`), the Manager will: (1) react to the `Filter` change, (2) generate a valid Elasticsearch query using all active `Filters`, (3) enqueue the query (debouncing, throttling, and batching aggregations in the queries), and then (4) continually process off the queue - submitting queries, one by one, to Elasticsearch via specific clients that were provided to the manager. Furthermore, the manager stores the results of the most recent query (`manager.results`) and handles pagination among a result set (`manager.nextPage` & `manager.prevPage`).
+ - Filter API
+ - Suggestion API
+ - History API
+ - Manager API
 
-Additionally, similar to how Filters work, you can define `Suggestions` and use the specific API for each one to get search suggestions from Elasticsearch. These results can be used to inform configuration for different `Filters`.
+The flow is:
 
-If you want to record the history of user interactions with filters and suggestions, serialize the current set of user selections to a URL query param, and/or save the history to local storage, you can use the `History` API. See the [API](#history-api) section for details.
+1. You define all the fields of an ES index that you want to use via (A) configuration objects in either the Filter or Suggestion API or (B) introspection abilities in the Manager API. 
+2. Once you have fields set that you can filter or find suggestions on, you use the Filter API to filter results and the Suggestion API to get suggestions (for parameters to use in filters - such as fuzzy or prefix search of values). 
+3. The Manager API gives you access to results and allows you to paginate over the results. 
+4. The History API records Filters and Suggestions that have been set, persists this state to the URL in a persisten store (like localStorage), and rehydrates from persisted state.
+
+Everything in this library is reactive. So once you set a filter, the manager will react to the change, and submit a new query to Elasticsearch using all the filters that have been set across all the fields. The manager handles debouncing, throttling and batching queries. 
+
+In addition to simply running new queries, Filters and Suggestions provide opinionated aggregates that help inform how well the filter is doing. For example, the Range Filter gives you aggregates that show you a histogram of documents with the filter applied and without it applied. By default, aggregates are turned off by default. The paradigm with aggregates is to turn them on when a user is accessing a UI element that allows seeing aggregate data and turn them off when the UI element is no long visible. Because aggregates will respond to all filter changes, if you don't turn them off when not in use, you will submit meaningless queries to Elasticsearch.
 
 ### Available filters and suggestions
 
