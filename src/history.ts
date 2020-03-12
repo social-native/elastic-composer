@@ -78,6 +78,7 @@ class History {
     public currentLocationInHistoryCursor: number;
     public currentLocationStore: ICurrentLocationStore<HistoryLocation>;
     public historyPersister: IHistoryPersister | undefined;
+    public hasRehydratedLocation: boolean;
 
     constructor(
         manager: Manager,
@@ -94,6 +95,7 @@ class History {
             this.currentLocationInHistoryCursor = 0;
             this.history = [];
             this.historyPersister = options && options.historyPersister;
+            this.hasRehydratedLocation = false;
             if (options && options.rehydrateOnStart) {
                 this.rehydrate();
             }
@@ -146,6 +148,7 @@ class History {
                 const persistedHistory = this.historyPersister.getHistory();
                 this.history = persistedHistory;
                 if (persistedHistory.length > 0) {
+                    this.hasRehydratedLocation = true;
                     const existingStateFromUrl = this.currentLocationStore.getState();
                     if (!existingStateFromUrl) {
                         const newHistoryLocation = this._deepCopy(
@@ -160,6 +163,7 @@ class History {
                 } else {
                     const existingStateFromUrl = this.currentLocationStore.getState();
                     if (existingStateFromUrl) {
+                        this.hasRehydratedLocation = true;
                         this._rehydrateFromLocation(existingStateFromUrl);
                     }
                 }

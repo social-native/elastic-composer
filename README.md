@@ -1050,6 +1050,7 @@ IHistoryPersister {
 | ---------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
 | history     | the recorded history                  | `Array<HistoryLocation | undefined>`     |
 | currentLocationInHistoryCursor | the location in history, changed by going 'back' or 'forward'             | `number` |
+| hasRehydratedLocation | flag to tell if any location was rehydrated from when the `rehydrate` method was called |
 
 ## Verbose Examples
 
