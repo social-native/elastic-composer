@@ -143,27 +143,37 @@ class History {
      * Rehydrates state from current state store (URL) or persistent storage (localStorage)
      */
     public rehydrate = () => {
+        // tslint:disable-next-line
         runInAction(() => {
             if (this.historyPersister) {
                 const persistedHistory = this.historyPersister.getHistory();
                 this.history = persistedHistory;
                 if (persistedHistory.length > 0) {
-                    this.hasRehydratedLocation = true;
                     const existingStateFromUrl = this.currentLocationStore.getState();
                     if (!existingStateFromUrl) {
                         const newHistoryLocation = this._deepCopy(
                             persistedHistory[0] as HistoryLocation
                         );
+                        // if only suggestions are present then we should
+                        // act as if no location was rehydrated
+                        if (newHistoryLocation.filters) {
+                            this.hasRehydratedLocation = true;
+                        }
                         this.currentLocationStore.setState(newHistoryLocation);
 
                         this._rehydrateFromLocation(newHistoryLocation);
                     } else {
+                        if (existingStateFromUrl.filters) {
+                            this.hasRehydratedLocation = true;
+                        }
                         this._rehydrateFromLocation(existingStateFromUrl);
                     }
                 } else {
                     const existingStateFromUrl = this.currentLocationStore.getState();
                     if (existingStateFromUrl) {
-                        this.hasRehydratedLocation = true;
+                        if (existingStateFromUrl.filters) {
+                            this.hasRehydratedLocation = true;
+                        }
                         this._rehydrateFromLocation(existingStateFromUrl);
                     }
                 }
