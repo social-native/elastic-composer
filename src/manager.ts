@@ -148,7 +148,9 @@ class Manager<
 
             this.pageSize = (options && options.pageSize) || DEFAULT_MANAGER_OPTIONS.pageSize;
             this.queryThrottleInMS =
-                (options && options.queryThrottleInMS) || DEFAULT_MANAGER_OPTIONS.queryThrottleInMS;
+                options && options.queryThrottleInMS !== undefined
+                    ? options.queryThrottleInMS
+                    : DEFAULT_MANAGER_OPTIONS.queryThrottleInMS;
             this._pageCursorInfo = {};
             this.currentPage = 0; // set to 0 b/c there are no results on init
             this.indexFieldNamesAndTypes = {};
@@ -354,7 +356,7 @@ class Manager<
             });
 
             const params = effectRequest.params || [];
-            if (effectRequest.throttle) {
+            if (effectRequest.throttle && effectRequest.throttle > 0) {
                 await Timeout.set(effectRequest.throttle);
             }
 
@@ -671,7 +673,13 @@ class Manager<
             runInAction(() => {
                 if (response && response.hits && response.hits.hits) {
                     this.results = response.hits.hits;
+                } else {
+                    this.results = [];
                 }
+            });
+        } else {
+            runInAction(() => {
+                this.results = [];
             });
         }
         runInAction(() => {
@@ -1036,7 +1044,9 @@ class Manager<
             this._extractSuggestionStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // No cursor change b/c only dealing with filters
@@ -1060,7 +1070,9 @@ class Manager<
             this._extractSuggestionStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // No cursor change b/c only dealing with filters
@@ -1078,7 +1090,9 @@ class Manager<
             this._extractUnfilteredAggsStateFromResponse(formattedResponse);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } finally {
@@ -1094,6 +1108,7 @@ class Manager<
                 effectRequest,
                 BLANK_ES_REQUEST
             );
+
             const response = await this.client.search(removeEmptyArrays(request));
 
             // Save the results
@@ -1103,7 +1118,9 @@ class Manager<
             this._extractFilteredAggsStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } finally {
@@ -1157,7 +1174,9 @@ class Manager<
             this._extractFilteredAggsStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // No cursor change b/c only dealing with filters
@@ -1181,7 +1200,9 @@ class Manager<
             this._extractUnfilteredAggsStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // No cursor change b/c only dealing with filters
@@ -1196,7 +1217,9 @@ class Manager<
             this._extractUnfilteredAggsStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // no cursor change b/c that should already be handled by the initial request in the batch
@@ -1211,7 +1234,9 @@ class Manager<
             this._extractFilteredAggsStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // no cursor change b/c that should already be handled by the initial request in the batch

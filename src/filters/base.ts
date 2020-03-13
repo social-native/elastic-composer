@@ -301,6 +301,11 @@ class BaseFilter<Fields extends string, Config extends BaseFilterConfig, Filter 
      * Sets a filter for a field.
      */
     public setFilter(field: Fields, filter: Filter): void {
+        if (this.fieldConfigs[field] === undefined) {
+            throw new Error(
+                `${field} filter field doesnt exist. Either add it explicitly (example for range filters: https://github.com/social-native/snpkg-client-elasticsearch#instantiate-a-manager-with-specific-config-options-for-a-range-filter) or run an introspection query (via manager.getFieldNamesAndTypes())`
+            );
+        }
         runInAction(() => {
             set(this.fieldFilters, {
                 [field]: filter

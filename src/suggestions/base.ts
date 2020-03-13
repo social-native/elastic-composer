@@ -255,6 +255,12 @@ class BaseSuggestion<Fields extends string, Config extends BaseSuggestionConfig>
     }
 
     public setSearch = (field: Fields, searchTerm: string) => {
+        if (this.fieldConfigs[field] === undefined) {
+            throw new Error(
+                `${field} search field doesnt exist. Either add it explicitly (example for range filters: https://github.com/social-native/snpkg-client-elasticsearch#instantiate-a-manager-with-specific-config-options-for-a-range-filter) or run an introspection query (via manager.getFieldNamesAndTypes())`
+            );
+        }
+
         runInAction(() => {
             set(this.fieldSearches, {
                 [field]: searchTerm
