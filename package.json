@@ -18,7 +18,7 @@
         "watch": "rollup -cw",
         "prettier": "./node_modules/.bin/prettier \"src/**/*\" --write",
         "lint": "tslint -t stylish --project \"tsconfig.json\"",
-        "test": "jest",
+        "test": "jest --runInBand",
         "test:watch": "npm run test -- --watchAll --runInBand",
         "type-check:watch": "npm run type-check -- --watch",
         "type-check": "tsc --noEmit",

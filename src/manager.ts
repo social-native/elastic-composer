@@ -148,7 +148,9 @@ class Manager<
 
             this.pageSize = (options && options.pageSize) || DEFAULT_MANAGER_OPTIONS.pageSize;
             this.queryThrottleInMS =
-                (options && options.queryThrottleInMS) || DEFAULT_MANAGER_OPTIONS.queryThrottleInMS;
+                options && options.queryThrottleInMS !== undefined
+                    ? options.queryThrottleInMS
+                    : DEFAULT_MANAGER_OPTIONS.queryThrottleInMS;
             this._pageCursorInfo = {};
             this.currentPage = 0; // set to 0 b/c there are no results on init
             this.indexFieldNamesAndTypes = {};
@@ -354,7 +356,7 @@ class Manager<
             });
 
             const params = effectRequest.params || [];
-            if (effectRequest.throttle) {
+            if (effectRequest.throttle && effectRequest.throttle > 0) {
                 await Timeout.set(effectRequest.throttle);
             }
 

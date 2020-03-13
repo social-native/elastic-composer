@@ -1,16 +1,21 @@
 import {setUp} from '../../utils';
-import {ESRequest} from 'types';
 
 describe('Filters', () => {
     describe('Boolean Filter', () => {
         describe('setFilter', () => {
-            it.skip('calls client search with all filters', () => {
+            it('calls client search with all filters', async () => {
                 const {manager, client} = setUp();
-                manager.filters.boolean.setFilter('test_filed', {state: true});
+                await manager.getFieldNamesAndTypes();
+                manager.filters.boolean.setFilter('boolean_field', {state: true});
 
-                client.search({} as ESRequest);
-                // console.log((client.search as jest.Mock).mock.calls);
-                expect(client.search).toHaveBeenCalledWith();
+                expect(client.search).toHaveBeenCalledWith({
+                    _source: {},
+                    aggs: {},
+                    query: {bool: {should: [{term: {boolean_field: true}}]}},
+                    size: 10,
+                    sort: ['_score', '_doc'],
+                    track_scores: true
+                });
             });
         });
     });
