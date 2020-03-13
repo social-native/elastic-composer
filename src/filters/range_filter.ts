@@ -86,7 +86,7 @@ const convertLesserRanges = (filter: RangeFieldFilter) => {
     if (isLessThanFilter(filter)) {
         return {lt: filter.lessThan};
     } else if (isLessThanEqualFilter(filter)) {
-        return {gt: filter.lessThanEqual};
+        return {lte: filter.lessThanEqual};
     } else {
         return undefined;
     }
@@ -319,6 +319,7 @@ class RangeFilterClass<RangeFields extends string> extends BaseFilter<
         if (!this.fieldFilters) {
             return request;
         }
+
         // tslint:disable-next-line
         return objKeys(this.fieldConfigs).reduce((acc, rangeFieldName) => {
             if (!this.fieldFilters) {

@@ -1,6 +1,6 @@
 {
     "name": "@social-native/snpkg-client-elasticsearch",
-    "version": "3.6.1",
+    "version": "3.6.2",
     "description": "",
     "main": "dist/index.cjs.js",
     "module": "dist/index.es.js",
@@ -19,6 +19,7 @@
         "prettier": "./node_modules/.bin/prettier \"src/**/*\" --write",
         "lint": "tslint -t stylish --project \"tsconfig.json\"",
         "test": "jest --runInBand",
+        "test:clear-cache": "jest --clearCache",
         "test:watch": "npm run test -- --watchAll --runInBand",
         "type-check:watch": "npm run type-check -- --watch",
         "type-check": "tsc --noEmit",
@@ -93,6 +94,7 @@
         "tslint-eslint-rules": "^5.4.0",
         "tslint-immutable": "^5.5.2",
         "typescript": "^3.8.3",
-        "victory": "^34.0.0"
+        "victory": "^34.0.0",
+        "wait-for-expect": "^3.0.2"
     }
 }

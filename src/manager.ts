@@ -673,7 +673,13 @@ class Manager<
             runInAction(() => {
                 if (response && response.hits && response.hits.hits) {
                     this.results = response.hits.hits;
+                } else {
+                    this.results = [];
                 }
+            });
+        } else {
+            runInAction(() => {
+                this.results = [];
             });
         }
         runInAction(() => {
@@ -1038,7 +1044,9 @@ class Manager<
             this._extractSuggestionStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // No cursor change b/c only dealing with filters
@@ -1062,7 +1070,9 @@ class Manager<
             this._extractSuggestionStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // No cursor change b/c only dealing with filters
@@ -1080,7 +1090,9 @@ class Manager<
             this._extractUnfilteredAggsStateFromResponse(formattedResponse);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } finally {
@@ -1096,6 +1108,7 @@ class Manager<
                 effectRequest,
                 BLANK_ES_REQUEST
             );
+
             const response = await this.client.search(removeEmptyArrays(request));
 
             // Save the results
@@ -1105,7 +1118,9 @@ class Manager<
             this._extractFilteredAggsStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } finally {
@@ -1159,7 +1174,9 @@ class Manager<
             this._extractFilteredAggsStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // No cursor change b/c only dealing with filters
@@ -1183,7 +1200,9 @@ class Manager<
             this._extractUnfilteredAggsStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // No cursor change b/c only dealing with filters
@@ -1198,7 +1217,9 @@ class Manager<
             this._extractUnfilteredAggsStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // no cursor change b/c that should already be handled by the initial request in the batch
@@ -1213,7 +1234,9 @@ class Manager<
             this._extractFilteredAggsStateFromResponse(response);
 
             // Timeout used as the debounce time.
-            await Timeout.set(this.queryThrottleInMS);
+            if (this.queryThrottleInMS > 0) {
+                await Timeout.set(this.queryThrottleInMS);
+            }
         } catch (e) {
             throw e;
         } // no cursor change b/c that should already be handled by the initial request in the batch

@@ -15,7 +15,7 @@ export const fakeResponse = <Source extends object = object>(params?: Partial<ES
     // tslint:disable-next-line
     return {
         took: (params && params.took) || 20,
-        timed_out: (params && params.timed_out) || true,
+        timed_out: (params && params.timed_out) || false,
         _shards: (params && params._shards) || {total: 5, successful: 4, skipped: 1, failed: 0},
         hits: (params && params.hits) || {total: 200, max_score: 1, hits: [fakeResponseHit()]},
         aggregations: (params && params.aggregations) || {}

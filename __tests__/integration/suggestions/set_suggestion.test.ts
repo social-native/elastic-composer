@@ -1,4 +1,4 @@
-import {setUp} from '../../utils';
+import {setUp} from '../utils';
 
 describe('Suggestion', () => {
     describe('Prefix', () => {
