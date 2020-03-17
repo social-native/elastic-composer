@@ -8,6 +8,7 @@ Example:
 const client = new AxiosESClient('my_url/my_index');
 const crm = new Manager(client);
 
+// set filters on the elasticsearch index fields 'age', 'isMarried', 'id', and 'tags'
 crm.filter.rangeFilter.setFilter('age', {greaterThan: 20, lessThanEqual: 60})
 crm.filter.booleanFilter.setFilter('isMarried', {state: true})
 crm.filter.exists.setFilter('id')
