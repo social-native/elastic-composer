@@ -2,6 +2,37 @@
 
 A high-level Elasticsearch query manager and executor. Filter fields, find search suggestions, and paginate query results for your indicies
 
+Example:
+
+```typescript
+const crm = new Manager();
+crm.filter.rangeFilter.setFilter('age', {greaterThan: 20, lessThanEqual: 60})
+crm.filter.booleanFilter.setFilter('isMarried', {state: true})
+crm.filter.exists.setFilter('id')
+crm.filter.multiSelect.setFilter('tags', { isHuman: { inclusion: 'include' }, hasBlueHair: { inclusion: 'exclude' }})
+
+autorun(() => {
+  console.log(crm.results) // results of the above compound query
+})
+```
+
+Example with React:
+
+```typescript
+export default observer(() => {
+    const crm = useContext(Context.crm);
+    return (
+      <div>
+        <div onClick={() => crm.filter.exists.setFilter('id')}/>
+        <div onClick={() => crm.filter.exists.clearFilter('id')}/>
+        <div>
+          {crm.results}
+        </div>
+      </div>
+    )
+})
+```
+
 - [snpkg-client-elasticsearch](#snpkg-client-elasticsearch)
   - [Install](#install)
   - [Peer dependencies](#peer-dependencies)
