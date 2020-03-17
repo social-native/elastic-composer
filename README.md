@@ -1,12 +1,13 @@
 # snpkg-client-elasticsearch
 
-A high-level Elasticsearch query manager and executor. Filter fields, find search suggestions, paginate query results for your indicies. Comes with addons for persisting and rehydrationg filter state from localStorage and the URL. Batteries included for optionally initializing via index introspection. Fully configurable and delightful. Try a slice 🍰!
+A high-level Elasticsearch query manager and executor. Filter fields, find search suggestions, paginate query results for your indicies. Comes with addons for persisting and rehydrationg filter state from localStorage and the URL. Batteries included for optionally initializing via index introspection. Fully configurable. Very delightful. Try a slice 🍰!
 
 Example:
 
 ```typescript
 const client = new AxiosESClient('my_url/my_index');
 const crm = new Manager(client);
+
 crm.filter.rangeFilter.setFilter('age', {greaterThan: 20, lessThanEqual: 60})
 crm.filter.booleanFilter.setFilter('isMarried', {state: true})
 crm.filter.exists.setFilter('id')
