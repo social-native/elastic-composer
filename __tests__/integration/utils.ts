@@ -10,6 +10,21 @@ import {
     ESHit,
     ESMappingType
 } from '../../src';
+import {reaction} from 'mobx';
+
+export const logSideEffectQueue = <M extends Manager>(manager: M) => {
+    return reaction(
+        () => ({
+            queue: [...manager._sideEffectQueue],
+            isSideEffectRunning: !!manager.isSideEffectRunning
+        }),
+        () => {
+            // tslint:disable-next-line
+            console.log(manager._sideEffectQueue.map(k => k.kind));
+        },
+        {fireImmediately: true}
+    );
+};
 
 export const fakeResponse = <Source extends object = object>(params?: Partial<ESResponse>) => {
     // tslint:disable-next-line
