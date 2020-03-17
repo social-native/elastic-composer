@@ -9,6 +9,10 @@ describe('Filters', () => {
 
             manager.filters.boolean.setFilter('boolean_field', {state: true});
 
+            await waitForExpect(() => {
+                expect(manager._sideEffectQueue.length).toEqual(0);
+            });
+
             expect(client.search).toHaveBeenCalledWith({
                 _source: {},
                 aggs: {},

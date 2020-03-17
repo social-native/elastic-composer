@@ -11,8 +11,8 @@ export type ESRequestSortField = Array<object | string>;
 export type ESRequest = {
     query: {
         bool: {
-            must: object[];
-            should: object[];
+            must?: object[];
+            should?: object[];
         };
     };
     _source?: {
