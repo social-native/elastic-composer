@@ -5,7 +5,8 @@ A high-level Elasticsearch query manager and executor. Filter fields, find searc
 Example:
 
 ```typescript
-const crm = new Manager();
+const client = new AxiosESClient('my_url/my_index');
+const crm = new Manager(client);
 crm.filter.rangeFilter.setFilter('age', {greaterThan: 20, lessThanEqual: 60})
 crm.filter.booleanFilter.setFilter('isMarried', {state: true})
 crm.filter.exists.setFilter('id')
