@@ -1,6 +1,6 @@
 # snpkg-client-elasticsearch
 
-A high-level Elasticsearch query manager and executor. Filter fields, find search suggestions, paginate query results for your indicies. Comes with addons for persisting and rehydrationg filter state from localStorage and the URL. Batteries included for optionally initializing via index introspection. Fully configurable. Very delightful. Try a slice 🍰!
+A high-level Elasticsearch query manager and executor. Filter fields, find search suggestions, and paginate query results for your indicies. Comes with addons for persisting and rehydrationg filter state from localStorage and the URL. Batteries included for optionally initializing via index introspection. Fully configurable. Very delightful. Try a slice 🍰!
 
 Example:
 
