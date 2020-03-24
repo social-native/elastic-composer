@@ -398,8 +398,10 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfi
                     const selectedValueFilter = filter[selectedValue];
                     const match = makeFilterForQuery(selectedValueFilter, fieldNameModifier(name));
 
+                    const inclusion =
+                        selectedValueFilter.inclusion || config.defaultFilterInclusion;
                     const newFilter =
-                        selectedValueFilter.inclusion === 'include'
+                        inclusion === 'include'
                             ? match
                             : {
                                   bool: {
