@@ -13,6 +13,15 @@ crm.filter.rangeFilter.setFilter('age', {greaterThan: 20, lessThanEqual: 60})
 crm.filter.booleanFilter.setFilter('isMarried', {state: true})
 crm.filter.exists.setFilter('id')
 crm.filter.multiSelect.setFilter('tags', { isHuman: { inclusion: 'include' }, hasBlueHair: { inclusion: 'exclude' }})
+crm.filters.geoFilter.addToFilter('user_profile.location', 'my_third_loc', {
+    inclusion: 'include',
+    kind: 'should',
+    points : [
+        {"lat" : 40, "lon" : -70},
+        {"lat" : 30, "lon" : -80},
+        {"lat" : 20, "lon" : -90}
+    ]
+})
 
 autorun(() => {
   console.log(crm.results) // results of the above compound query
@@ -61,6 +70,7 @@ export default observer(() => {
     - [Setting a boolean filter](#setting-a-boolean-filter)
     - [Setting a exists filter](#setting-a-exists-filter)
     - [Setting a multi-select filter](#setting-a-multi-select-filter)
+    - [Setting a geo filter](#setting-a-geo-filter)
     - [Clearing a single selection from a multi-select filter](#clearing-a-single-selection-from-a-multi-select-filter)
     - [Clearing a filter](#clearing-a-filter)
     - [Setting a prefix suggestion](#setting-a-prefix-suggestion)
@@ -114,14 +124,18 @@ export default observer(() => {
       - [Initialization](#initialization-5)
         - [defaultConfig](#defaultconfig-3)
         - [specificConfig](#specificconfig-3)
+    - [Geo Specific](#geo-specific)
+      - [Initialization](#initialization-6)
+        - [defaultConfig](#defaultconfig-4)
+        - [specificConfig](#specificconfig-4)
       - [Methods](#methods-5)
       - [Attributes](#attributes-5)
     - [Common Among All Suggestions](#common-among-all-suggestions)
-      - [Initialization](#initialization-6)
+      - [Initialization](#initialization-7)
       - [Methods](#methods-6)
       - [Attributes](#attributes-6)
     - [History API](#history-api)
-      - [Initialization](#initialization-7)
+      - [Initialization](#initialization-8)
       - [Methods](#methods-7)
       - [Attributes](#attributes-7)
   - [Verbose Examples](#verbose-examples)
@@ -175,7 +189,7 @@ The flow is:
 1. You define all the fields of an ES index that you want to use via (A) configuration objects in either the Filter or Suggestion API or (B) introspection abilities in the Manager API. 
 2. Once you have fields set that you can filter or find suggestions on, you use the Filter API to filter results and the Suggestion API to get suggestions (for parameters to use in filters - such as fuzzy or prefix search of values). 
 3. The Manager API gives you access to results and allows you to paginate over the results. 
-4. The History API records Filters and Suggestions that have been set, persists this state to the URL in a persisten store (like localStorage), and rehydrates from persisted state.
+4. The History API records Filters and Suggestions that have been set, persists this state to the URL in a persistent store (like localStorage), and rehydrates from persisted state.
 
 Everything in this library is reactive. So once you set a filter, the manager will react to the change, and submit a new query to Elasticsearch using all the filters that have been set across all the fields. The manager handles debouncing, throttling and batching queries. 
 
@@ -189,6 +203,7 @@ The currently available Filters are:
 -   `boolean`: Filter documents by fields that have a value of either `true` or `false`
 -   `exists`: Filter documents by fields that have any value existing for that field
 -   `multiselect`: Filter documents that have fields matching certain values (includes or excludes)
+-   `geo`: Filter documents that have fields with `geo_point` data in them
 
 The currently available suggestions are:
 
@@ -476,6 +491,43 @@ manager.filters.multiselect.addToFilter('tags', 'has_green_hair', {
     inclusion: 'exclude',
     kind: 'must'
 });
+```
+
+### Setting a geo filter
+
+Geo filters implement [geo bounding box, geo distance, and geo polygon](https://www.elastic.co/guide/en/elasticsearch/reference/current/geo-queries.html) queries.
+
+Like a multiselect filter, you can add all filters at once for a field using `setFilter` or add them one by one using `addFilter`.
+
+```typescript
+crm.filters.geoFilter.addToFilter('user_profile.location', 'my_first_loc', {
+    'kind': 'should',
+    'inclusion': 'exclude',
+    'distance': '100mi',
+    'lat': 34.7850143,
+    'lon': -92.3912103
+})
+
+crm.filters.geoFilter.addToFilter('user_profile.location', 'my_second_loc', {
+    'kind': 'must',
+    'inclusion': 'include',
+    "top_left" : {
+        "lat" : 40.73,
+        "lon" : -74.1
+    },
+    "bottom_right" : {
+        "lat" : 40.01,
+        "lon" : -71.12
+    }
+})
+
+crm.filters.geoFilter.addToFilter('user_profile.location', 'my_third_loc', {
+    "points" : [
+        {"lat" : 40, "lon" : -70},
+        {"lat" : 30, "lon" : -80},
+        {"lat" : 20, "lon" : -90}
+    ]
+})
 ```
 
 ### Clearing a single selection from a multi-select filter
@@ -970,6 +1022,49 @@ type MultiSelectConfig = {
 };
 ```
 
+### Geo Specific
+
+> NOTE: Go filters do not have any aggs enabled! Do not try to use aggs with geo filters.
+
+Examples of GeoFilter actions and the queries they generate can be found at [src/filters/geo_filter_README.md](src/filters/geo_filter_README.md)
+
+#### Initialization
+
+The geoFilter constructor has the signature `(defaultConfig, specificConfig) => GeoFilterInstance`
+
+##### defaultConfig
+
+The configuration that each field will acquire if an override is not specifically set in `specificConfig`
+
+```typescript
+type DefaultConfig = {
+    defaultFilterKind: 'should',
+    defaultFilterInclusion: 'include',
+    getCount: true,
+    aggsEnabled: false,
+    fieldNameModifierQuery: (fieldName: string) => fieldName
+    fieldNameModifierAggs: (fieldName: string) => fieldName
+};
+```
+
+##### specificConfig
+
+The explicit configuration set on a per field level. If a config isn't specified or only partially specified for a field, the defaultConfig will be used to fill in the gaps.
+
+```typescript
+type SpecificConfig = Record<string, GeoConfig>;
+
+type GeoConfig = {
+    field: string;
+    defaultFilterKind?: 'should' or 'must';
+    defaultFilterInclusion?: 'include' | 'exclude';
+    getCount?: boolean;
+    aggsEnabled?: boolean;
+    fieldNameModifierQuery?: (fieldName: string) => string
+    fieldNameModifierAggs?: (fieldName: string) => string
+};
+```
+
 #### Methods
 
 A filter selection has the type:
@@ -983,16 +1078,16 @@ A filter selection has the type:
 
 | method           | description                              | type                                                                                                                                    |
 | ---------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| setFilter        | sets the filter for a field              | `(field: <name of multiselect field>, filter: {[selectionName]: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}}): void` |
-| addToFilter      | adds a single selection to a filter      | `addToFilter(field: <name of multiselect field>, selectionName: string, selectionFilter: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}): void`          |
-| removeFromFilter | removes a single selection from a filter | `removeFromFilter(field: <name of multiselect field>, selectionName: string): void`                                                     |
+| setFilter        | sets the filter for a field              | `(field: <name of geo field>, filter: {[geoSubFilterReferenceName]: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}}): void` |
+| addToFilter      | adds a single selection to a filter      | `addToFilter(field: <name of geo field>, geoSubFilterReferenceName: string, selectionFilter: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}): void`          |
+| removeFromFilter | removes a single selection from a filter | `removeFromFilter(field: <name of geo field>, geoSubFilterReferenceName: string): void`                                                     |
 
 #### Attributes
 
 | attribute       | description                                                                      | type                                                                                |
 | --------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| filteredCount   | the count of multiselect values of all filtered documents, keyed by field name   | `{ [<names of multiselect fields>]: { [<names of selectons>]: number } }` |
-| unfilteredCount | the count of multiselect values of all unfiltered documents, keyed by field name | `{ [<names of multiselect fields>]: { [<names of selectons>]: number } }` |
+
+> Note: No aggregates are implemented, thus there are no attributes specific to this filter type.
 
 ### Common Among All Suggestions
 
