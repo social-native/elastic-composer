@@ -28,7 +28,7 @@ autorun(() => {
 })
 ```
 
-> Note: Internally all filter changes create `sideEffectRequests` that are put onto a processing queue. The above example will create 4 requests - one for each `setFilter` action. However, because there is built in debouncing, if these actions occur within the debounce window, only the last request (fully compounded with all filters applied) will be executed.
+> Note: Internally all filter changes create `sideEffectRequests` that are put onto a processing queue. The above example will create 5 requests - one for each `setFilter` action. However, because there is built in debouncing, if these actions occur within the debounce window, only the last request (fully compounded with all filters applied) will be executed.
 
 Example with React:
 
