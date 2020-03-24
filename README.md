@@ -9,11 +9,11 @@ const client = new AxiosESClient('my_url/my_index');
 const crm = new Manager(client);
 
 // set filters on the elasticsearch index fields 'age', 'isMarried', 'id', and 'tags'
-crm.filter.rangeFilter.setFilter('age', {greaterThan: 20, lessThanEqual: 60})
-crm.filter.booleanFilter.setFilter('isMarried', {state: true})
+crm.filter.range.setFilter('age', {greaterThan: 20, lessThanEqual: 60})
+crm.filter.boolean.setFilter('isMarried', {state: true})
 crm.filter.exists.setFilter('id')
 crm.filter.multiSelect.setFilter('tags', { isHuman: { inclusion: 'include' }, hasBlueHair: { inclusion: 'exclude' }})
-crm.filters.geoFilter.addToFilter('user_profile.location', 'my_third_loc', {
+crm.filters.geo.addToFilter('user_profile.location', 'my_third_loc', {
     inclusion: 'include',
     kind: 'should',
     points : [
@@ -500,7 +500,7 @@ Geo filters implement [geo bounding box, geo distance, and geo polygon](https://
 Like a multiselect filter, you can add all filters at once for a field using `setFilter` or add them one by one using `addFilter`.
 
 ```typescript
-crm.filters.geoFilter.addToFilter('user_profile.location', 'my_first_loc', {
+crm.filters.geo.addToFilter('user_profile.location', 'my_first_loc', {
     'kind': 'should',
     'inclusion': 'exclude',
     'distance': '100mi',
@@ -508,7 +508,7 @@ crm.filters.geoFilter.addToFilter('user_profile.location', 'my_first_loc', {
     'lon': -92.3912103
 })
 
-crm.filters.geoFilter.addToFilter('user_profile.location', 'my_second_loc', {
+crm.filters.geo.addToFilter('user_profile.location', 'my_second_loc', {
     'kind': 'must',
     'inclusion': 'include',
     "top_left" : {
@@ -521,7 +521,7 @@ crm.filters.geoFilter.addToFilter('user_profile.location', 'my_second_loc', {
     }
 })
 
-crm.filters.geoFilter.addToFilter('user_profile.location', 'my_third_loc', {
+crm.filters.geo.addToFilter('user_profile.location', 'my_third_loc', {
     "points" : [
         {"lat" : 40, "lon" : -70},
         {"lat" : 30, "lon" : -80},
