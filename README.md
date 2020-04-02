@@ -1,6 +1,51 @@
 # snpkg-client-elasticsearch
 
-A high-level Elasticsearch query manager and executor. Filter fields, find search suggestions, and paginate query results for your indicies
+A high-level Elasticsearch query manager and executor. Filter fields, find search suggestions, and paginate query results for your indicies. Comes with addons for persisting and rehydrationg filter state from localStorage and the URL. Batteries included for optionally initializing via index introspection. Fully configurable. Very delightful. Try a slice 🍰!
+
+Example:
+
+```typescript
+const client = new AxiosESClient('my_url/my_index');
+const crm = new Manager(client);
+
+// set filters on the elasticsearch index fields 'age', 'isMarried', 'id', and 'tags'
+crm.filter.range.setFilter('age', {greaterThan: 20, lessThanEqual: 60})
+crm.filter.boolean.setFilter('isMarried', {state: true})
+crm.filter.exists.setFilter('id')
+crm.filter.multiSelect.setFilter('tags', { isHuman: { inclusion: 'include' }, hasBlueHair: { inclusion: 'exclude' }})
+crm.filters.geo.addToFilter('user_profile.location', 'my_third_loc', {
+    inclusion: 'include',
+    kind: 'should',
+    points : [
+        {"lat" : 40, "lon" : -70},
+        {"lat" : 30, "lon" : -80},
+        {"lat" : 20, "lon" : -90}
+    ]
+})
+
+autorun(() => {
+  console.log(crm.results) // results of the above compound query
+})
+```
+
+> Note: Internally all filter changes create `sideEffectRequests` that are put onto a processing queue. The above example will create 5 requests - one for each `setFilter` | `addFilter` action. However, because there is built in debouncing, if these actions occur within the debounce window, only the last request (fully compounded with all filters applied) will be executed.
+
+Example with React:
+
+```typescript
+export default observer(() => {
+    const crm = useContext(Context.crm);
+    return (
+      <div>
+        <div onClick={() => crm.filter.exists.setFilter('id')}/>
+        <div onClick={() => crm.filter.exists.clearFilter('id')}/>
+        <div>
+          {crm.results}
+        </div>
+      </div>
+    )
+})
+```
 
 - [snpkg-client-elasticsearch](#snpkg-client-elasticsearch)
   - [Install](#install)
@@ -25,6 +70,7 @@ A high-level Elasticsearch query manager and executor. Filter fields, find searc
     - [Setting a boolean filter](#setting-a-boolean-filter)
     - [Setting a exists filter](#setting-a-exists-filter)
     - [Setting a multi-select filter](#setting-a-multi-select-filter)
+    - [Setting a geo filter](#setting-a-geo-filter)
     - [Clearing a single selection from a multi-select filter](#clearing-a-single-selection-from-a-multi-select-filter)
     - [Clearing a filter](#clearing-a-filter)
     - [Setting a prefix suggestion](#setting-a-prefix-suggestion)
@@ -78,14 +124,18 @@ A high-level Elasticsearch query manager and executor. Filter fields, find searc
       - [Initialization](#initialization-5)
         - [defaultConfig](#defaultconfig-3)
         - [specificConfig](#specificconfig-3)
+    - [Geo Specific](#geo-specific)
+      - [Initialization](#initialization-6)
+        - [defaultConfig](#defaultconfig-4)
+        - [specificConfig](#specificconfig-4)
       - [Methods](#methods-5)
       - [Attributes](#attributes-5)
     - [Common Among All Suggestions](#common-among-all-suggestions)
-      - [Initialization](#initialization-6)
+      - [Initialization](#initialization-7)
       - [Methods](#methods-6)
       - [Attributes](#attributes-6)
     - [History API](#history-api)
-      - [Initialization](#initialization-7)
+      - [Initialization](#initialization-8)
       - [Methods](#methods-7)
       - [Attributes](#attributes-7)
   - [Verbose Examples](#verbose-examples)
@@ -127,13 +177,23 @@ This library is written in MobX, which makes it reactive. If you don't want to u
 
 The general paradigm is as follows:
 
-You either: (A) define `Filters` for each field in the index that you want to query or (B) use the package's introspection abilities to generate `Filters` for all the fields in the index. Once `Filters` have been defined, you can use a specific one's API to do unique and compound filtering with field level granularity. 
+There are 4 API's:
 
-Once a filter for a field is set (`setFieldFilter(<fieldName>, <filterObj>`), the Manager will: (1) react to the `Filter` change, (2) generate a valid Elasticsearch query using all active `Filters`, (3) enqueue the query (debouncing, throttling, and batching aggregations in the queries), and then (4) continually process off the queue - submitting queries, one by one, to Elasticsearch via specific clients that were provided to the manager. Furthermore, the manager stores the results of the most recent query (`manager.results`) and handles pagination among a result set (`manager.nextPage` & `manager.prevPage`).
+ - Filter API
+ - Suggestion API
+ - History API
+ - Manager API
 
-Additionally, similar to how Filters work, you can define `Suggestions` and use the specific API for each one to get search suggestions from Elasticsearch. These results can be used to inform configuration for different `Filters`.
+The flow is:
 
-If you want to record the history of user interactions with filters and suggestions, serialize the current set of user selections to a URL query param, and/or save the history to local storage, you can use the `History` API. See the [API](#history-api) section for details.
+1. You define all the fields of an ES index that you want to use via (A) configuration objects in either the Filter or Suggestion API or (B) introspection abilities in the Manager API. 
+2. Once you have fields set that you can filter or find suggestions on, you use the Filter API to filter results and the Suggestion API to get suggestions (for parameters to use in filters - such as fuzzy or prefix search of values). 
+3. The Manager API gives you access to results and allows you to paginate over the results. 
+4. The History API records Filters and Suggestions that have been set, persists this state to the URL in a persistent store (like localStorage), and rehydrates from persisted state.
+
+Everything in this library is reactive. So once you set a filter, the manager will react to the change, and submit a new query to Elasticsearch using all the filters that have been set across all the fields. The manager handles debouncing, throttling and batching queries. 
+
+In addition to simply running new queries, Filters and Suggestions provide opinionated aggregates that help inform how well the filter is doing. For example, the Range Filter gives you aggregates that show you a histogram of documents with the filter applied and without it applied. By default, aggregates are turned off by default. The paradigm with aggregates is to turn them on when a user is accessing a UI element that allows seeing aggregate data and turn them off when the UI element is no long visible. Because aggregates will respond to all filter changes, if you don't turn them off when not in use, you will submit meaningless queries to Elasticsearch.
 
 ### Available filters and suggestions
 
@@ -143,6 +203,7 @@ The currently available Filters are:
 -   `boolean`: Filter documents by fields that have a value of either `true` or `false`
 -   `exists`: Filter documents by fields that have any value existing for that field
 -   `multiselect`: Filter documents that have fields matching certain values (includes or excludes)
+-   `geo`: Filter documents that have fields with `geo_point` data in them
 
 The currently available suggestions are:
 
@@ -430,6 +491,43 @@ manager.filters.multiselect.addToFilter('tags', 'has_green_hair', {
     inclusion: 'exclude',
     kind: 'must'
 });
+```
+
+### Setting a geo filter
+
+Geo filters implement [geo bounding box, geo distance, and geo polygon](https://www.elastic.co/guide/en/elasticsearch/reference/current/geo-queries.html) queries.
+
+Like a multiselect filter, you can add all filters at once for a field using `setFilter` or add them one by one using `addFilter`.
+
+```typescript
+crm.filters.geo.addToFilter('user_profile.location', 'my_first_loc', {
+    'kind': 'should',
+    'inclusion': 'exclude',
+    'distance': '100mi',
+    'lat': 34.7850143,
+    'lon': -92.3912103
+})
+
+crm.filters.geo.addToFilter('user_profile.location', 'my_second_loc', {
+    'kind': 'must',
+    'inclusion': 'include',
+    "top_left" : {
+        "lat" : 40.73,
+        "lon" : -74.1
+    },
+    "bottom_right" : {
+        "lat" : 40.01,
+        "lon" : -71.12
+    }
+})
+
+crm.filters.geo.addToFilter('user_profile.location', 'my_third_loc', {
+    "points" : [
+        {"lat" : 40, "lon" : -70},
+        {"lat" : 30, "lon" : -80},
+        {"lat" : 20, "lon" : -90}
+    ]
+})
 ```
 
 ### Clearing a single selection from a multi-select filter
@@ -924,6 +1022,49 @@ type MultiSelectConfig = {
 };
 ```
 
+### Geo Specific
+
+> NOTE: Go filters do not have any aggs enabled! Do not try to use aggs with geo filters.
+
+Examples of GeoFilter actions and the queries they generate can be found at [src/filters/geo_filter_README.md](src/filters/geo_filter_README.md)
+
+#### Initialization
+
+The geoFilter constructor has the signature `(defaultConfig, specificConfig) => GeoFilterInstance`
+
+##### defaultConfig
+
+The configuration that each field will acquire if an override is not specifically set in `specificConfig`
+
+```typescript
+type DefaultConfig = {
+    defaultFilterKind: 'should',
+    defaultFilterInclusion: 'include',
+    getCount: true,
+    aggsEnabled: false,
+    fieldNameModifierQuery: (fieldName: string) => fieldName
+    fieldNameModifierAggs: (fieldName: string) => fieldName
+};
+```
+
+##### specificConfig
+
+The explicit configuration set on a per field level. If a config isn't specified or only partially specified for a field, the defaultConfig will be used to fill in the gaps.
+
+```typescript
+type SpecificConfig = Record<string, GeoConfig>;
+
+type GeoConfig = {
+    field: string;
+    defaultFilterKind?: 'should' or 'must';
+    defaultFilterInclusion?: 'include' | 'exclude';
+    getCount?: boolean;
+    aggsEnabled?: boolean;
+    fieldNameModifierQuery?: (fieldName: string) => string
+    fieldNameModifierAggs?: (fieldName: string) => string
+};
+```
+
 #### Methods
 
 A filter selection has the type:
@@ -937,16 +1078,16 @@ A filter selection has the type:
 
 | method           | description                              | type                                                                                                                                    |
 | ---------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| setFilter        | sets the filter for a field              | `(field: <name of multiselect field>, filter: {[selectionName]: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}}): void` |
-| addToFilter      | adds a single selection to a filter      | `addToFilter(field: <name of multiselect field>, selectionName: string, selectionFilter: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}): void`          |
-| removeFromFilter | removes a single selection from a filter | `removeFromFilter(field: <name of multiselect field>, selectionName: string): void`                                                     |
+| setFilter        | sets the filter for a field              | `(field: <name of geo field>, filter: {[geoSubFilterReferenceName]: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}}): void` |
+| addToFilter      | adds a single selection to a filter      | `addToFilter(field: <name of geo field>, geoSubFilterReferenceName: string, selectionFilter: {inclusion: 'include' or 'exclude', kind?: 'should' or 'must'}): void`          |
+| removeFromFilter | removes a single selection from a filter | `removeFromFilter(field: <name of geo field>, geoSubFilterReferenceName: string): void`                                                     |
 
 #### Attributes
 
 | attribute       | description                                                                      | type                                                                                |
 | --------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| filteredCount   | the count of multiselect values of all filtered documents, keyed by field name   | `{ [<names of multiselect fields>]: { [<names of selectons>]: number } }` |
-| unfilteredCount | the count of multiselect values of all unfiltered documents, keyed by field name | `{ [<names of multiselect fields>]: { [<names of selectons>]: number } }` |
+
+> Note: No aggregates are implemented, thus there are no attributes specific to this filter type.
 
 ### Common Among All Suggestions
 
@@ -1021,6 +1162,7 @@ The `options` looks like:
     historySize?: number;
     currentLocationStore?: UrlStore<State>;
     historyPersister?: IHistoryPersister;
+    rehydrateOnStart?: boolean; // whether to run the `rehydrate` method in the constructor
 }
 ```
 
@@ -1041,7 +1183,7 @@ IHistoryPersister {
 | setCurrentState         | sets the current state of filters and suggestgions    | `(location: HistoryLocation): void`   |
 | back       | goes back in the history                              | `(): void`                       |
 | forward           | goes forward in the history                                | `(): void` |
-
+| rehydrate | rehydrates from URL or persistent storage | `(): void` |
 
 #### Attributes
 
@@ -1049,6 +1191,7 @@ IHistoryPersister {
 | ---------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
 | history     | the recorded history                  | `Array<HistoryLocation | undefined>`     |
 | currentLocationInHistoryCursor | the location in history, changed by going 'back' or 'forward'             | `number` |
+| hasRehydratedLocation | flag to tell if any location was rehydrated from when the `rehydrate` method was called |
 
 ## Verbose Examples
 

@@ -22,8 +22,25 @@ export type HistoryLocation = {
 
 export interface IHistoryOptions<State> {
     historySize?: number;
-    currentLocationStore?: UrlStore<State>;
+    currentLocationStore?: ICurrentLocationStore<State>;
     historyPersister?: IHistoryPersister;
+    rehydrateOnStart?: boolean;
+}
+
+export type CurrentLocationStateObserver<State> = (newState: State | undefined) => any;
+
+export interface ICurrentLocationStore<State> {
+    setState: (
+        location: State | undefined,
+        options?: {
+            replaceLocation: boolean;
+        }
+    ) => void;
+    getState: () => State | undefined | void;
+    subscribeToStateChanges: (
+        observer: CurrentLocationStateObserver<State>,
+        options?: {getCurrentState: boolean}
+    ) => void;
 }
 
 export interface IHistoryPersister {
@@ -59,8 +76,9 @@ class History {
     public manager: Manager;
     public history: Array<HistoryLocation | undefined>;
     public currentLocationInHistoryCursor: number;
-    public currentLocationStore: UrlStore<HistoryLocation>;
+    public currentLocationStore: ICurrentLocationStore<HistoryLocation>;
     public historyPersister: IHistoryPersister | undefined;
+    public hasRehydratedLocation: boolean;
 
     constructor(
         manager: Manager,
@@ -77,22 +95,15 @@ class History {
             this.currentLocationInHistoryCursor = 0;
             this.history = [];
             this.historyPersister = options && options.historyPersister;
-            if (this.historyPersister) {
-                this.history = this.historyPersister.getHistory();
-                if (this.history.length > 0) {
-                    const existingStateFromUrl = this.currentLocationStore.getState();
-                    if (!existingStateFromUrl) {
-                        const newHistoryLocation = this._deepCopy(
-                            this.history[0] as HistoryLocation
-                        );
-                        this.currentLocationStore.setState(newHistoryLocation);
-                        this._rehydrateFromLocation(newHistoryLocation);
-                    }
-                }
+            this.hasRehydratedLocation = false;
+            if (options && options.rehydrateOnStart) {
+                this.rehydrate();
             }
         });
 
-        this.currentLocationStore.subscribeToStateChanges(this._currentStateSubscriber);
+        this.currentLocationStore.subscribeToStateChanges(this._currentStateSubscriber, {
+            getCurrentState: false
+        });
 
         const debounceHistoryChange = debounce(this._recordHistoryChange, 300);
 
@@ -127,6 +138,48 @@ class History {
             {fireImmediately: true}
         );
     }
+
+    /**
+     * Rehydrates state from current state store (URL) or persistent storage (localStorage)
+     */
+    public rehydrate = () => {
+        // tslint:disable-next-line
+        runInAction(() => {
+            if (this.historyPersister) {
+                const persistedHistory = this.historyPersister.getHistory();
+                this.history = persistedHistory;
+                if (persistedHistory.length > 0) {
+                    const existingStateFromUrl = this.currentLocationStore.getState();
+                    if (!existingStateFromUrl) {
+                        const newHistoryLocation = this._deepCopy(
+                            persistedHistory[0] as HistoryLocation
+                        );
+                        // if only suggestions are present then we should
+                        // act as if no location was rehydrated
+                        if (newHistoryLocation.filters) {
+                            this.hasRehydratedLocation = true;
+                        }
+                        this.currentLocationStore.setState(newHistoryLocation);
+
+                        this._rehydrateFromLocation(newHistoryLocation);
+                    } else {
+                        if (existingStateFromUrl.filters) {
+                            this.hasRehydratedLocation = true;
+                        }
+                        this._rehydrateFromLocation(existingStateFromUrl);
+                    }
+                } else {
+                    const existingStateFromUrl = this.currentLocationStore.getState();
+                    if (existingStateFromUrl) {
+                        if (existingStateFromUrl.filters) {
+                            this.hasRehydratedLocation = true;
+                        }
+                        this._rehydrateFromLocation(existingStateFromUrl);
+                    }
+                }
+            }
+        });
+    };
 
     // tslint:disable-next-line
     public _recordHistoryChange = () => {

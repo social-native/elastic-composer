@@ -1,6 +1,6 @@
 {
     "name": "@social-native/snpkg-client-elasticsearch",
-    "version": "3.3.1",
+    "version": "3.8.0",
     "description": "",
     "main": "dist/index.cjs.js",
     "module": "dist/index.es.js",
@@ -18,7 +18,8 @@
         "watch": "rollup -cw",
         "prettier": "./node_modules/.bin/prettier \"src/**/*\" --write",
         "lint": "tslint -t stylish --project \"tsconfig.json\"",
-        "test": "jest --passWithNoTests",
+        "test": "jest --runInBand",
+        "test:clear-cache": "jest --clearCache",
         "test:watch": "npm run test -- --watchAll --runInBand",
         "type-check:watch": "npm run type-check -- --watch",
         "type-check": "tsc --noEmit",
@@ -44,7 +45,7 @@
         "lodash.debounce": "^4.0.8",
         "mobx": "^5.14.2",
         "mobx-react": "^6.1.4",
-        "query-params-data": "^0.1.1",
+        "query-params-data": "^0.2.2",
         "query-string": "^6.11.1"
     },
     "peerDependencies": {
@@ -54,7 +55,7 @@
         "lodash.chunk": "^4.2.0",
         "lodash.debounce": "^4.0.8",
         "query-string": "^6.11.1",
-        "query-params-data": "^0.1.1"
+        "query-params-data": "^0.2.2"
     },
     "devDependencies": {
         "@rollup/plugin-json": "^4.0.2",
@@ -92,7 +93,8 @@
         "tslint-config-prettier": "^1.18.0",
         "tslint-eslint-rules": "^5.4.0",
         "tslint-immutable": "^5.5.2",
-        "typescript": "^3.4.1",
-        "victory": "^34.0.0"
+        "typescript": "^3.8.3",
+        "victory": "^34.0.0",
+        "wait-for-expect": "^3.0.2"
     }
 }
