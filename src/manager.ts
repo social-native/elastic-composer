@@ -29,6 +29,7 @@ import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx'
 import Timeout from 'await-timeout';
 import chunk from 'lodash.chunk';
 import {PrefixSuggestion, FuzzySuggestion, BaseSuggestion} from './suggestions';
+import Sort from './sort';
 
 /**
  * How the naming works:
@@ -138,6 +139,8 @@ class Manager<
     public fieldWhiteList: string[];
     public fieldBlackList: string[];
 
+    public sort: Sort;
+
     constructor(client: IClient<ESDocSource>, options?: ManagerOptions) {
         const filters =
             options && options.filters
@@ -188,6 +191,8 @@ class Manager<
                 this._applyBlackAndWhiteListsToSourceParam
             ];
 
+            this.sort = new Sort();
+
             this.middleware = (options && options.middleware) || DEFAULT_MANAGER_OPTIONS.middleware;
         });
 
@@ -217,6 +222,17 @@ class Manager<
                     };
                 }, {});
             },
+            () => {
+                this._enqueueFilteredQueryAndAggs();
+            }
+        );
+
+        /**
+         * React to sort order changes.
+         * Run a new filter query.
+         */
+        reaction(
+            () => JSON.stringify(this.sort.esSortOrder),
             () => {
                 this._enqueueFilteredQueryAndAggs();
             }
@@ -1303,7 +1319,12 @@ class Manager<
     };
 
     public _addSortToQuery = (request: ESRequest): ESRequest => {
-        return {...request, sort: ['_score', '_doc']};
+        const esSort = this.sort.esSortOrder;
+        if (esSort.length > 0) {
+            return {...request, sort: [...esSort, '_score', '_doc']};
+        } else {
+            return {...request, sort: ['_score', '_doc']};
+        }
     };
 
     public _addZeroPageSizeToQuery = (request: ESRequest): ESRequest => {
@@ -1422,7 +1443,8 @@ decorate(Manager, {
     fieldsWithFiltersAndSuggestions: computed,
     fieldBlackList: observable,
     fieldWhiteList: observable,
-    hasNextPage: computed
+    hasNextPage: computed,
+    sort: observable
 });
 
 export default Manager;
