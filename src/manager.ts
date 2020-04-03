@@ -5,7 +5,8 @@ import {
     ExistsFilter,
     MultiSelectFilter,
     GeoFilter,
-    DateRangeFilter
+    DateRangeFilter,
+    TermsFilter
 } from './filters';
 import {
     ESRequest,
@@ -78,7 +79,8 @@ const DEFAULT_MANAGER_OPTIONS: Omit<
         boolean: new BooleanFilter(),
         range: new RangeFilter(),
         dateRange: new DateRangeFilter(),
-        geo: new GeoFilter()
+        geo: new GeoFilter(),
+        terms: new TermsFilter()
     },
     suggestions: {
         fuzzy: new FuzzySuggestion(),

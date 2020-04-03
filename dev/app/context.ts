@@ -14,7 +14,8 @@ import {
     PrefixSuggestion,
     RangeFilter,
     History,
-    localStorageHistoryPersister
+    localStorageHistoryPersister,
+    TermsFilter
 } from '../../src';
 import {IRangeConfig} from '../../src/filters/range_filter';
 import {reaction} from 'mobx';
@@ -67,6 +68,15 @@ const customPrefixSuggestion = new PrefixSuggestion({
     fieldNameModifierAggs: (fieldName: string) => `${fieldName}.keyword`
 });
 
+const customTermsFilter = new TermsFilter({
+    defaultFilterKind: 'must',
+    defaultFilterInclusion: 'include',
+    getCount: false,
+    aggsEnabled: false,
+    fieldNameModifierQuery: (fieldName: string) => `${fieldName}.keyword`,
+    fieldNameModifierAggs: (fieldName: string) => `${fieldName}.keyword`
+});
+
 const defaultRangeFilterConfig: IRangeConfig = {
     field: '',
     aggsEnabled: false,
@@ -106,7 +116,8 @@ const creatorCRM = new Manager(client, {
     //     'user_profile.children.year_born'
     // ],
     filters: {
-        range: customRangeFilter
+        range: customRangeFilter,
+        terms: customTermsFilter
     },
     suggestions: {
         prefix: customPrefixSuggestion

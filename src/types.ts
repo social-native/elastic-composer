@@ -9,6 +9,7 @@ import {
     DateRangeFilter
 } from './filters';
 import {FuzzySuggestion, BaseSuggestion} from './suggestions';
+import TermsFilter from 'filters/terms_filter';
 /**
  * ***********************************
  * ES Request
@@ -43,6 +44,7 @@ export type ESRequest = {
 
 export type AggregationResults =
     | RawMultiSelectAggs
+    | RawTermsAggs
     | RawExistsAggs
     | RawRangeBoundAggs
     | RawRangeDistributionAggs
@@ -265,6 +267,7 @@ export interface IFiltersOptions {
     boolean?: BooleanFilter<any>;
     exists?: ExistsFilter<any>;
     geo?: GeoFilter<any>;
+    terms?: TermsFilter<any>;
     [customFilter: string]: BaseFilter<any, any, any> | undefined;
 }
 
@@ -281,6 +284,7 @@ export interface IFilters {
     boolean: BooleanFilter<any>;
     exists: ExistsFilter<any>;
     geo: GeoFilter<any>;
+    terms: TermsFilter<any>;
     [customFilter: string]: BaseFilter<any, any, any>;
 }
 
@@ -315,6 +319,26 @@ export type MultiSelectFieldFilter = {
 };
 
 export type RawMultiSelectAggs = {
+    buckets: Array<{
+        doc_count: number;
+    }>;
+};
+
+/**
+ * Terms Filter
+ */
+
+export type TermsSubFieldFilterValue = {
+    inclusion: 'include' | 'exclude';
+    kind?: 'should' | 'must';
+    terms: string[];
+};
+
+export type TermsFieldFilter = {
+    [selectedValue: string]: TermsSubFieldFilterValue;
+};
+
+export type RawTermsAggs = {
     buckets: Array<{
         doc_count: number;
     }>;
