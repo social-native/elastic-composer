@@ -1,22 +1,25 @@
-import {runInAction, decorate, observable} from 'mobx';
+import {runInAction, decorate, observable, set} from 'mobx';
 import {objKeys} from '../utils';
 import {
     ESRequest,
     ESResponse,
     FilterKind,
     BaseFilterConfig,
-    AggregationResults,
-    ESMappingType,
     IBaseOptions,
-    RawRangeDistributionAggs,
-    RawRangeBoundAggs,
-    RawRangeBoundAggsWithString,
+    ESMappingType,
+    MultiSelectSubFieldFilterValue,
+    DateRangeFieldFilter,
+    FieldFilters,
+    FieldKinds,
     GreaterThanFilter,
     GreaterThanEqualFilter,
-    LessThanEqualFilter,
-    RangeFieldFilter,
     LessThanFilter,
-    FieldFilters
+    LessThanEqualFilter,
+    DateRangeSubFieldFilter,
+    AggregationResults,
+    RawRangeDistributionAggs,
+    RawRangeBoundAggs,
+    RawRangeBoundAggsWithString
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -24,17 +27,20 @@ import utils from './utils';
 /**
  * Config
  */
-const DATE_RANGE_CONFIG_DEFAULT = {
+const CONFIG_DEFAULT = {
     defaultFilterKind: 'should',
-    getDistribution: true,
-    getRangeBounds: true,
-    calendarInterval: '1d',
-    aggsEnabled: false
+    defaultFilterInclusion: 'include',
+    aggsEnabled: false,
+    getDistribution: false,
+    getRangeBounds: false,
+    fieldNameModifierQuery: (fieldName: string) => fieldName,
+    fieldNameModifierAggs: (fieldName: string) => fieldName
 };
 
 export interface IDateRangeConfig extends BaseFilterConfig {
     field: string;
     defaultFilterKind?: 'should' | 'must';
+    defaultFilterInclusion: 'include';
     getDistribution?: boolean;
     getRangeBounds?: boolean;
     calendarInterval?:
@@ -87,7 +93,7 @@ export function isLessThanEqualFilter(
 /**
  * Filter Utilities
  */
-const convertGreaterRanges = (filter: RangeFieldFilter) => {
+const convertGreaterRanges = (filter: DateRangeSubFieldFilter) => {
     if (isGreaterThanFilter(filter)) {
         return {gt: filter.greaterThan};
     } else if (isGreaterThanEqualFilter(filter)) {
@@ -97,17 +103,17 @@ const convertGreaterRanges = (filter: RangeFieldFilter) => {
     }
 };
 
-const convertLesserRanges = (filter: RangeFieldFilter) => {
+const convertLesserRanges = (filter: DateRangeSubFieldFilter) => {
     if (isLessThanFilter(filter)) {
         return {lt: filter.lessThan};
     } else if (isLessThanEqualFilter(filter)) {
-        return {gt: filter.lessThanEqual};
+        return {lte: filter.lessThanEqual};
     } else {
         return undefined;
     }
 };
 
-const convertRanges = (fieldName: string, filter: RangeFieldFilter | undefined) => {
+const convertRanges = (fieldName: string, filter: DateRangeSubFieldFilter | undefined) => {
     if (!filter) {
         return undefined;
     }
@@ -161,36 +167,84 @@ export type RangeBoundResults<DateRangeFields extends string> = {
 };
 
 export const rangeShouldUseFieldFn = (_fieldName: string, fieldType: ESMappingType) =>
-    fieldType === 'date'
+    fieldType === 'date';
 
-class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
-    DateRangeFields,
+// use with all fields b/c exists can check any field data value for existence
+export const shouldUseField = (_fieldName: string, fieldType: ESMappingType) =>
+    fieldType === 'date';
+
+class DateRangeFilter<Fields extends string> extends BaseFilter<
+    Fields,
     IDateRangeConfig,
-    RangeFieldFilter
+    DateRangeFieldFilter
 > {
-    public filteredRangeBounds: RangeBoundResults<DateRangeFields>;
-    public unfilteredRangeBounds: RangeBoundResults<DateRangeFields>;
-    public filteredDistribution: RangeDistributionResults<DateRangeFields>;
-    public unfilteredDistribution: RangeDistributionResults<DateRangeFields>;
+    public filteredRangeBounds: RangeBoundResults<Fields>;
+    public unfilteredRangeBounds: RangeBoundResults<Fields>;
+    public filteredDistribution: RangeDistributionResults<Fields>;
+    public unfilteredDistribution: RangeDistributionResults<Fields>;
 
     constructor(
         defaultConfig?: Omit<Required<IDateRangeConfig>, 'field'>,
-        specificConfigs?: IDateRangeConfigs<DateRangeFields>,
+        specificConfigs?: IDateRangeConfigs<Fields>,
         options?: IBaseOptions
     ) {
         super(
             'date_range',
             defaultConfig ||
-                (DATE_RANGE_CONFIG_DEFAULT as Omit<Required<IDateRangeConfig>, 'field'>),
-            specificConfigs as IDateRangeConfigs<DateRangeFields>
+                (CONFIG_DEFAULT as Omit<
+                    Required<IDateRangeConfig>,
+                    'field' | 'calendarInterval' | 'fixedInterval'
+                >),
+            specificConfigs as IDateRangeConfigs<Fields>
         );
         runInAction(() => {
-            this._shouldUseField = (options && options.shouldUseField) || rangeShouldUseFieldFn;
-            this.filteredRangeBounds = {} as RangeBoundResults<DateRangeFields>;
-            this.unfilteredRangeBounds = {} as RangeBoundResults<DateRangeFields>;
-            this.filteredDistribution = {} as RangeDistributionResults<DateRangeFields>;
-            this.unfilteredDistribution = {} as RangeDistributionResults<DateRangeFields>;
+            this._shouldUseField = (options && options.shouldUseField) || shouldUseField;
+            this.filteredRangeBounds = {} as RangeBoundResults<Fields>;
+            this.unfilteredRangeBounds = {} as RangeBoundResults<Fields>;
+            this.filteredDistribution = {} as RangeDistributionResults<Fields>;
+            this.unfilteredDistribution = {} as RangeDistributionResults<Fields>;
         });
+    }
+
+    public userState(): {
+        fieldKinds?: FieldKinds<Fields>;
+        fieldFilters?: FieldFilters<Fields, DateRangeFieldFilter>;
+    } | void {
+        const kinds = Object.keys(this.fieldFilters).reduce((fieldKinds, fieldName) => {
+            return {
+                ...fieldKinds,
+                [fieldName]: this.kindForField(fieldName as Fields)
+            };
+        }, {} as FieldKinds<Fields>);
+
+        const fieldFilters = Object.keys(this.fieldFilters).reduce((fieldFilterAcc, fieldName) => {
+            const filter = this.fieldFilters[fieldName as Fields] as DateRangeFieldFilter;
+            if (filter && Object.keys(filter).length > 0) {
+                return {
+                    ...fieldFilterAcc,
+                    [fieldName]: filter
+                };
+            } else {
+                return fieldFilterAcc;
+            }
+        }, {} as FieldFilters<Fields, DateRangeFieldFilter>);
+
+        if (Object.keys(kinds).length > 0 && Object.keys(fieldFilters).length > 0) {
+            return {
+                fieldKinds: kinds,
+                fieldFilters
+            };
+        } else if (Object.keys(kinds).length > 0) {
+            return {
+                fieldKinds: kinds
+            };
+        } else if (Object.keys(fieldFilters).length > 0) {
+            return {
+                fieldFilters
+            };
+        } else {
+            return;
+        }
     }
 
     /**
@@ -213,13 +267,51 @@ class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
      */
     public clearAllFieldFilters = () => {
         runInAction(() => {
-            this.fieldFilters = {} as FieldFilters<DateRangeFields, RangeFieldFilter>;
-            this.filteredRangeBounds = {} as RangeBoundResults<DateRangeFields>;
-            this.unfilteredRangeBounds = {} as RangeBoundResults<DateRangeFields>;
-            this.filteredDistribution = {} as RangeDistributionResults<DateRangeFields>;
-            this.unfilteredDistribution = {} as RangeDistributionResults<DateRangeFields>;
+            this.fieldFilters = {} as FieldFilters<Fields, DateRangeFieldFilter>;
+            this.filteredRangeBounds = {} as RangeBoundResults<Fields>;
+            this.unfilteredRangeBounds = {} as RangeBoundResults<Fields>;
+            this.filteredDistribution = {} as RangeDistributionResults<Fields>;
+            this.unfilteredDistribution = {} as RangeDistributionResults<Fields>;
         });
     };
+
+    /**
+     * Sets a sub filter for a field.
+     */
+    public addToFilter(
+        field: Fields,
+        subFilterName: string,
+        subFilterValue: MultiSelectSubFieldFilterValue
+    ): void {
+        runInAction(() => {
+            const subFilters = this.fieldFilters[field];
+            const newSubFilters = {
+                ...subFilters,
+                [subFilterName]: subFilterValue
+            };
+            set(this.fieldFilters, {
+                [field]: newSubFilters
+            });
+        });
+    }
+
+    /**
+     * Deletes a sub filter for a field.
+     */
+    public removeFromFilter(field: Fields, subFilterName: string): void {
+        runInAction(() => {
+            const subFilters = this.fieldFilters[field];
+            if (!subFilters) {
+                return;
+            }
+
+            delete subFilters[subFilterName];
+
+            set(this.fieldFilters, {
+                [field]: subFilters
+            });
+        });
+    }
 
     /**
      * State that should cause a global ES query request using all filters
@@ -227,7 +319,21 @@ class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
      * Changes to this state is tracked by the manager so that it knows when to run a new filter query
      */
     public get _shouldRunFilteredQueryAndAggs(): object {
-        return {filters: {...this.fieldFilters}, kinds: {...this.fieldKinds}};
+        const fieldFilters = objKeys(this.fieldFilters).reduce((acc, fieldName) => {
+            const subFields = this.fieldFilters[fieldName] as DateRangeFieldFilter;
+            if (!subFields) {
+                return {...acc};
+            }
+            // access sub field filters so those changes are tracked too
+            const subFieldFilters = Object.keys(subFields).reduce((accc, subFieldName) => {
+                return {
+                    ...accc,
+                    [`_$_${fieldName}-${subFieldName}`]: subFields[subFieldName]
+                };
+            }, {} as DateRangeFieldFilter);
+            return {...acc, ...subFieldFilters};
+        }, {});
+        return {filters: {...fieldFilters}, kinds: {...this.fieldKinds}};
     }
 
     /**
@@ -333,36 +439,56 @@ class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
             return request;
         }
         // tslint:disable-next-line
-        return objKeys(this.fieldConfigs).reduce((acc, rangeFieldName) => {
+        return objKeys(this.fieldConfigs).reduce((acc, fieldName) => {
             if (!this.fieldFilters) {
                 return acc;
             }
-            const config = this.fieldConfigs[rangeFieldName];
+            const config = this.fieldConfigs[fieldName];
             const name = config.field;
 
-            const filter = this.fieldFilters[rangeFieldName];
+            const filter = this.fieldFilters[fieldName];
             if (!filter) {
                 return acc;
             }
 
-            const kind = this.kindForField(rangeFieldName);
+            const kind = this.kindForField(fieldName);
             if (!kind) {
-                throw new Error(`kind is not set for range type ${rangeFieldName}`);
+                throw new Error(`kind is not set for date range filter type ${fieldName}`);
             }
-            const range = convertRanges(name, filter);
 
-            if (range) {
-                const existingFiltersForKind = acc.query.bool[kind as FilterKind] || [];
-                return {
-                    ...acc,
-                    query: {
-                        ...acc.query,
-                        bool: {
-                            ...acc.query.bool,
-                            [kind as FilterKind]: [...existingFiltersForKind, range]
+            if (filter) {
+                return objKeys(filter as DateRangeFieldFilter).reduce((newQuery, selectedValue) => {
+                    const selectedValueFilter = filter[selectedValue];
+                    const range = convertRanges(name, selectedValueFilter);
+
+                    const inclusion =
+                        selectedValueFilter.inclusion || config.defaultFilterInclusion;
+                    const newFilter =
+                        inclusion === 'include'
+                            ? range
+                            : {
+                                  bool: {
+                                      must_not: range
+                                  }
+                              };
+                    const kindForSelectedValue = selectedValueFilter.kind || kind;
+                    const existingFiltersForKind =
+                        newQuery.query.bool[kindForSelectedValue as FilterKind] || [];
+
+                    return {
+                        ...newQuery,
+                        query: {
+                            ...newQuery.query,
+                            bool: {
+                                ...newQuery.query.bool,
+                                [kindForSelectedValue as FilterKind]: [
+                                    ...existingFiltersForKind,
+                                    newFilter
+                                ]
+                            }
                         }
-                    }
-                };
+                    };
+                }, acc);
             } else {
                 return acc;
             }
@@ -388,12 +514,12 @@ class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
                     ...acc,
                     aggs: {
                         ...acc.aggs,
-                        [`${name}__min`]: {
+                        [`${name}__date_range_min`]: {
                             min: {
                                 field: name
                             }
                         },
-                        [`${name}__max`]: {
+                        [`${name}__date_range_max`]: {
                             max: {
                                 field: name
                             }
@@ -434,7 +560,7 @@ class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
                     ...acc,
                     aggs: {
                         ...acc.aggs,
-                        [`${name}__hist`]: {
+                        [`${name}__date_range_hist`]: {
                             date_histogram: {
                                 ...interval,
                                 field: name
@@ -462,8 +588,8 @@ class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
                 const name = config.field;
 
                 if (config.getRangeBounds && response.aggregations) {
-                    const minResult = response.aggregations[`${name}__min`];
-                    const maxResult = response.aggregations[`${name}__max`];
+                    const minResult = response.aggregations[`${name}__date_range_min`];
+                    const maxResult = response.aggregations[`${name}__date_range_max`];
                     if (
                         minResult &&
                         maxResult &&
@@ -508,7 +634,7 @@ class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
                     return acc;
                 }
             },
-            {...existingBounds} as RangeBoundResults<DateRangeFields>
+            {...existingBounds} as RangeBoundResults<Fields>
         );
 
         if (isUnfilteredQuery) {
@@ -540,7 +666,7 @@ class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
                 const name = config.field;
 
                 if (config.getDistribution && response.aggregations) {
-                    const histResult = response.aggregations[`${name}__hist`];
+                    const histResult = response.aggregations[`${name}__date_range_hist`];
                     if (histResult && isHistResult(histResult)) {
                         return {
                             ...acc,
@@ -553,7 +679,7 @@ class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
                     return acc;
                 }
             },
-            {...existingDistribution} as RangeDistributionResults<DateRangeFields>
+            {...existingDistribution} as RangeDistributionResults<Fields>
         );
 
         if (isUnfilteredQuery) {
@@ -568,13 +694,13 @@ class DateRangeFilterClass<DateRangeFields extends string> extends BaseFilter<
     };
 }
 
-decorate(DateRangeFilterClass, {
+decorate(DateRangeFilter, {
     filteredRangeBounds: observable,
     unfilteredRangeBounds: observable,
     filteredDistribution: observable,
     unfilteredDistribution: observable
 });
 
-utils.decorateFilter(DateRangeFilterClass);
+utils.decorateFilter(DateRangeFilter);
 
-export default DateRangeFilterClass;
+export default DateRangeFilter;
