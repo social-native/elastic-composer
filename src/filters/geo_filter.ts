@@ -87,7 +87,7 @@ const makeFilterForQuery = (filter: GeoSubFieldFilterValue, fieldName: string) =
 export const shouldUseField = (_fieldName: string, fieldType: ESMappingType) =>
     fieldType === 'geo_point';
 
-class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfig, GeoFieldFilter> {
+class GeoFilter<Fields extends string> extends BaseFilter<Fields, IConfig, GeoFieldFilter> {
     public filteredCount: CountResults<Fields>;
     public unfilteredCount: CountResults<Fields>;
 
@@ -97,7 +97,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfi
         options?: IBaseOptions
     ) {
         super(
-            'geoPointOr',
+            'geo',
             defaultConfig || (CONFIG_DEFAULT as Omit<Required<IConfig>, 'field'>),
             specificConfigs as IConfigs<Fields>
         );
@@ -533,11 +533,11 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<Fields, IConfi
     };
 }
 
-decorate(MultiSelectFilter, {
+decorate(GeoFilter, {
     filteredCount: observable,
     unfilteredCount: observable
 });
 
-utils.decorateFilter(MultiSelectFilter);
+utils.decorateFilter(GeoFilter);
 
-export default MultiSelectFilter;
+export default GeoFilter;

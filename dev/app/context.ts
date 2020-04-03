@@ -96,6 +96,15 @@ const creatorCRM = new Manager(client, {
     queryThrottleInMS: 350,
     // fieldWhiteList: ['user.age', 'user_profile.age'],
     fieldBlackList: ['youtube', 'twitter', 'snapchat'],
+    // fieldWhiteList: [
+    //     'instagram.last_crawled_at',
+    //     'instagram.last_imported_at',
+    //     'instagram.recent_media.created_time',
+    //     'processed_at',
+    //     'user.created_at',
+    //     'user_profile.birth_date.birth_date',
+    //     'user_profile.children.year_born'
+    // ],
     filters: {
         range: customRangeFilter
     },

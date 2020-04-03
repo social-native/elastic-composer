@@ -1,5 +1,12 @@
 'use strict';
-import {RangeFilter, BooleanFilter, ExistsFilter, MultiSelectFilter, GeoFilter} from './filters';
+import {
+    RangeFilter,
+    BooleanFilter,
+    ExistsFilter,
+    MultiSelectFilter,
+    GeoFilter,
+    DateRangeFilter
+} from './filters';
 import {
     ESRequest,
     ESResponse,
@@ -70,7 +77,8 @@ const DEFAULT_MANAGER_OPTIONS: Omit<
         exists: new ExistsFilter(),
         boolean: new BooleanFilter(),
         range: new RangeFilter(),
-        geoFilter: new GeoFilter()
+        dateRange: new DateRangeFilter(),
+        geo: new GeoFilter()
     },
     suggestions: {
         fuzzy: new FuzzySuggestion(),

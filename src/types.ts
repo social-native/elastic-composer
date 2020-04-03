@@ -5,7 +5,8 @@ import {
     BaseFilter,
     ExistsFilter,
     MultiSelectFilter,
-    GeoFilter
+    GeoFilter,
+    DateRangeFilter
 } from './filters';
 import {FuzzySuggestion, BaseSuggestion} from './suggestions';
 /**
@@ -91,6 +92,7 @@ export type ESMappingType =
     | 'text'
     | 'boolean'
     | 'float'
+    | 'date'
     | 'geo_point';
 
 /**
@@ -258,6 +260,7 @@ export type ManagerOptions = {
 
 export interface IFiltersOptions {
     multiselect?: MultiSelectFilter<any>;
+    dateRange?: DateRangeFilter<any>;
     range?: RangeFilter<any>;
     boolean?: BooleanFilter<any>;
     exists?: ExistsFilter<any>;
@@ -273,6 +276,7 @@ export interface ISuggestionsOptions {
 
 export interface IFilters {
     multiselect: MultiSelectFilter<any>;
+    dateRange: DateRangeFilter<any>;
     range: RangeFilter<any>;
     boolean: BooleanFilter<any>;
     exists: ExistsFilter<any>;
@@ -291,6 +295,11 @@ export interface ISuggestions {
  * Filter Specific
  * ***********************************
  */
+
+export type BaseSubFieldFilter = {
+    inclusion: 'include' | 'exclude';
+    kind?: 'should' | 'must';
+};
 
 /**
  * Multi Select Filter
@@ -351,28 +360,26 @@ export type GeoBoundingBoxFilterInput =
     | GeoBoundingBoxFilterInputBox;
 
 export const isGeoBoundingBoxFilterInputEdges = (
-    filter: (GeoBoundingBoxFilterInputEdges & BaseGeoSubFieldFilter) | GeoSubFieldFilterValue
-): filter is GeoBoundingBoxFilterInputEdges & BaseGeoSubFieldFilter => {
-    return (
-        (filter as GeoBoundingBoxFilterInputEdges & BaseGeoSubFieldFilter).top_left !== undefined
-    );
+    filter: (GeoBoundingBoxFilterInputEdges & BaseSubFieldFilter) | GeoSubFieldFilterValue
+): filter is GeoBoundingBoxFilterInputEdges & BaseSubFieldFilter => {
+    return (filter as GeoBoundingBoxFilterInputEdges & BaseSubFieldFilter).top_left !== undefined;
 };
 
 export const isGeoBoundingBoxFilterInputWKT = (
-    filter: (GeoBoundingBoxFilterInputWKT & BaseGeoSubFieldFilter) | GeoSubFieldFilterValue
-): filter is GeoBoundingBoxFilterInputWKT & BaseGeoSubFieldFilter => {
-    return (filter as GeoBoundingBoxFilterInputWKT & BaseGeoSubFieldFilter).wkt !== undefined;
+    filter: (GeoBoundingBoxFilterInputWKT & BaseSubFieldFilter) | GeoSubFieldFilterValue
+): filter is GeoBoundingBoxFilterInputWKT & BaseSubFieldFilter => {
+    return (filter as GeoBoundingBoxFilterInputWKT & BaseSubFieldFilter).wkt !== undefined;
 };
 
 export const isGeoBoundingBoxFilterInputBox = (
-    filter: (GeoBoundingBoxFilterInputBox & BaseGeoSubFieldFilter) | GeoSubFieldFilterValue
-): filter is GeoBoundingBoxFilterInputBox & BaseGeoSubFieldFilter => {
-    return (filter as GeoBoundingBoxFilterInputBox & BaseGeoSubFieldFilter).top !== undefined;
+    filter: (GeoBoundingBoxFilterInputBox & BaseSubFieldFilter) | GeoSubFieldFilterValue
+): filter is GeoBoundingBoxFilterInputBox & BaseSubFieldFilter => {
+    return (filter as GeoBoundingBoxFilterInputBox & BaseSubFieldFilter).top !== undefined;
 };
 
 export const isGeoBoundingBoxFilterInput = (
-    filter: (GeoBoundingBoxFilterInput & BaseGeoSubFieldFilter) | GeoSubFieldFilterValue
-): filter is GeoBoundingBoxFilterInput & BaseGeoSubFieldFilter => {
+    filter: (GeoBoundingBoxFilterInput & BaseSubFieldFilter) | GeoSubFieldFilterValue
+): filter is GeoBoundingBoxFilterInput & BaseSubFieldFilter => {
     return (
         isGeoBoundingBoxFilterInputEdges(filter) ||
         isGeoBoundingBoxFilterInputWKT(filter) ||
@@ -392,9 +399,9 @@ export type GeoDistanceFilterInput =
       };
 
 export const isGeoDistanceFilterInput = (
-    filter: (GeoDistanceFilterInput & BaseGeoSubFieldFilter) | GeoSubFieldFilterValue
-): filter is GeoDistanceFilterInput & BaseGeoSubFieldFilter => {
-    return (filter as GeoDistanceFilterInput & BaseGeoSubFieldFilter).distance !== undefined;
+    filter: (GeoDistanceFilterInput & BaseSubFieldFilter) | GeoSubFieldFilterValue
+): filter is GeoDistanceFilterInput & BaseSubFieldFilter => {
+    return (filter as GeoDistanceFilterInput & BaseSubFieldFilter).distance !== undefined;
 };
 
 export type GeoPolygonFilterInput = {
@@ -402,16 +409,12 @@ export type GeoPolygonFilterInput = {
 };
 
 export const isGeoPolygonFilterInput = (
-    filter: (GeoPolygonFilterInput & BaseGeoSubFieldFilter) | GeoSubFieldFilterValue
-): filter is GeoPolygonFilterInput & BaseGeoSubFieldFilter => {
-    return (filter as GeoPolygonFilterInput & BaseGeoSubFieldFilter).points !== undefined;
+    filter: (GeoPolygonFilterInput & BaseSubFieldFilter) | GeoSubFieldFilterValue
+): filter is GeoPolygonFilterInput & BaseSubFieldFilter => {
+    return (filter as GeoPolygonFilterInput & BaseSubFieldFilter).points !== undefined;
 };
 
-export type BaseGeoSubFieldFilter = {
-    inclusion: 'include' | 'exclude';
-    kind?: 'should' | 'must';
-};
-export type GeoSubFieldFilterValue = BaseGeoSubFieldFilter &
+export type GeoSubFieldFilterValue = BaseSubFieldFilter &
     (GeoBoundingBoxFilterInput | GeoDistanceFilterInput | GeoPolygonFilterInput);
 
 export type GeoFieldFilter = {
@@ -422,6 +425,16 @@ export type RawGeoAggs = {
     buckets: Array<{
         doc_count: number;
     }>;
+};
+
+/**
+ * Date Range Filter
+ */
+
+export type DateRangeSubFieldFilter = RangeFieldFilter & BaseSubFieldFilter;
+
+export type DateRangeFieldFilter = {
+    [subFilterName: string]: DateRangeSubFieldFilter;
 };
 
 /**
