@@ -7,9 +7,9 @@ import {
     BaseFilterConfig,
     IBaseOptions,
     ESMappingType,
-    MultiSelectSubFieldFilterValue,
-    MultiSelectFieldFilter,
-    RawMultiSelectAggs,
+    TermsSubFieldFilterValue,
+    TermsFieldFilter,
+    RawTermsAggs,
     FieldFilters,
     FieldNameModifier,
     FieldKinds
@@ -47,23 +47,19 @@ export type IConfigs<Fields extends string> = {
  *  Results
  */
 
-export type MultiSelectCountResult = {
+export type TermsCountResult = {
     [selectedValue: string]: number;
 };
 
 export type CountResults<Fields extends string> = {
-    [esFieldName in Fields]: MultiSelectCountResult;
+    [esFieldName in Fields]: TermsCountResult;
 };
 
 // use with all fields b/c exists can check any field data value for existence
 export const shouldUseField = (_fieldName: string, fieldType: ESMappingType) =>
     fieldType === 'keyword' || fieldType === 'text';
 
-class MultiSelectFilter<Fields extends string> extends BaseFilter<
-    Fields,
-    IConfig,
-    MultiSelectFieldFilter
-> {
+class TermsFilter<Fields extends string> extends BaseFilter<Fields, IConfig, TermsFieldFilter> {
     public filteredCount: CountResults<Fields>;
     public unfilteredCount: CountResults<Fields>;
 
@@ -73,7 +69,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
         options?: IBaseOptions
     ) {
         super(
-            'multiselect',
+            'terms',
             defaultConfig || (CONFIG_DEFAULT as Omit<Required<IConfig>, 'field'>),
             specificConfigs as IConfigs<Fields>
         );
@@ -130,7 +126,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
 
     public userState(): {
         fieldKinds?: FieldKinds<Fields>;
-        fieldFilters?: FieldFilters<Fields, MultiSelectFieldFilter>;
+        fieldFilters?: FieldFilters<Fields, TermsFieldFilter>;
     } | void {
         const kinds = Object.keys(this.fieldFilters).reduce((fieldKinds, fieldName) => {
             return {
@@ -140,7 +136,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
         }, {} as FieldKinds<Fields>);
 
         const fieldFilters = Object.keys(this.fieldFilters).reduce((fieldFilterAcc, fieldName) => {
-            const filter = this.fieldFilters[fieldName as Fields] as MultiSelectFieldFilter;
+            const filter = this.fieldFilters[fieldName as Fields] as TermsFieldFilter;
             if (filter && Object.keys(filter).length > 0) {
                 return {
                     ...fieldFilterAcc,
@@ -149,7 +145,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
             } else {
                 return fieldFilterAcc;
             }
-        }, {} as FieldFilters<Fields, MultiSelectFieldFilter>);
+        }, {} as FieldFilters<Fields, TermsFieldFilter>);
 
         if (Object.keys(kinds).length > 0 && Object.keys(fieldFilters).length > 0) {
             return {
@@ -189,7 +185,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
      */
     public clearAllFieldFilters = () => {
         runInAction(() => {
-            this.fieldFilters = {} as FieldFilters<Fields, MultiSelectFieldFilter>;
+            this.fieldFilters = {} as FieldFilters<Fields, TermsFieldFilter>;
             this.filteredCount = {} as CountResults<Fields>;
             this.unfilteredCount = {} as CountResults<Fields>;
         });
@@ -201,7 +197,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
     public addToFilter(
         field: Fields,
         subFilterName: string,
-        subFilterValue: MultiSelectSubFieldFilterValue
+        subFilterValue: TermsSubFieldFilterValue
     ): void {
         runInAction(() => {
             const subFilters = this.fieldFilters[field];
@@ -240,7 +236,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
      */
     public get _shouldRunFilteredQueryAndAggs(): object {
         const fieldFilters = objKeys(this.fieldFilters).reduce((acc, fieldName) => {
-            const subFields = this.fieldFilters[fieldName] as MultiSelectFieldFilter;
+            const subFields = this.fieldFilters[fieldName] as TermsFieldFilter;
             if (!subFields) {
                 return {...acc};
             }
@@ -250,7 +246,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                     ...accc,
                     [`_$_${fieldName}-${subFieldName}`]: subFields[subFieldName]
                 };
-            }, {} as MultiSelectFieldFilter);
+            }, {} as TermsFieldFilter);
             return {...acc, ...subFieldFilters};
         }, {});
         return {filters: {...fieldFilters}, kinds: {...this.fieldKinds}};
@@ -364,49 +360,47 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
 
             const kind = this.kindForField(fieldName);
             if (!kind) {
-                throw new Error(`kind is not set for multi-select filter type ${fieldName}`);
+                throw new Error(`kind is not set for terms filter type ${fieldName}`);
             }
 
             const fieldNameModifier = config.fieldNameModifierQuery;
 
             if (filter) {
-                return objKeys(filter as MultiSelectFieldFilter).reduce(
-                    (newQuery, selectedValue) => {
-                        const selectedValueFilter = filter[selectedValue];
+                return objKeys(filter as TermsFieldFilter).reduce((newQuery, selectedValue) => {
+                    const selectedValueFilter = filter[selectedValue];
+                    const terms = selectedValueFilter.terms;
 
-                        const inclusion =
-                            selectedValueFilter.inclusion || config.defaultFilterInclusion;
+                    const inclusion =
+                        selectedValueFilter.inclusion || config.defaultFilterInclusion;
 
-                        const newFilter =
-                            inclusion === 'include'
-                                ? {match: {[fieldNameModifier(name)]: selectedValue}}
-                                : {
-                                      bool: {
-                                          must_not: {
-                                              match: {[fieldNameModifier(name)]: selectedValue}
-                                          }
+                    const newFilter =
+                        inclusion === 'include'
+                            ? {terms: {[fieldNameModifier(name)]: terms}}
+                            : {
+                                  bool: {
+                                      must_not: {
+                                          terms: {[fieldNameModifier(name)]: terms}
                                       }
-                                  };
-                        const kindForSelectedValue = selectedValueFilter.kind || kind;
-                        const existingFiltersForKind =
-                            newQuery.query.bool[kindForSelectedValue as FilterKind] || [];
+                                  }
+                              };
+                    const kindForSelectedValue = selectedValueFilter.kind || kind;
+                    const existingFiltersForKind =
+                        newQuery.query.bool[kindForSelectedValue as FilterKind] || [];
 
-                        return {
-                            ...newQuery,
-                            query: {
-                                ...newQuery.query,
-                                bool: {
-                                    ...newQuery.query.bool,
-                                    [kindForSelectedValue as FilterKind]: [
-                                        ...existingFiltersForKind,
-                                        newFilter
-                                    ]
-                                }
+                    return {
+                        ...newQuery,
+                        query: {
+                            ...newQuery.query,
+                            bool: {
+                                ...newQuery.query.bool,
+                                [kindForSelectedValue as FilterKind]: [
+                                    ...existingFiltersForKind,
+                                    newFilter
+                                ]
                             }
-                        };
-                    },
-                    acc
-                );
+                        }
+                    };
+                }, acc);
             } else {
                 return acc;
             }
@@ -432,7 +426,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
             if (!filter) {
                 return acc;
             }
-            const valuesToFilterOn = objKeys(filter as MultiSelectFieldFilter);
+            const valuesToFilterOn = objKeys(filter as TermsFieldFilter);
 
             const aggsToAdd = valuesToFilterOn.reduce((aggFilters, value) => {
                 return {
@@ -450,7 +444,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                     ...acc,
                     aggs: {
                         ...acc.aggs,
-                        [`${name}__multiselect_count`]: {
+                        [`${name}__terms_count`]: {
                             filters: {
                                 filters: aggsToAdd
                             }
@@ -470,13 +464,11 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
         const existingCount = isUnfilteredQuery ? this.unfilteredCount : this.filteredCount;
         const count = objKeys(this.fieldConfigs).reduce(
             // tslint:disable-next-line
-            (acc, multiselectFieldName) => {
-                const config = this.fieldConfigs[multiselectFieldName];
+            (acc, termsFieldName) => {
+                const config = this.fieldConfigs[termsFieldName];
                 const name = config.field;
                 if (config.getCount && response.aggregations) {
-                    const allCounts = response.aggregations[
-                        `${name}__multiselect_count`
-                    ] as RawMultiSelectAggs;
+                    const allCounts = response.aggregations[`${name}__terms_count`] as RawTermsAggs;
                     if (allCounts && allCounts.buckets) {
                         const countedSelections = Object.keys(allCounts.buckets);
                         const countsForSelections = countedSelections.reduce(
@@ -491,7 +483,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
 
                         return {
                             ...acc,
-                            [multiselectFieldName]: countsForSelections
+                            [termsFieldName]: countsForSelections
                         };
                     } else {
                         return acc;
@@ -514,11 +506,11 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
     };
 }
 
-decorate(MultiSelectFilter, {
+decorate(TermsFilter, {
     filteredCount: observable,
     unfilteredCount: observable
 });
 
-utils.decorateFilter(MultiSelectFilter);
+utils.decorateFilter(TermsFilter);
 
-export default MultiSelectFilter;
+export default TermsFilter;
