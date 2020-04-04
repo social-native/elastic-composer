@@ -1,5 +1,5 @@
 {
-    "name": "@social-native/snpkg-client-elasticsearch",
+    "name": "elastic-composer",
     "version": "4.2.0",
     "description": "",
     "main": "dist/index.cjs.js",
@@ -25,20 +25,19 @@
         "type-check": "tsc --noEmit",
         "dep-check": "snpkg-dependency-check",
         "package-version-validation": "snpkg-package-version-validation package-version-validation",
-        "tag-version-validation": "snpkg-package-version-validation tag-version-validation",
-        "postinstall": "snpkg-generate-config-ci snpkg"
+        "tag-version-validation": "snpkg-package-version-validation tag-version-validation"
     },
+    "author": "Ethan Hathaway <erhathaway@gmail.com>",
+    "license": "Apache-2.0",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/social-native/snpkg-client-elasticsearch.git"
+        "url": "git+https://github.com/social-native/elastic-composer.git"
     },
-    "license": "ISC",
     "bugs": {
-        "url": "https://github.com/social-native/snpkg-client-elasticsearch/issues"
+        "url": "https://github.com/social-native/elastic-composer/issues"
     },
-    "homepage": "https://github.com/social-native/snpkg-client-elasticsearch#readme",
+    "homepage": "https://github.com/social-native/elastic-composer#readme",
     "dependencies": {
-        "@social-native/snpkg-generate-config-ci": "^0.2.0",
         "await-timeout": "^1.1.1",
         "axios": "^0.19.1",
         "lodash.chunk": "^4.2.0",

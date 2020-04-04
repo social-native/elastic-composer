@@ -1,4 +1,4 @@
-# snpkg-client-elasticsearch
+# elastic-composer
 
 A high-level Elasticsearch query manager and executor. Filter fields, find search suggestions, and paginate query results for your indicies. Comes with addons for persisting and rehydrationg filter state from localStorage and the URL. Batteries included for optionally initializing via index introspection. Fully configurable. Very delightful. Try a slice 🍰!
 
@@ -47,7 +47,7 @@ export default observer(() => {
 })
 ```
 
-- [snpkg-client-elasticsearch](#snpkg-client-elasticsearch)
+- [elastic-composer](#elastic-composer)
   - [Install](#install)
   - [Peer dependencies](#peer-dependencies)
   - [About](#about)
@@ -146,7 +146,7 @@ export default observer(() => {
 ## Install
 
 ```
-npm install --save @social-native/snpkg-client-elasticsearch
+npm install --save elastic-composer
 ```
 
 ## Peer dependencies
@@ -234,7 +234,7 @@ Various use cases are described below. Be sure to check out the API for the full
 ### Instantiate a manager
 
 ```typescript
-import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
+import {AxiosESClient, Manager} from 'elastic-composer';
 
 // instantiate an elasticsearch axios client made for this lib
 const client = new AxiosESClient('my_url/my_index');
@@ -250,7 +250,7 @@ const manager = new Manager(client, {
 ### Instantiate a manager with specific config options for a range filter
 
 ```typescript
-import {AxiosESClient, Manager, RangeFilter} from '@social-native/snpkg-client-elasticsearch';
+import {AxiosESClient, Manager, RangeFilter} from 'elastic-composer';
 
 // set the default config all filters will have if not explicitly set
 // by default we don't want aggs enabled unless we know the filter is being shown in the UI. So,
@@ -295,7 +295,7 @@ The `fieldNameModifier` can be used to modify what the field name sent to Elasti
 The modifier is a function with the signature `(fieldName: string) => string`
 
 ```typescript
-import {AxiosESClient, Manager, MultiSelectFilter} from '@social-native/snpkg-client-elasticsearch';
+import {AxiosESClient, Manager, MultiSelectFilter} from 'elastic-composer';
 
 // set the default config all filters will have if not explicitly set
 // by default we don't want aggs enabled unless we know the filter is being shown in the UI. So,
@@ -328,7 +328,7 @@ const manager = new Manager(client, options);
 
 ```typescript
 import MyCustomFilter from 'my_custom_filter';
-import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
+import {AxiosESClient, Manager} from 'elastic-composer';
 
 const client = new AxiosESClient('my_url/my_index');
 const newCustomFilter = new MyCustomFilter();
@@ -345,7 +345,7 @@ const manager = new Manager(client, {
 
 ```typescript
 import MyCustomSuggestion from 'my_custom_suggestion';
-import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
+import {AxiosESClient, Manager} from 'elastic-composer';
 
 const client = new AxiosESClient('my_url/my_index');
 const newCustomSuggestion = new MyCustomSuggestion();
@@ -365,7 +365,7 @@ If you don't have permissions set up on your Elasticsearch cluster, you will mos
 An example could look like this: 
 
 ```typescript
-import {Manager, IClient, ESRequest, ESResponse, ESMappingType} from '@social-native/snpkg-client-elasticsearch';
+import {Manager, IClient, ESRequest, ESResponse, ESMappingType} from 'elastic-composer';
 
 /**
  * Create a custom client that works on a specific through backend graphql nodes
@@ -416,7 +416,7 @@ const creatorCRM = new Manager(customClient);
 ### Set middleware
 
 ```typescript
-import {Middleware} from '@social-native/snpkg-client-elasticsearch';
+import {Middleware} from 'elastic-composer';
 
 const logRequestObj: Middleware = (
     _effectRequest: EffectRequest<EffectKinds>,
@@ -733,7 +733,7 @@ interface IClient<Source extends object = object> {
 At the moment there only exists an `AxiosESClient` client. This can be imported via a named import:
 
 ```ts
-import {AxiosESClient} from '@social-native/snpkg-client-elasticsearch';
+import {AxiosESClient} from 'elastic-composer';
 
 const axiosESClient = new AxiosESClient(endpoint);
 
@@ -807,7 +807,7 @@ const options = {suggestions: {fuzzy: fuzzyFilterInstance}};
 | queryThrottleInMS       | the throttle time for queries                                                                                                                 | The default is 1000 ms. This can be changed by setting manager options during init. |
 | filters                 | the filter instances that the manager controls                                                                                                |
 | indexFieldNamesAndTypes | A list of fields that can be filtered over and the filter name that this field uses. This is populated by the method `getFieldNamesAndTypes`. |
-| results | the results of the most recent query | The `results` type is Array<ESHit>. See [the `results` quick example doc for the type](https://github.com/social-native/snpkg-client-elasticsearch#access-the-results-of-a-query) |
+| results | the results of the most recent query | The `results` type is Array<ESHit>. See [the `results` quick example doc for the type](https://github.com/social-native/elastic-composer#access-the-results-of-a-query) |
 | rawESResponse | The response object from the client from the query | `ESResponse` |
 | activeSuggestions | the object of fields with active suggestions | `{ fieldName: SuggestionInstance[] }`  |
 | activeFilters | the object of fields with active filters | `{ fieldName: FilterInstance[] }`  |
@@ -1200,7 +1200,7 @@ See [./dev/app/](./dev/app/) for examples used in the development environment.
 ### Usage with React
 
 ```typescript
-import {AxiosESClient, Manager} from '@social-native/snpkg-client-elasticsearch';
+import {AxiosESClient, Manager} from 'elastic-composer';
 
 const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
 const creatorCRM = new Manager(client);
