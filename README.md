@@ -8,12 +8,12 @@ Example:
 const client = new AxiosESClient('my_url/my_index');
 const crm = new Manager(client);
 
-// set filters on the elasticsearch index fields 'age', 'isMarried', 'id', and 'tags'
+// set filters on the elasticsearch index fields 'age', 'isMarried', 'id', 'tags', and 'user_profile.location'
 crm.filter.range.setFilter('age', {greaterThan: 20, lessThanEqual: 60})
 crm.filter.boolean.setFilter('isMarried', {state: true})
 crm.filter.exists.setFilter('id')
-crm.filter.multiSelect.setFilter('tags', { isHuman: { inclusion: 'include' }, hasBlueHair: { inclusion: 'exclude' }})
-crm.filters.geo.addToFilter('user_profile.location', 'my_third_loc', {
+crm.filter.multiselect.setFilter('tags', { isHuman: { inclusion: 'include' }, hasBlueHair: { inclusion: 'exclude' }})
+crm.filters.geo.addToFilter('user_profile.location', 'my_location_search', {
     inclusion: 'include',
     kind: 'should',
     points : [
