@@ -6,10 +6,11 @@ import {
     ExistsFilter,
     MultiSelectFilter,
     GeoFilter,
-    DateRangeFilter
+    DateRangeFilter,
+    TermsFilter
 } from './filters';
 import {FuzzySuggestion, BaseSuggestion} from './suggestions';
-import TermsFilter from 'filters/terms_filter';
+
 /**
  * ***********************************
  * ES Request
