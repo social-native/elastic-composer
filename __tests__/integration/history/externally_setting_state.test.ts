@@ -1,4 +1,4 @@
-import {HistoryLocation} from 'index';
+import {HistoryLocation} from '../../../src/index';
 import {setUp} from '../utils';
 
 describe('Integration', () => {
