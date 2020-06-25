@@ -58,7 +58,7 @@
     },
     "devDependencies": {
         "@rollup/plugin-json": "^4.0.2",
-        "@social-native/snpkg-client-graphql-client": "^0.2.1",
+        "@social-native/snpkg-client-graphql-client": "^0.3.0",
         "@social-native/snpkg-dependency-check": "^0.1.0",
         "@social-native/snpkg-package-version-validation": "^3.1.0",
         "@types/await-timeout": "^0.3.1",
