@@ -10,6 +10,7 @@ import {
     TermsFilter
 } from './filters';
 import {FuzzySuggestion, BaseSuggestion} from './suggestions';
+import QueryStringFilter from './filters/query_string_filter';
 
 /**
  * ***********************************
@@ -269,6 +270,7 @@ export interface IFiltersOptions {
     exists?: ExistsFilter<any>;
     geo?: GeoFilter<any>;
     terms?: TermsFilter<any>;
+    queryString: QueryStringFilter<any>
     [customFilter: string]: BaseFilter<any, any, any> | undefined;
 }
 
@@ -286,6 +288,7 @@ export interface IFilters {
     exists: ExistsFilter<any>;
     geo: GeoFilter<any>;
     terms: TermsFilter<any>;
+    queryString: QueryStringFilter<any>
     [customFilter: string]: BaseFilter<any, any, any>;
 }
 
@@ -323,6 +326,20 @@ export type RawMultiSelectAggs = {
     buckets: Array<{
         doc_count: number;
     }>;
+};
+
+/**
+ * Query String Filter
+ */
+
+export type QueryStringSubFieldFilterValue = {
+    inclusion: 'include' | 'exclude';
+    kind?: 'should' | 'must';
+    query_string: string;
+};
+
+export type QueryStringFieldFilter = {
+    [selectedValue: string]: QueryStringSubFieldFilterValue;
 };
 
 /**
