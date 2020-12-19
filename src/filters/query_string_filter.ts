@@ -11,7 +11,7 @@ import {
     QueryStringFieldFilter,
     FieldFilters,
     FieldNameModifier,
-    FieldKinds, RawMultiSelectAggs
+    FieldKinds
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -412,7 +412,9 @@ class QueryStringFilter<Fields extends string> extends BaseFilter<Fields, IConfi
         return request;
     };
 
-    public _parseCountFromResponse = (_isUnfilteredQuery: boolean, _response: ESResponse): void => {};
+    public _parseCountFromResponse = (_isUnfilteredQuery: boolean, _response: ESResponse): void => {
+        return;
+    };
 
 
 }
