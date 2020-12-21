@@ -6,7 +6,7 @@ export {default as MultiSelectFilter} from './multi_select_filter';
 export {default as DateRangeFilter} from './date_range_filter';
 export {default as GeoFilter} from './geo_filter';
 export {default as TermsFilter} from './terms_filter';
-
+export {default as QueryStringFilter} from './query_string_filter';
 export {default as filterUtils} from './utils';
 
 import {
