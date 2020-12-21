@@ -1,4 +1,4 @@
-import {runInAction, decorate, observable, set, reaction} from 'mobx';
+import {runInAction, decorate, observable, reaction} from 'mobx';
 import {objKeys} from '../utils';
 import {
     ESRequest,
@@ -7,7 +7,6 @@ import {
     BaseFilterConfig,
     IBaseOptions,
     ESMappingType,
-    QueryStringSubFieldFilterValue,
     QueryStringFieldFilter,
     FieldFilters,
     FieldNameModifier,
@@ -57,7 +56,11 @@ export type CountResults<Fields extends string> = {
 export const shouldUseField = (_fieldName: string, fieldType: ESMappingType) =>
     fieldType === 'keyword' || fieldType === 'text';
 
-class QueryStringFilter<Fields extends string> extends BaseFilter<Fields, IConfig, QueryStringFieldFilter> {
+class QueryStringFilter<Fields extends string> extends BaseFilter<
+    Fields,
+    IConfig,
+    QueryStringFieldFilter
+> {
     public filteredCount: CountResults<Fields>;
     public unfilteredCount: CountResults<Fields>;
 
@@ -190,66 +193,12 @@ class QueryStringFilter<Fields extends string> extends BaseFilter<Fields, IConfi
     };
 
     /**
-     * Sets a sub filter for a field.
-     */
-    public addToFilter(
-        field: Fields,
-        subFilterName: string,
-        subFilterValue: QueryStringSubFieldFilterValue
-    ): void {
-        runInAction(() => {
-            const subFilters = this.fieldFilters[field];
-            const newSubFilters = {
-                ...subFilters,
-                [subFilterName]: subFilterValue
-            };
-            set(this.fieldFilters, {
-                [field]: newSubFilters
-            });
-        });
-    }
-
-    /**
-     * Deletes a sub filter for a field.
-     */
-    public removeFromFilter(field: Fields, subFilterName: string): void {
-        runInAction(() => {
-            const subFilters = this.fieldFilters[field];
-            if (!subFilters) {
-                return;
-            }
-
-            delete subFilters[subFilterName];
-
-            set(this.fieldFilters, {
-                [field]: subFilters
-            });
-        });
-    }
-
-    /**
      * State that should cause a global ES query request using all filters
      *
      * Changes to this state is tracked by the manager so that it knows when to run a new filter query
      */
     public get _shouldRunFilteredQueryAndAggs(): object {
-        // tslint:disable-next-line:no-shadowed-variable
-        const fieldFilters = objKeys(this.fieldFilters).reduce((fieldFilters, fieldName) => {
-            const subFields = this.fieldFilters[fieldName] as QueryStringFieldFilter;
-            if (!subFields) {
-                return {...fieldFilters};
-            }
-            // access sub field filters so those changes are tracked too
-            // tslint:disable-next-line:no-shadowed-variable
-            const subFieldFilters = Object.keys(subFields).reduce((subFieldFilters, subFieldName) => {
-                return {
-                    ...subFieldFilters,
-                    [`_$_${fieldName}-${subFieldName}`]: subFields[subFieldName]
-                };
-            }, {} as QueryStringFieldFilter);
-            return {...fieldFilters, ...subFieldFilters};
-        }, {});
-        return {filters: {...fieldFilters}, kinds: {...this.fieldKinds}};
+        return {filters: {...this.fieldFilters}, kinds: {...this.fieldKinds}};
     }
 
     /**
@@ -346,16 +295,16 @@ class QueryStringFilter<Fields extends string> extends BaseFilter<Fields, IConfi
             return request;
         }
         // tslint:disable-next-line
-        return objKeys(this.fieldConfigs).reduce((acc, fieldName) => {
+        return objKeys(this.fieldConfigs).reduce((esRequest, fieldName) => {
             if (!this.fieldFilters) {
-                return acc;
+                return esRequest;
             }
             const config = this.fieldConfigs[fieldName];
             const name = config.field;
 
-            const filter = this.fieldFilters[fieldName];
+            const filter = this.fieldFilters[fieldName] as QueryStringFieldFilter;
             if (!filter) {
-                return acc;
+                return esRequest;
             }
 
             const kind = this.kindForField(fieldName);
@@ -363,60 +312,54 @@ class QueryStringFilter<Fields extends string> extends BaseFilter<Fields, IConfi
                 throw new Error(`kind is not set for query_string filter type ${fieldName}`);
             }
 
-            const fieldNameModifier = config.fieldNameModifierQuery;
-
             if (filter) {
-                return objKeys(filter as QueryStringFieldFilter).reduce((newQuery, selectedValue) => {
-                    const selectedValueFilter = filter[selectedValue];
-                    const queryString = selectedValueFilter.query_string;
+                const query = filter.query;
+                const inclusion = filter.inclusion ?? config.defaultFilterInclusion;
 
-                    const inclusion =
-                        selectedValueFilter.inclusion || config.defaultFilterInclusion;
+                // See https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
+                const newFilter =
+                    inclusion === 'include'
+                        ? {query_string: {query, default_field: name}}
+                        : {
+                              bool: {
+                                  must_not: {
+                                      query_string: {query, default_field: name}
+                                  }
+                              }
+                          };
+                const kindForSelectedValue = filter.kind ?? kind;
+                const existingFiltersForKind =
+                    esRequest.query.bool[kindForSelectedValue as FilterKind] ?? [];
 
-                    const newFilter =
-                        inclusion === 'include'
-                            ? {query_string: {[fieldNameModifier(name)]: queryString}}
-                            : {
-                                bool: {
-                                    must_not: {
-                                        query_string: {[fieldNameModifier(name)]: queryString}
-                                    }
-                                }
-                            };
-                    const kindForSelectedValue = selectedValueFilter.kind || kind;
-                    const existingFiltersForKind =
-                        newQuery.query.bool[kindForSelectedValue as FilterKind] || [];
-
-                    return {
-                        ...newQuery,
-                        query: {
-                            ...newQuery.query,
-                            bool: {
-                                ...newQuery.query.bool,
-                                [kindForSelectedValue as FilterKind]: [
-                                    ...existingFiltersForKind,
-                                    newFilter
-                                ]
-                            }
+                return {
+                    ...esRequest,
+                    query: {
+                        ...esRequest.query,
+                        bool: {
+                            ...esRequest.query.bool,
+                            [kindForSelectedValue as FilterKind]: [
+                                ...existingFiltersForKind,
+                                newFilter
+                            ]
                         }
-                    };
-                }, acc);
+                    }
+                };
             } else {
-                return acc;
+                return esRequest;
             }
         }, request);
     };
 
-
-    public _addCountAggsToEsRequest = (request: ESRequest, _fieldToFilterOn?: string): ESRequest => {
+    public _addCountAggsToEsRequest = (
+        request: ESRequest,
+        _fieldToFilterOn?: string
+    ): ESRequest => {
         return request;
     };
 
     public _parseCountFromResponse = (_isUnfilteredQuery: boolean, _response: ESResponse): void => {
         return;
     };
-
-
 }
 
 decorate(QueryStringFilter, {

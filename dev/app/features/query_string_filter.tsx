@@ -1,28 +1,37 @@
-import React, {useContext} from 'react';
+import React, {useContext, useState} from 'react';
 import Context from '../context';
 
 export type QueryStringFilterProps = {
-    filterName: string
+    field: string
 }
+
+// tslint:disable-next-line:variable-name
 const QueryStringFilter: React.FC<QueryStringFilterProps> = (props) => {
-    const { filterName } = props;
+    const { field } = props;
     const creatorCRM = useContext(Context.creatorCRM);
-    if (!filterName) {
-        return null;
-    }
+    const [queryStringInput, setQueryStringInput] = useState<string>('');
+
     const {
         filters: {queryString: queryStringFilter}
     } = creatorCRM;
 
     return (
-        <>
-            <div>Query String Filter</div>
+        <div style={{display: 'flex', flexDirection: 'column'}}>
+            <div>Query String Filter for {field}</div>
+            <br/>
             <label htmlFor={'queryString'}>
                 Query String
                 <br/>
-                <input name={'queryString'} id={'queryString'} />
+                <input
+                    name={'queryString'}
+                    id={'queryString'}
+                    value={queryStringInput}
+                    onChange={({ target: { value } }) => setQueryStringInput(value)}
+                />
             </label>
-        </>
+            <br/>
+            <button onClick={() => queryStringFilter.setFilter(field, { query: queryStringInput, inclusion: 'must' })}>Apply</button>
+        </div>
     );
 };
 export default QueryStringFilter

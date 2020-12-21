@@ -332,14 +332,10 @@ export type RawMultiSelectAggs = {
  * Query String Filter
  */
 
-export type QueryStringSubFieldFilterValue = {
+export type QueryStringFieldFilter = {
     inclusion: 'include' | 'exclude';
     kind?: 'should' | 'must';
-    query_string: string;
-};
-
-export type QueryStringFieldFilter = {
-    [selectedValue: string]: QueryStringSubFieldFilterValue;
+    query: string;
 };
 
 /**

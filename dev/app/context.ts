@@ -19,6 +19,7 @@ import {
 } from '../../src';
 import {IRangeConfig} from '../../src/filters/range_filter';
 import {reaction} from 'mobx';
+import QueryStringFilter from '../../src/filters/query_string_filter';
 // import {toJS} from 'mobx';
 
 const exampleFormInstance = new ExampleForm();
@@ -77,6 +78,22 @@ const customTermsFilter = new TermsFilter({
     fieldNameModifierAggs: (fieldName: string) => `${fieldName}.keyword`
 });
 
+const customQueryStringFilter = new QueryStringFilter({
+    defaultFilterInclusion: 'include',
+    defaultFilterKind: 'must',
+    getCount: false,
+    aggsEnabled: false,
+    fieldNameModifierQuery: (fieldName: string) => fieldName,
+    fieldNameModifierAggs: (fieldName: string) => fieldName
+}, {
+    'user.age': {
+        field: 'user.age',
+    },
+    'user_profile.age': {
+        field: 'user_profile.age',
+    }
+})
+
 const defaultRangeFilterConfig: IRangeConfig = {
     field: '',
     aggsEnabled: false,
@@ -98,7 +115,6 @@ const customRangeFilterConfig = {
 };
 
 const customRangeFilter = new RangeFilter(defaultRangeFilterConfig as any, customRangeFilterConfig);
-
 const client = new AxiosESClient(process.env.ELASTIC_SEARCH_ENDPOINT);
 // const client = new CreatorIndexGQLClient(gqlClient);
 const creatorCRM = new Manager(client, {
@@ -117,7 +133,8 @@ const creatorCRM = new Manager(client, {
     // ],
     filters: {
         range: customRangeFilter,
-        terms: customTermsFilter
+        terms: customTermsFilter,
+        queryString: customQueryStringFilter
     },
     suggestions: {
         prefix: customPrefixSuggestion

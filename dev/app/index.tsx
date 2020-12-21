@@ -13,7 +13,7 @@ import {
     Suggestion,
     ExistsFilter,
     MultiSelectFilter,
-    HistoryNav
+    HistoryNav, QueryStringFilter
 } from './features';
 
 const Main = styled.div`
@@ -63,6 +63,7 @@ export default () => (
             {/* <FilterSelector filterType={'boolean'} defaultFilterName={'instagram.is_business'}>
                 {filterName => <BooleanFilter filterName={filterName}/>}
             </FilterSelector> */}
+            <QueryStringFilter field={'user_profile.age'} />
         </HorizontalLayout>
         <ResultsTable />
     </Main>
