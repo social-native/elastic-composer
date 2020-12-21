@@ -270,7 +270,7 @@ export interface IFiltersOptions {
     exists?: ExistsFilter<any>;
     geo?: GeoFilter<any>;
     terms?: TermsFilter<any>;
-    queryString: QueryStringFilter<any>
+    queryString?: QueryStringFilter<any>;
     [customFilter: string]: BaseFilter<any, any, any> | undefined;
 }
 
@@ -288,7 +288,7 @@ export interface IFilters {
     exists: ExistsFilter<any>;
     geo: GeoFilter<any>;
     terms: TermsFilter<any>;
-    queryString: QueryStringFilter<any>
+    queryString: QueryStringFilter<any>;
     [customFilter: string]: BaseFilter<any, any, any>;
 }
 
