@@ -314,7 +314,7 @@ class QueryStringFilter<Fields extends string> extends BaseFilter<
 
             if (filter) {
                 const query = filter.query;
-                const inclusion = filter.inclusion ?? config.defaultFilterInclusion;
+                const inclusion = filter.inclusion || config.defaultFilterInclusion;
 
                 // See https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
                 const newFilter =
@@ -327,9 +327,9 @@ class QueryStringFilter<Fields extends string> extends BaseFilter<
                                   }
                               }
                           };
-                const kindForSelectedValue = filter.kind ?? kind;
+                const kindForSelectedValue = filter.kind || kind;
                 const existingFiltersForKind =
-                    esRequest.query.bool[kindForSelectedValue as FilterKind] ?? [];
+                    esRequest.query.bool[kindForSelectedValue as FilterKind] || [];
 
                 return {
                     ...esRequest,

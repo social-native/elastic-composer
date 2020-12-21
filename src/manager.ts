@@ -30,6 +30,7 @@ import Timeout from 'await-timeout';
 import chunk from 'lodash.chunk';
 import {PrefixSuggestion, FuzzySuggestion, BaseSuggestion} from './suggestions';
 import Sort from './sort';
+import QueryStringFilter from './filters/query_string_filter';
 
 /**
  * How the naming works:
@@ -81,7 +82,8 @@ const DEFAULT_MANAGER_OPTIONS: Omit<
         range: new RangeFilter(),
         dateRange: new DateRangeFilter(),
         geo: new GeoFilter(),
-        terms: new TermsFilter()
+        terms: new TermsFilter(),
+        queryString: new QueryStringFilter()
     },
     suggestions: {
         fuzzy: new FuzzySuggestion(),
