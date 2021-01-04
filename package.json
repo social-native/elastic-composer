@@ -39,7 +39,7 @@
     "homepage": "https://github.com/social-native/elastic-composer#readme",
     "dependencies": {
         "await-timeout": "^1.1.1",
-        "axios": "^0.19.1",
+        "axios": "^0.21.1",
         "lodash.chunk": "^4.2.0",
         "lodash.debounce": "^4.0.8",
         "mobx": "^5.14.2",
@@ -49,7 +49,7 @@
     },
     "peerDependencies": {
         "await-timeout": "^1.1.1",
-        "axios": "^0.19.1",
+        "axios": "^0.21.1",
         "mobx": "^5.14.2",
         "lodash.chunk": "^4.2.0",
         "lodash.debounce": "^4.0.8",
