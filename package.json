@@ -67,7 +67,7 @@
         "@types/lodash.debounce": "^4.0.6",
         "@types/react": "^16.9.11",
         "@types/react-dom": "^16.9.4",
-        "@types/styled-components": "^4.1.20",
+        "@types/styled-components": "^5.1.8",
         "babel-core": "^6.26.3",
         "babel-plugin-transform-runtime": "^6.23.0",
         "babel-runtime": "^6.26.0",
