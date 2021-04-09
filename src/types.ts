@@ -7,10 +7,10 @@ import {
     MultiSelectFilter,
     GeoFilter,
     DateRangeFilter,
-    TermsFilter
+    TermsFilter,
+    QueryStringFilter
 } from './filters';
 import {FuzzySuggestion, BaseSuggestion} from './suggestions';
-import QueryStringFilter from './filters/query_string_filter';
 
 /**
  * ***********************************

@@ -31,6 +31,7 @@ import chunk from 'lodash.chunk';
 import {PrefixSuggestion, FuzzySuggestion, BaseSuggestion} from './suggestions';
 import Sort from './sort';
 import QueryStringFilter from './filters/query_string_filter';
+import {FilterHistoryPlace, HistoryLocation, SuggestionHistoryPlace} from './history';
 
 /**
  * How the naming works:
@@ -285,6 +286,69 @@ class Manager<
                 }
             }
         );
+    }
+
+    /**
+     * Get the state of the filters and suggestions, i.e. which filters are currently applied
+     * for which fields.
+     */
+    public getUserState(): HistoryLocation | undefined {
+        // Get the filter states
+        const filters = Object.keys(this.filters).reduce<Record<string, FilterHistoryPlace>>(
+            (filterStateByName, filterName) => {
+                const filterUserState = this.filters[filterName].userState();
+                return {
+                    ...filterStateByName,
+                    ...(filterUserState && {[filterName]: filterUserState})
+                };
+            },
+            {}
+        );
+        // Get the suggestion states
+        const suggestions = Object.keys(this.suggestions).reduce<
+            Record<string, SuggestionHistoryPlace>
+        >((suggestionStateByName, suggestionName) => {
+            const suggestionUserState = this.suggestions[suggestionName].userState();
+            return {
+                ...suggestionStateByName,
+                ...(suggestionUserState && {[suggestionName]: suggestionUserState})
+            };
+        }, {});
+
+        // Only define each key if there are filters/suggestions.
+        const userState: HistoryLocation = {
+            filters: Object.keys(filters).length > 0 ? filters : undefined,
+            suggestions: Object.keys(suggestions).length > 0 ? suggestions : undefined
+        };
+
+        // If both suggestions and filters are empty, return undefined to represent an
+        // empty state.
+        return Object.keys(userState).length > 0 ? userState : undefined;
+    }
+
+    /**
+     * Set the current state of the composer from a previously saved state.
+     * @param userState
+     */
+    public setUserState(userState: HistoryLocation | undefined): void {
+        // Clear any previous state
+        this.clearAllFilters();
+        this.clearAllSuggestions();
+        const {filters, suggestions} = userState ?? {};
+
+        // Update the filters state
+        if (filters) {
+            Object.entries(filters).forEach(([fieldName, filterState]) => {
+                this.filters[fieldName].rehydrateFromUserState(filterState);
+            });
+        }
+
+        // Update the suggestions state
+        if (suggestions) {
+            Object.entries(suggestions).forEach(([fieldName, suggestionState]) => {
+                this.suggestions[fieldName].rehydrateFromUserState(suggestionState);
+            });
+        }
     }
 
     public get activeFilters() {
