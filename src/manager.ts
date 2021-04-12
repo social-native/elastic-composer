@@ -330,25 +330,35 @@ class Manager<
      * Set the current state of the composer from a previously saved state.
      * @param userState
      */
-    public setUserState(userState: HistoryLocation | undefined): void {
+    public setUserState(userState: HistoryLocation | undefined = {}): void {
         // Clear any previous state
         this.clearAllFilters();
         this.clearAllSuggestions();
-        const {filters, suggestions} = userState ?? {};
+        const {filters = {}, suggestions = {}} = userState;
 
-        // Update the filters state
-        if (filters) {
-            Object.entries(filters).forEach(([fieldName, filterState]) => {
-                this.filters[fieldName].rehydrateFromUserState(filterState);
-            });
-        }
-
-        // Update the suggestions state
-        if (suggestions) {
-            Object.entries(suggestions).forEach(([fieldName, suggestionState]) => {
-                this.suggestions[fieldName].rehydrateFromUserState(suggestionState);
-            });
-        }
+        Object.keys(filters).forEach(fieldName => {
+            const state = filters ? filters[fieldName] : {};
+            // tslint:disable-next-line:no-console
+            console.log('refydrate from state', state, fieldName);
+            this.filters[fieldName].rehydrateFromUserState(state);
+        });
+        Object.keys(suggestions).forEach(fieldName => {
+            const state = suggestions ? suggestions[fieldName] : {};
+            this.suggestions[fieldName].rehydrateFromUserState(state);
+        });
+        // // Update the filters state
+        // if (filters) {
+        //     Object.entries(filters).forEach(([fieldName, filterState]) => {
+        //         this.filters[fieldName].rehydrateFromUserState(filterState);
+        //     });
+        // }
+        //
+        // // Update the suggestions state
+        // if (suggestions) {
+        //     Object.entries(suggestions).forEach(([fieldName, suggestionState]) => {
+        //         this.suggestions[fieldName].rehydrateFromUserState(suggestionState);
+        //     });
+        // }
     }
 
     public get activeFilters() {
