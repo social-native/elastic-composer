@@ -336,29 +336,30 @@ class Manager<
         this.clearAllSuggestions();
         const {filters = {}, suggestions = {}} = userState;
 
-        Object.keys(filters).forEach(fieldName => {
-            const state = filters ? filters[fieldName] : {};
-            // tslint:disable-next-line:no-console
-            console.log('refydrate from state', state, fieldName);
-            this.filters[fieldName].rehydrateFromUserState(state);
-        });
-        Object.keys(suggestions).forEach(fieldName => {
-            const state = suggestions ? suggestions[fieldName] : {};
-            this.suggestions[fieldName].rehydrateFromUserState(state);
-        });
-        // // Update the filters state
-        // if (filters) {
-        //     Object.entries(filters).forEach(([fieldName, filterState]) => {
-        //         this.filters[fieldName].rehydrateFromUserState(filterState);
-        //     });
-        // }
-        //
-        // // Update the suggestions state
-        // if (suggestions) {
-        //     Object.entries(suggestions).forEach(([fieldName, suggestionState]) => {
-        //         this.suggestions[fieldName].rehydrateFromUserState(suggestionState);
-        //     });
-        // }
+        // Object.keys(filters).forEach(fieldName => {
+        //     const state = filters ? filters[fieldName] : {};
+        //     // tslint:disable-next-line:no-console
+        //     this.filters[fieldName].rehydrateFromUserState(state);
+        // });
+        // Object.keys(suggestions).forEach(fieldName => {
+        //     const state = suggestions ? suggestions[fieldName] : {};
+        //     this.suggestions[fieldName].rehydrateFromUserState(state);
+        // });
+        // Update the filters state
+        if (filters) {
+            Object.entries(filters).forEach(([fieldName, filterState]) => {
+                // tslint:disable-next-line:no-console
+                console.log('refydrate from state', filterState, fieldName);
+                this.filters[fieldName].rehydrateFromUserState(filterState);
+            });
+        }
+
+        // Update the suggestions state
+        if (suggestions) {
+            Object.entries(suggestions).forEach(([fieldName, suggestionState]) => {
+                this.suggestions[fieldName].rehydrateFromUserState(suggestionState);
+            });
+        }
     }
 
     public get activeFilters() {
