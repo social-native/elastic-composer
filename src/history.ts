@@ -183,35 +183,7 @@ class History {
 
     // tslint:disable-next-line
     public _recordHistoryChange = () => {
-        const filters = Object.keys(this.manager.filters).reduce((acc, filterName) => {
-            const filter = this.manager.filters[filterName];
-            const filterUserState = filter.userState();
-            if (filterUserState) {
-                return {...acc, [filterName]: filterUserState};
-            } else {
-                return acc;
-            }
-        }, {} as Record<string, FilterHistoryPlace>);
-        const suggestions = Object.keys(this.manager.suggestions).reduce((acc, suggestionName) => {
-            const filter = this.manager.suggestions[suggestionName];
-            const suggestionUserState = filter.userState();
-            if (suggestionUserState) {
-                return {...acc, [suggestionName]: suggestionUserState};
-            } else {
-                return acc;
-            }
-        }, {} as Record<string, SuggestionHistoryPlace>);
-
-        let newHistoryLocation: HistoryLocation | undefined;
-        if (Object.keys(filters).length > 0 && Object.keys(suggestions).length > 0) {
-            newHistoryLocation = {filters, suggestions};
-        } else if (Object.keys(suggestions).length > 0) {
-            newHistoryLocation = {suggestions};
-        } else if (Object.keys(filters).length > 0) {
-            newHistoryLocation = {filters};
-        } else {
-            newHistoryLocation = undefined;
-        }
+        const newHistoryLocation = this.manager.getUserState();
 
         const newLocationString = JSON.stringify(newHistoryLocation);
         const existingLocationString = JSON.stringify(
@@ -254,22 +226,7 @@ class History {
 
     public _rehydrateFromLocation = (location: HistoryLocation | undefined = {}) => {
         runInAction(() => {
-            if (location.filters) {
-                Object.keys(location.filters).forEach(fieldName => {
-                    const userState = (location.filters || {})[fieldName];
-                    this.manager.filters[fieldName].rehydrateFromUserState(
-                        userState as FilterHistoryPlace
-                    );
-                });
-            }
-            if (location.suggestions) {
-                Object.keys(location.suggestions).forEach(fieldName => {
-                    const userState = (location.suggestions || {})[fieldName];
-                    this.manager.suggestions[fieldName].rehydrateFromUserState(
-                        userState as SuggestionHistoryPlace
-                    );
-                });
-            }
+            this.manager.setUserState(location);
         });
     };
 
