@@ -336,20 +336,9 @@ class Manager<
         this.clearAllSuggestions();
         const {filters = {}, suggestions = {}} = userState;
 
-        // Object.keys(filters).forEach(fieldName => {
-        //     const state = filters ? filters[fieldName] : {};
-        //     // tslint:disable-next-line:no-console
-        //     this.filters[fieldName].rehydrateFromUserState(state);
-        // });
-        // Object.keys(suggestions).forEach(fieldName => {
-        //     const state = suggestions ? suggestions[fieldName] : {};
-        //     this.suggestions[fieldName].rehydrateFromUserState(state);
-        // });
         // Update the filters state
         if (filters) {
             Object.entries(filters).forEach(([fieldName, filterState]) => {
-                // tslint:disable-next-line:no-console
-                console.log('refydrate from state', filterState, fieldName);
                 this.filters[fieldName].rehydrateFromUserState(filterState);
             });
         }

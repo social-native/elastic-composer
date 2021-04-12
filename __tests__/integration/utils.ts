@@ -67,8 +67,6 @@ export const setUp = <Source extends object>(options?: {
     // mock ES client
     const client: IClient = {
         search: jest.fn((_request: ESRequest) => {
-            // tslint:disable-next-line:no-console
-            console.log(_request);
             return Promise.resolve((options && options.response) || fakeResponse());
         }),
         mapping: jest.fn(() => Promise.resolve((options && options.mapping) || fakeMapping()))
