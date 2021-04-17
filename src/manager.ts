@@ -998,7 +998,10 @@ class Manager<
         );
     };
 
-    public _createCustomFilteredQueryRequest = (
+    /**
+     *  Get the raw ES query based on the current state.
+     */
+    public getEsQuery = (
         startingRequest: ESRequest,
         options: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>
     ): ESRequest => {
@@ -1007,7 +1010,6 @@ class Manager<
             if (!filter) {
                 return request;
             }
-
             return filter._addFilteredQueryToRequest(request);
         }, startingRequest);
 
@@ -1015,9 +1017,11 @@ class Manager<
         // - a page of results
         // - the results to be sorted
         // no middleware used b/c this is a custom request that is used outside the side effect queue
-        return this._applyBlackAndWhiteListsToQuery(
-            this._addSortToQuery(this._addPageSizeToQuery(fullRequest, options.pageSize)),
-            options
+        return removeEmptyArrays(
+            this._applyBlackAndWhiteListsToQuery(
+                this._addSortToQuery(this._addPageSizeToQuery(fullRequest, options.pageSize)),
+                options
+            )
         );
     };
     public _createFilteredQueryRequest = (
@@ -1051,10 +1055,8 @@ class Manager<
         options: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>
     ): Promise<ESResponse> => {
         try {
-            const request = this._createCustomFilteredQueryRequest(BLANK_ES_REQUEST, options);
-            const response = await this.client.search(removeEmptyArrays(request));
-
-            return response;
+            const request = this.getEsQuery(BLANK_ES_REQUEST, options);
+            return this.client.search(request);
         } catch (e) {
             throw e;
         }
