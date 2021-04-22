@@ -66,7 +66,7 @@ export default observer(() => {
     - [Set middleware](#set-middleware)
     - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
     - [Run a custom elasticsearch query using the current filters](#run-a-custom-elasticsearch-query-using-the-current-filters)
-    - [Get the raw elasticsearch query derived from the current filters](#get-current-es-query)
+    - [Get the raw elasticsearch query derived from the current filters](#get-the-raw-elasticsearch-query-derived-from-the-current-filters)
     - [Setting a range filter](#setting-a-range-filter)
     - [Setting a boolean filter](#setting-a-boolean-filter)
     - [Setting a exists filter](#setting-a-exists-filter)
