@@ -66,6 +66,7 @@ export default observer(() => {
     - [Set middleware](#set-middleware)
     - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
     - [Run a custom elasticsearch query using the current filters](#run-a-custom-elasticsearch-query-using-the-current-filters)
+    - [Get the raw elasticsearch query derived from the current filters](#get-current-es-query)
     - [Setting a range filter](#setting-a-range-filter)
     - [Setting a boolean filter](#setting-a-boolean-filter)
     - [Setting a exists filter](#setting-a-exists-filter)
@@ -443,6 +444,12 @@ If you wanted to bulk export a subset of the filtered results without having to 
 
 ```typescript
 const results = await manager.runCustomFilterQuery({whiteList: ['id'], pageSize: 10000});
+```
+
+### Get the raw elasticsearch query derived from the current filters
+
+```typescript
+const rawEsQuery = await manager.getCurrentEsQuery();
 ```
 
 ### Setting a range filter

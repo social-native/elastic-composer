@@ -1065,10 +1065,13 @@ class Manager<
     /**
      *  Get the raw ES query based on the current state.
      */
-    public getEsQuery = (
-        startingRequest: ESRequest,
-        options: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>
-    ): ESRequest => {
+    public getCurrentEsQuery = ({
+        startingRequest = BLANK_ES_REQUEST,
+        options = {}
+    }: {
+        startingRequest?: ESRequest;
+        options?: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>;
+    } = {}): ESRequest => {
         const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
             if (!filter) {
@@ -1118,12 +1121,8 @@ class Manager<
     public runCustomFilterQuery = async (
         options: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>
     ): Promise<ESResponse> => {
-        try {
-            const request = this.getEsQuery(BLANK_ES_REQUEST, options);
-            return this.client.search(request);
-        } catch (e) {
-            throw e;
-        }
+        const request = this.getCurrentEsQuery({options});
+        return this.client.search(request);
     };
 
     public _runAllEnabledSuggestionSearch = async (effectRequest: EffectRequest<EffectKinds>) => {
@@ -1144,7 +1143,7 @@ class Manager<
             }
         } catch (e) {
             throw e;
-        } // No cursor change b/c only dealing with filters
+        }
     };
 
     public _runSuggestionSearch = async (
