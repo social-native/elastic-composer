@@ -563,3 +563,12 @@ export type ESMapping<Alias extends string> = {
         };
     };
 };
+
+export type ESMapping710 = {
+  [index: string]: {
+      mappings: {
+          dynamic?: string;
+          properties: ESMappingProperties
+      }
+  }   
+}

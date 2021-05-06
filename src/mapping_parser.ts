@@ -1,5 +1,11 @@
 import {objKeys} from './utils';
-import {ESMappingType, ESMappingPropertyType, ESMappingProperties, ESMapping} from './types';
+import {
+    ESMappingType,
+    ESMappingPropertyType,
+    ESMappingProperties,
+    ESMapping,
+    ESMapping710
+} from './types';
 
 export function isPropertyType(
     prop: ESMappingPropertyType | {properties: ESMappingProperties}
@@ -26,6 +32,17 @@ export default class MappingParser {
             };
         }, {});
     };
+
+    public static flattenMappings710(rawMappings: ESMapping710): Record<string, ESMappingType> {
+        let flattenedMappings = {};
+        Object.values(rawMappings).forEach(({mappings}) => {
+            flattenedMappings = {
+                ...flattenedMappings,
+                ...MappingParser.flattenMappingProperty(mappings.properties)
+            };
+        });
+        return flattenedMappings;
+    }
 
     public static flattenMappingProperty = (
         mappingProperties: ESMappingProperties,
