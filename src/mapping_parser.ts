@@ -1,5 +1,11 @@
 import {objKeys} from './utils';
-import {ESMappingType, ESMappingPropertyType, ESMappingProperties, ESMapping, ESMappingValue} from './types';
+import {
+    ESMappingType,
+    ESMappingPropertyType,
+    ESMappingProperties,
+    ESMapping,
+    ESMapping710
+} from './types';
 
 export function isPropertyType(
     prop: ESMappingPropertyType | {properties: ESMappingProperties}
@@ -8,19 +14,13 @@ export function isPropertyType(
 }
 
 export default class MappingParser {
-    public static flattenMappings = (
-        rawMappings: ESMapping
+    public static flattenMappings = <Alias extends string>(
+        rawMappings: ESMapping<Alias>
     ): Record<string, ESMappingType> => {
-        function isSpecificMapping(mappingValue: ESMappingValue): mapping is string {
-
-        }
         return objKeys(rawMappings).reduce((allIndexes, indexName) => {
             const {mappings} = rawMappings[indexName];
-            const flattenedSpecificIndex = objKeys(mappings).reduce((allMappings, mappingKey) => {
-                const specificMapping = mappings[mappingKey];
-                if (!isSpecificMapping(specificMapping)) {
-                    return allMappings;
-                }
+            const flattenedSpecificIndex = objKeys(mappings).reduce((allMappings, alias) => {
+                const specificMapping = mappings[alias];
                 return {
                     ...allMappings,
                     ...MappingParser.flattenMappingProperty(specificMapping.properties)
@@ -32,6 +32,18 @@ export default class MappingParser {
             };
         }, {});
     };
+
+    public static flattenMappings710(rawMappings: ESMapping710): Record<string, ESMappingType> {
+        let flattenedMappings = {};
+        Object.values(rawMappings).forEach(({mappings}) => {
+            let flattenedIndex = MappingParser.flattenMappingProperty(mappings.properties);
+            flattenedMappings = {
+                ...flattenedMappings,
+                ...flattenedIndex
+            };
+        });
+        return flattenedMappings;
+    }
 
     public static flattenMappingProperty = (
         mappingProperties: ESMappingProperties,
