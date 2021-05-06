@@ -1,6 +1,6 @@
 import MappingParser from '../mapping_parser';
 
-test('it should work when mappings have a "dynamic" tag', () => {
+test('it should work when mappings have a "dynamic" field', () => {
     const fakeMapping = {
         crm_index: {
             mappings: {
