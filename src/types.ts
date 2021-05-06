@@ -551,15 +551,20 @@ export type ESMappingPropertyType = {
 export type ESMappingProperties = {
     [field: string]: ESMappingPropertyType | {properties: ESMappingProperties};
 };
+export type ESMappingValue = 
+    {
+        dynamic?: string;
+        _all: object;
+        properties: ESMappingProperties;
+    }
+  | ESMappingProperties
+  | string;
 
-export type ESMapping<Alias extends string> = {
+export type ESMapping = {
     [index: string]: {
+        dynamic?: string;
         mappings: {
-            [alias in Alias]: {
-                dynamic: string;
-                _all: object;
-                properties: ESMappingProperties;
-            };
+            [key: string]: ESMappingValue
         };
     };
 };
