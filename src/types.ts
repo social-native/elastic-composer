@@ -17,7 +17,7 @@ import {FuzzySuggestion, BaseSuggestion} from './suggestions';
  * ES Request
  * ***********************************
  */
-export type ESRequestSortField = Array<object | string>;
+export type ESRequestSortField = Array<object | string | number>;
 
 export type ESRequest = {
     query: {
@@ -58,6 +58,16 @@ export type ESResponse<Source extends object = object> = {
     timed_out: boolean;
     _shards: {total: number; successful: number; skipped: number; failed: number};
     hits: {total: number; max_score: number; hits: Array<ESHit<Source>>};
+    aggregations?: {
+        [boundary: string]: AggregationResults;
+    };
+};
+
+export type ES710Response<Source extends object = object> = {
+    took: number;
+    timed_out: boolean;
+    _shards: {total: number; successful: number; skipped: number; failed: number};
+    hits: {total: { value: number, relation: string}; max_score: number; hits: Array<ESHit<Source>>};
     aggregations?: {
         [boundary: string]: AggregationResults;
     };
