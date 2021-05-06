@@ -38,7 +38,7 @@ export default class MappingParser {
         Object.values(rawMappings).forEach(({mappings}) => {
             flattenedMappings = {
                 ...flattenedMappings,
-                ...MappingParser.flattenMappingProperty(mappings.properties);
+                ...MappingParser.flattenMappingProperty(mappings.properties)
             };
         });
         return flattenedMappings;
