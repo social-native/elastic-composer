@@ -21,7 +21,6 @@ test('it should work when mappings have a "dynamic" tag', () => {
         }
     };
     const actual = MappingParser.flattenMappings710(fakeMapping);
-    console.log(JSON.stringify(actual, null, 2));
 
     expect(actual).toEqual({
         agg_average_image_submission_score: 'long',
