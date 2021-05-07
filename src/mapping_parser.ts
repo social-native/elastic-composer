@@ -36,6 +36,9 @@ export default class MappingParser {
     public static flattenMappings710(rawMappings: ESMapping710): Record<string, ESMappingType> {
         let flattenedMappings = {};
         Object.values(rawMappings).forEach(({mappings}) => {
+            if (!mappings.properties) {
+                return;
+            }
             flattenedMappings = {
                 ...flattenedMappings,
                 ...MappingParser.flattenMappingProperty(mappings.properties)

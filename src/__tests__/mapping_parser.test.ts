@@ -27,3 +27,10 @@ test('it should work when mappings have a "dynamic" field', () => {
         'agg_historic_percent_approved_invite_to_submitted.all_time': 'double'
     });
 });
+
+test('it should work when mappings is empty', () => {
+    const fakeMapping = { 'creator-crm-testing': { mappings: {} } };
+    const actual = MappingParser.flattenMappings710(fakeMapping);
+    expect(actual).toEqual({})
+
+})
