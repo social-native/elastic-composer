@@ -578,7 +578,7 @@ export type ESMapping710 = {
   [index: string]: {
       mappings: {
           dynamic?: string;
-          properties: ESMappingProperties
+          properties?: ESMappingProperties
       }
   }   
 }
