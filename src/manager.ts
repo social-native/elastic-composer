@@ -22,7 +22,8 @@ import {
     IFilters,
     ISuggestions,
     ManagerOptions,
-    EffectKinds
+    EffectKinds,
+    ES710Response,
 } from './types';
 import {objKeys} from './utils';
 import {decorate, observable, runInAction, reaction, toJS, computed} from 'mobx';
@@ -129,7 +130,7 @@ class Manager<
     public suggestions: ISuggestions;
 
     public results: Array<ESHit<ESDocSource>>;
-    public rawESResponse?: ESResponse<ESDocSource>;
+    public rawESResponse?: ESResponse<ESDocSource> | ES710Response<ESDocSource>;
 
     public _sideEffectQueue: Array<EffectRequest<EffectKinds>>;
     public isSideEffectRunning: boolean;
@@ -761,8 +762,9 @@ class Manager<
      * Save the results
      * The results contain the documents found in the query that match the filters
      */
-    public _saveQueryResults = (response: ESResponse<ESDocSource>) => {
-        if (response.timed_out === false && response.hits.total >= 0) {
+    public _saveQueryResults = (response: ESResponse<ESDocSource> | ES710Response<ESDocSource>) => {
+        const totalHits = typeof response.hits.total === 'number' ? response.hits.total : response.hits.total.value;
+        if (response.timed_out === false && totalHits >= 0) {
             runInAction(() => {
                 if (response && response.hits && response.hits.hits) {
                     this.results = response.hits.hits;
