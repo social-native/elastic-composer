@@ -1064,16 +1064,21 @@ class Manager<
         );
     };
 
-    public _createCustomFilteredQueryRequest = (
-        startingRequest: ESRequest,
-        options: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>
-    ): ESRequest => {
+    /**
+     *  Get the raw ES query based on the current state.
+     */
+    public getCurrentEsQuery = ({
+        startingRequest = BLANK_ES_REQUEST,
+        options = {}
+    }: {
+        startingRequest?: ESRequest;
+        options?: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>;
+    } = {}): ESRequest => {
         const fullRequest = objKeys(this.filters).reduce((request, filterName) => {
             const filter = this.filters[filterName];
             if (!filter) {
                 return request;
             }
-
             return filter._addFilteredQueryToRequest(request);
         }, startingRequest);
 
@@ -1081,9 +1086,11 @@ class Manager<
         // - a page of results
         // - the results to be sorted
         // no middleware used b/c this is a custom request that is used outside the side effect queue
-        return this._applyBlackAndWhiteListsToQuery(
-            this._addSortToQuery(this._addPageSizeToQuery(fullRequest, options.pageSize)),
-            options
+        return removeEmptyArrays(
+            this._applyBlackAndWhiteListsToQuery(
+                this._addSortToQuery(this._addPageSizeToQuery(fullRequest, options.pageSize)),
+                options
+            )
         );
     };
     public _createFilteredQueryRequest = (
@@ -1116,14 +1123,8 @@ class Manager<
     public runCustomFilterQuery = async (
         options: Pick<ManagerOptions, 'fieldBlackList' | 'fieldWhiteList' | 'pageSize'>
     ): Promise<ESResponse> => {
-        try {
-            const request = this._createCustomFilteredQueryRequest(BLANK_ES_REQUEST, options);
-            const response = await this.client.search(removeEmptyArrays(request));
-
-            return response;
-        } catch (e) {
-            throw e;
-        }
+        const request = this.getCurrentEsQuery({options});
+        return this.client.search(request);
     };
 
     public _runAllEnabledSuggestionSearch = async (effectRequest: EffectRequest<EffectKinds>) => {
@@ -1144,7 +1145,7 @@ class Manager<
             }
         } catch (e) {
             throw e;
-        } // No cursor change b/c only dealing with filters
+        }
     };
 
     public _runSuggestionSearch = async (

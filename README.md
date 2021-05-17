@@ -66,6 +66,7 @@ export default observer(() => {
     - [Set middleware](#set-middleware)
     - [Get the initial results for a manager](#get-the-initial-results-for-a-manager)
     - [Run a custom elasticsearch query using the current filters](#run-a-custom-elasticsearch-query-using-the-current-filters)
+    - [Get the raw elasticsearch query derived from the current filters](#get-the-raw-elasticsearch-query-derived-from-the-current-filters)
     - [Setting a range filter](#setting-a-range-filter)
     - [Setting a boolean filter](#setting-a-boolean-filter)
     - [Setting a exists filter](#setting-a-exists-filter)
@@ -445,6 +446,12 @@ If you wanted to bulk export a subset of the filtered results without having to 
 const results = await manager.runCustomFilterQuery({whiteList: ['id'], pageSize: 10000});
 ```
 
+### Get the raw elasticsearch query derived from the current filters
+
+```typescript
+const rawEsQuery = await manager.getCurrentEsQuery();
+```
+
 ### Setting a range filter
 
 ```typescript
@@ -794,6 +801,7 @@ const options = {suggestions: {fuzzy: fuzzyFilterInstance}};
 | runStartQuery         | runs the initial elasticsearch query that fetches unfiltered data                                                                                                                                 | `(): void`                                                                                                                                |
 | runCustomFilterQuery  | runs a custom query using the existing applied filters outside the side effect queue flow. white lists and black lists control which data is returned in the elasticsearch response source object | `async (options?: {fieldBlackList?: string[], fieldWhiteList?: string[], pageSize?: number }): Promise<ESResponse>`                       |
 | setMiddleware         | adds middleware to run during construction of the elasticsearch query request object                                                                                                              | `(middlewares: Middleware): void`. Middleware has the type `(effectRequest: EffectRequest<EffectKinds>, request: ESRequest) => ESRequest` |
+| getCurrentEsQuery        | gets the raw Elasicsearch query that is derived from the current state  | `() => ESRequest` |
 
 #### Attributes
 

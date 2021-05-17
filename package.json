@@ -1,6 +1,6 @@
 {
     "name": "elastic-composer",
-    "version": "4.6.2",
+    "version": "4.7.0",
     "description": "",
     "main": "dist/index.cjs.js",
     "module": "dist/index.es.js",
