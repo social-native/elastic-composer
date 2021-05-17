@@ -801,6 +801,7 @@ const options = {suggestions: {fuzzy: fuzzyFilterInstance}};
 | runStartQuery         | runs the initial elasticsearch query that fetches unfiltered data                                                                                                                                 | `(): void`                                                                                                                                |
 | runCustomFilterQuery  | runs a custom query using the existing applied filters outside the side effect queue flow. white lists and black lists control which data is returned in the elasticsearch response source object | `async (options?: {fieldBlackList?: string[], fieldWhiteList?: string[], pageSize?: number }): Promise<ESResponse>`                       |
 | setMiddleware         | adds middleware to run during construction of the elasticsearch query request object                                                                                                              | `(middlewares: Middleware): void`. Middleware has the type `(effectRequest: EffectRequest<EffectKinds>, request: ESRequest) => ESRequest` |
+| getCurrentEsQuery        | gets the raw Elasicsearch query that is derived from the current state  | `() => ESRequest` |
 
 #### Attributes
 
