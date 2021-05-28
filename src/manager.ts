@@ -1384,7 +1384,7 @@ class Manager<
         // pageSize param can be used to override the default page size
         pageSize: number | undefined = undefined
     ): ESRequest => {
-        return {...request, size: pageSize || this.pageSize, track_scores: true};
+        return {...request, size: pageSize || this.pageSize, track_scores: true, track_total_hits: true};
     };
 
     public _addSortToQuery = (request: ESRequest): ESRequest => {
