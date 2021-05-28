@@ -31,7 +31,8 @@ describe('Manager', () => {
                     query: {bool: {should: [{exists: {field: fakeField}}]}},
                     size: 10,
                     sort: ['_score', '_doc'],
-                    track_scores: true
+                    track_scores: true,
+                    track_total_hits: true,
                 });
             });
         });
@@ -65,7 +66,8 @@ describe('Manager', () => {
                     query: {bool: {should: [{exists: {field: fakeBooleanField}}]}},
                     size: 10,
                     sort: ['_score', '_doc'],
-                    track_scores: true
+                    track_scores: true,
+                    track_total_hits: true,
                 });
             });
 
@@ -79,7 +81,8 @@ describe('Manager', () => {
                     query: {bool: {must: [{range: {[fakeRangeField]: {gt: 0, lt: 100}}}]}},
                     size: 10,
                     sort: ['_score', '_doc'],
-                    track_scores: true
+                    track_scores: true,
+                    track_total_hits: true
                 });
             });
         });

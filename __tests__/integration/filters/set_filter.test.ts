@@ -19,7 +19,8 @@ describe('Filters', () => {
                 query: {bool: {should: [{term: {boolean_field: true}}]}},
                 size: 10,
                 sort: ['_score', '_doc'],
-                track_scores: true
+                track_scores: true,
+                track_total_hits: true
             });
         });
 

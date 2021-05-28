@@ -34,6 +34,7 @@ export type ESRequest = {
     from?: number;
     size?: number;
     track_scores?: boolean;
+    track_total_hits?: boolean;
     sort?: ESRequestSortField;
     search_after?: ESRequestSortField;
 };
