@@ -41,7 +41,7 @@ test('it should have subfields of a nested field', () => {
                 dynamic: 'false',
                 properties: {
                     key_value_tags: {
-                        type: 'nested',
+                        type: 'nested' as 'nested',
                         properties: {
                             tag_id: {
                                 type: 'long'

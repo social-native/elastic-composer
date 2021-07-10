@@ -561,7 +561,7 @@ export type ESMappingPropertyType = {
     type: ESMappingType;
 };
 export type ESMappingProperties = {
-    [field: string]: ESMappingPropertyType | {properties: ESMappingProperties} | { type: 'nested', properties: ESMappingProperties}
+    [field: string]: ESMappingPropertyType | {properties: ESMappingProperties} | {type: 'nested', properties: ESMappingProperties}
 };
 
 export type ESMapping<Alias extends string> = {

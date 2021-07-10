@@ -13,6 +13,12 @@ export function isPropertyType(
     return (prop as ESMappingPropertyType).type !== undefined;
 }
 
+export function hasProperities(prop: ESMappingPropertyType | {properties: ESMappingProperties}
+    ): prop is { properties: ESMappingProperties } {
+    return (prop as {properties: ESMappingProperties})?.properties !== undefined
+}
+
+
 export default class MappingParser {
     public static flattenMappings = <Alias extends string>(
         rawMappings: ESMapping<Alias>
@@ -51,24 +57,24 @@ export default class MappingParser {
         mappingProperties: ESMappingProperties,
         parentFieldName: string | undefined = undefined
     ): Record<string, ESMappingType> => {
-        return objKeys(mappingProperties).reduce((allProperties, fieldName) => {
+        return objKeys(mappingProperties).reduce<Record<string, ESMappingType>>((allProperties, fieldName) => {
             const property = mappingProperties[fieldName];
             const name = parentFieldName ? `${parentFieldName}.${fieldName}` : fieldName;
+            // Add the type of the current field, if it has a type 
             if (isPropertyType(property)) {
-                return {
-                    ...allProperties,
-                    [name]: property.type
-                };
-            } else {
+                allProperties[name] = property.type
+            } 
+            // Recursively flatten all properties of this field
+            if (hasProperities(property)) {
                 const flattened = MappingParser.flattenMappingProperty(
                     property.properties,
                     name as string
                 );
-                return {
-                    ...allProperties,
-                    ...flattened
-                };
+                Object.entries(flattened).forEach(([flattenedProperty, mappingType]) => {
+                    allProperties[flattenedProperty] = mappingType;
+                });
             }
+            return allProperties;
         }, {});
     };
 }
