@@ -100,6 +100,7 @@ export interface IClient<Source extends object = object> {
  */
 
 export type ESMappingType =
+    | 'nested'
     | 'long'
     | 'double'
     | 'integer'
@@ -560,7 +561,7 @@ export type ESMappingPropertyType = {
     type: ESMappingType;
 };
 export type ESMappingProperties = {
-    [field: string]: ESMappingPropertyType | {properties: ESMappingProperties};
+    [field: string]: ESMappingPropertyType | {properties: ESMappingProperties} | { type: 'nested', properties: ESMappingProperties}
 };
 
 export type ESMapping<Alias extends string> = {
