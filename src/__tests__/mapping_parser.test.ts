@@ -1,4 +1,5 @@
 import MappingParser from '../mapping_parser';
+import { ESMappingProperties } from '../types';
 
 test('it should work when mappings have a "dynamic" field', () => {
     const fakeMapping = {
@@ -40,8 +41,24 @@ test('it should have subfields of a nested field', () => {
             mappings: {
                 dynamic: 'false',
                 properties: {
+                    // This should be flattened to just { "instagram.bio": "text" }
+                    instagram: {
+                        properties: {
+                            bio: {
+                                type: 'text',
+                                fields: {
+                                    keyword: {
+                                        type: 'keyword'
+                                    }
+                                }
+                            }
+                        } as ESMappingProperties
+                    },
+                    // key_value_tags should be its own key, with type "nested", e.g. { "key_value_tags": "nested" }
                     key_value_tags: {
                         type: 'nested' as 'nested',
+                        // Each of the properties of key_value_tags should be flattened into their own fields,
+                        // e.g. { "key_value_tags.tag_id": "long", "key_value_tags.tag_name": "text" }
                         properties: {
                             tag_id: {
                                 type: 'long'
@@ -74,7 +91,7 @@ test('it should have subfields of a nested field', () => {
         'key_value_tags.tag_id': 'long',
         'key_value_tags.tag_name': 'text',
         'key_value_tags.tag_value': 'text',
-    }
-    expect(actualFlattenedMappings).toMatchObject(expectedFlattenedMapping)
-
+        'instagram.bio': 'text'
+    };
+    expect(actualFlattenedMappings).toMatchObject(expectedFlattenedMapping);
 });
