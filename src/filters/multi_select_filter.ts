@@ -12,7 +12,8 @@ import {
     RawMultiSelectAggs,
     FieldFilters,
     FieldNameModifier,
-    FieldKinds
+    FieldKinds,
+    FieldFilterConfigs
 } from '../types';
 import BaseFilter from './base';
 import utils from './utils';
@@ -23,6 +24,7 @@ import utils from './utils';
 const CONFIG_DEFAULT = {
     defaultFilterKind: 'should',
     defaultFilterInclusion: 'include',
+    defaultMatch: 'match',
     getCount: true,
     aggsEnabled: false,
     fieldNameModifierQuery: (fieldName: string) => fieldName,
@@ -33,6 +35,7 @@ export interface IConfig extends BaseFilterConfig {
     field: string;
     defaultFilterKind?: 'should' | 'must';
     defaultFilterInclusion?: 'include' | 'exclude';
+    defaultMatch?: 'match' | 'match_phrase';
     getCount?: boolean;
     aggsEnabled?: boolean;
     fieldNameModifierQuery?: FieldNameModifier;
@@ -374,16 +377,17 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                     (newQuery, selectedValue) => {
                         const selectedValueFilter = filter[selectedValue];
 
-                        const inclusion =
-                            selectedValueFilter.inclusion || config.defaultFilterInclusion;
+                        const inclusion = this.getFilterInclusion(selectedValueFilter, config);
+
+                        const match = this.getFilterMatch(selectedValueFilter, config);
 
                         const newFilter =
                             inclusion === 'include'
-                                ? {match: {[fieldNameModifier(name)]: selectedValue}}
+                                ? {[match]: {[fieldNameModifier(name)]: selectedValue}}
                                 : {
                                       bool: {
                                           must_not: {
-                                              match: {[fieldNameModifier(name)]: selectedValue}
+                                              [match]: {[fieldNameModifier(name)]: selectedValue}
                                           }
                                       }
                                   };
@@ -435,10 +439,13 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
             const valuesToFilterOn = objKeys(filter as MultiSelectFieldFilter);
 
             const aggsToAdd = valuesToFilterOn.reduce((aggFilters, value) => {
+                const selectedValueFilter = filter[value];
+                const match = this.getFilterMatch(selectedValueFilter, config);
+
                 return {
                     ...aggFilters,
                     [value]: {
-                        match: {
+                        [match]: {
                             [fieldNameModifier(name)]: value
                         }
                     }
@@ -512,6 +519,24 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
             });
         }
     };
+
+    /**
+     * Helpers
+     */
+
+    public getFilterMatch(
+        selectedValueFilter: MultiSelectSubFieldFilterValue,
+        config: FieldFilterConfigs<Fields, IConfig>[Fields]
+    ) {
+        return selectedValueFilter.match || config.defaultMatch;
+    }
+
+    public getFilterInclusion(
+        selectedValueFilter: MultiSelectSubFieldFilterValue,
+        config: FieldFilterConfigs<Fields, IConfig>[Fields]
+    ) {
+        return selectedValueFilter.inclusion || config.defaultFilterInclusion;
+    }
 }
 
 decorate(MultiSelectFilter, {
