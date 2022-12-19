@@ -305,9 +305,10 @@ import {AxiosESClient, Manager, MultiSelectFilter} from 'elastic-composer';
 const defaultMultiSelectFilterConfig = {
     defaultFilterKind: 'should',
     defaultFilterInclusion: 'include',
+    defaultMatch: 'match',
     getCount: true,
     aggsEnabled: false,
-    fieldNameModifierQuery: (fieldName: string) => `${fieldName}`
+    fieldNameModifierQuery: (fieldName: string) => `${fieldName}`,
     fieldNameModifierAggs: (fieldName: string) => `${fieldName}.keyword`
 };
 
@@ -483,20 +484,23 @@ To set all selections at once, you would do something like:
 
 ```typescript
 manager.filters.multiselect.setFilter('tags', {
-    is_good_user: {inclusion: 'include'},
+    is_good_user: {inclusion: 'include', match: 'match'},
     has_green_hair: {inclusion: 'exclude', kind: 'must'},
-    likes_ham: {inclusion: 'include', kind: 'should'}
+    likes_ham: {inclusion: 'include', kind: 'should', match: 'match_phrase'}
 });
 ```
 
 > Notice how `kind` is optional. If its not specified, it will default to whatever `defaultFilterKind` is set to for the filter (aka `manager.filter.multiselect.fieldConfigs['tags].defaultFilterKind`)
+
+> Notice how `match` is optional. If its not specified, it will default to whatever `defaultMatch` is set to for the filter (aka `manager.filter.multiselect.fieldConfigs['tags].defaultMatch`)
 
 To set one selection at a time, you would do:
 
 ```typescript
 manager.filters.multiselect.addToFilter('tags', 'has_green_hair', {
     inclusion: 'exclude',
-    kind: 'must'
+    kind: 'must',
+    match: 'match_phrase'
 });
 ```
 
@@ -874,7 +878,7 @@ type SpecificConfig = Record<string, BooleanConfig>;
 
 type BooleanConfig = {
     field: string;
-    defaultFilterKind?: 'should' or 'must';
+    defaultFilterKind?: 'should' | 'must';
     getCount?: boolean;
     aggsEnabled?: boolean;
 };
@@ -922,7 +926,7 @@ type SpecificConfig = Record<string, RangeConfig>;
 
 type RangeConfig = {
     field: string;
-    defaultFilterKind?: 'should' or 'must';
+    defaultFilterKind?: 'should' | 'must';
     getDistribution?: boolean;
     getRangeBounds?: boolean;
     rangeInterval?: number;
@@ -972,7 +976,7 @@ type SpecificConfig = Record<string, ExistsConfig>;
 
 type ExistsConfig = {
     field: string;
-    defaultFilterKind?: 'should' or 'must';
+    defaultFilterKind?: 'should' | 'must';
     getCount?: boolean;
     aggsEnabled?: boolean;
 };
@@ -1005,6 +1009,7 @@ The configuration that each field will acquire if an override is not specificall
 type DefaultConfig = {
     defaultFilterKind: 'should',
     defaultFilterInclusion: 'include',
+    defaultMatch: 'match',
     getCount: true,
     aggsEnabled: false,
     fieldNameModifierQuery: (fieldName: string) => fieldName
@@ -1021,8 +1026,9 @@ type SpecificConfig = Record<string, MultiSelectConfig>;
 
 type MultiSelectConfig = {
     field: string;
-    defaultFilterKind?: 'should' or 'must';
+    defaultFilterKind?: 'should' | 'must';
     defaultFilterInclusion?: 'include' | 'exclude';
+    defaultMatch?: 'match' | 'match_phrase';
     getCount?: boolean;
     aggsEnabled?: boolean;
     fieldNameModifierQuery?: (fieldName: string) => string
@@ -1032,7 +1038,7 @@ type MultiSelectConfig = {
 
 ### Geo Specific
 
-> NOTE: Go filters do not have any aggs enabled! Do not try to use aggs with geo filters.
+> NOTE: Geo filters do not have any aggs enabled! Do not try to use aggs with geo filters.
 
 Examples of GeoFilter actions and the queries they generate can be found at [src/filters/geo_filter_README.md](src/filters/geo_filter_README.md)
 
@@ -1064,7 +1070,7 @@ type SpecificConfig = Record<string, GeoConfig>;
 
 type GeoConfig = {
     field: string;
-    defaultFilterKind?: 'should' or 'must';
+    defaultFilterKind?: 'should' | 'must';
     defaultFilterInclusion?: 'include' | 'exclude';
     getCount?: boolean;
     aggsEnabled?: boolean;

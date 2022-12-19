@@ -327,6 +327,7 @@ export type BaseSubFieldFilter = {
 export type MultiSelectSubFieldFilterValue = {
     inclusion: 'include' | 'exclude';
     kind?: 'should' | 'must';
+    match?: 'match' | 'match_phrase'
 };
 
 export type MultiSelectFieldFilter = {
