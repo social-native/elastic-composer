@@ -1036,6 +1036,8 @@ type MultiSelectConfig = {
 };
 ```
 
+> NOTE: fieldNameModifier functions will be overwritten to `(fieldName: string) => ${fieldName}.keyword` if match_phrase is specified as match.
+
 ### Geo Specific
 
 > NOTE: Geo filters do not have any aggs enabled! Do not try to use aggs with geo filters.

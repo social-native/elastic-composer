@@ -46,6 +46,8 @@ export type IConfigs<Fields extends string> = {
     [esFieldName in Fields]: IConfig;
 };
 
+const keywordFieldNameModifier = (fieldName: string) => `${fieldName}.keyword`
+
 /**
  *  Results
  */
@@ -370,7 +372,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                 throw new Error(`kind is not set for multi-select filter type ${fieldName}`);
             }
 
-            const fieldNameModifier = config.fieldNameModifierQuery;
+            let fieldNameModifier = config.fieldNameModifierQuery;
 
             if (filter) {
                 return objKeys(filter as MultiSelectFieldFilter).reduce(
@@ -380,6 +382,10 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                         const inclusion = this.getFilterInclusion(selectedValueFilter, config);
 
                         const match = this.getFilterMatch(selectedValueFilter, config);
+
+                        if (match === 'match_phrase') {
+                            fieldNameModifier = keywordFieldNameModifier;
+                        }
 
                         const newFilter =
                             inclusion === 'include'
@@ -430,7 +436,7 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
                 return acc;
             }
 
-            const fieldNameModifier = config.fieldNameModifierAggs;
+            let fieldNameModifier = config.fieldNameModifierAggs;
 
             const filter = this.fieldFilters[fieldName];
             if (!filter) {
@@ -441,6 +447,10 @@ class MultiSelectFilter<Fields extends string> extends BaseFilter<
             const aggsToAdd = valuesToFilterOn.reduce((aggFilters, value) => {
                 const selectedValueFilter = filter[value];
                 const match = this.getFilterMatch(selectedValueFilter, config);
+
+                if (match === 'match_phrase') {
+                    fieldNameModifier = keywordFieldNameModifier;
+                }
 
                 return {
                     ...aggFilters,
