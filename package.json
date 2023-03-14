@@ -81,7 +81,7 @@
         "react-dom": "^16.11.0",
         "react-dropdown-now": "^1.0.3",
         "react-super-responsive-table": "^5.1.1",
-        "rimraf": "^2.6.3",
+        "rimraf": "^3.0.2",
         "rollup": "^1.2.2",
         "rollup-plugin-typescript2": "^0.21.1",
         "styled-components": "^4.4.0",
