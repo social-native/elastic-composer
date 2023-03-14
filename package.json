@@ -86,7 +86,7 @@
         "rollup-plugin-typescript2": "^0.21.1",
         "styled-components": "^4.4.0",
         "ts-jest": "^24.0.0",
-        "ts-node": "^8.0.3",
+        "ts-node": "^10.0.0",
         "tsconfig-paths": "^3.8.0",
         "tslint": "^5.14.0",
         "tslint-config-prettier": "^1.18.0",
